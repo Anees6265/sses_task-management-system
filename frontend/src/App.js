@@ -1,11 +1,9 @@
-import React, { useState, useContext } from 'react';
+import React, { useContext } from 'react';
 import { AuthContext, AuthProvider } from './context/AuthContext';
 import Login from './components/Login';
-import Register from './components/Register';
 import KanbanBoard from './components/KanbanBoard';
 
 const AppContent = () => {
-  const [isLogin, setIsLogin] = useState(true);
   const { user, loading } = useContext(AuthContext);
 
   if (loading) {
@@ -17,11 +15,7 @@ const AppContent = () => {
   }
 
   if (!user) {
-    return isLogin ? (
-      <Login onToggle={() => setIsLogin(false)} />
-    ) : (
-      <Register onToggle={() => setIsLogin(true)} />
-    );
+    return <Login />;
   }
 
   return <KanbanBoard />;

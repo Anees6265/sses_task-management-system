@@ -25,8 +25,8 @@ const taskSchema = new mongoose.Schema({
   },
   department: {
     type: String,
-    enum: ['ITEG', 'MEG', 'BEG', 'B.Tech'],
-    required: true
+    required: true,
+    trim: true
   },
   assignedTo: {
     type: mongoose.Schema.Types.ObjectId,

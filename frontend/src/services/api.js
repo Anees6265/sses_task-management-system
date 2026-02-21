@@ -25,11 +25,16 @@ export const taskAPI = {
   getTasks: () => api.get('/tasks'),
   createTask: (data) => api.post('/tasks', data),
   updateTask: (id, data) => api.put(`/tasks/${id}`, data),
-  deleteTask: (id) => api.delete(`/tasks/${id}`)
+  deleteTask: (id) => api.delete(`/tasks/${id}`),
+  getDashboardStats: () => api.get('/tasks/stats')
 };
 
 export const userAPI = {
   getAllUsers: () => api.get('/users')
+};
+
+export const departmentAPI = {
+  getAllDepartments: () => api.get('/departments')
 };
 
 export default api;

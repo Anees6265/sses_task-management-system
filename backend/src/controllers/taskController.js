@@ -2,7 +2,8 @@ const Task = require('../models/Task');
 
 exports.getTasks = async (req, res) => {
   try {
-    const tasks = await Task.find({ department: req.user.department })
+    const filter = req.user.role === 'admin' ? {} : { department: req.user.department };
+    const tasks = await Task.find(filter)
       .populate('assignedTo', 'name email')
       .populate('createdBy', 'name email')
       .sort({ createdAt: -1 });
@@ -16,7 +17,7 @@ exports.createTask = async (req, res) => {
   try {
     const task = await Task.create({
       ...req.body,
-      department: req.user.department,
+      department: req.body.department || req.user.department,
       createdBy: req.user._id
     });
     const populatedTask = await Task.findById(task._id)
@@ -30,8 +31,12 @@ exports.createTask = async (req, res) => {
 
 exports.updateTask = async (req, res) => {
   try {
+    const filter = req.user.role === 'admin' 
+      ? { _id: req.params.id } 
+      : { _id: req.params.id, department: req.user.department };
+    
     const task = await Task.findOneAndUpdate(
-      { _id: req.params.id, department: req.user.department },
+      filter,
       req.body,
       { new: true, runValidators: true }
     )
@@ -49,14 +54,49 @@ exports.updateTask = async (req, res) => {
 
 exports.deleteTask = async (req, res) => {
   try {
-    const task = await Task.findOneAndDelete({ 
-      _id: req.params.id, 
-      department: req.user.department 
-    });
+    const filter = req.user.role === 'admin'
+      ? { _id: req.params.id }
+      : { _id: req.params.id, department: req.user.department };
+    
+    const task = await Task.findOneAndDelete(filter);
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
     res.json({ message: 'Task deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getDashboardStats = async (req, res) => {
+  try {
+    const filter = req.user.role === 'admin' ? {} : { department: req.user.department };
+    
+    const totalTasks = await Task.countDocuments(filter);
+    const todoTasks = await Task.countDocuments({ ...filter, status: 'todo' });
+    const inprogressTasks = await Task.countDocuments({ ...filter, status: 'inprogress' });
+    const completedTasks = await Task.countDocuments({ ...filter, status: 'completed' });
+    
+    const departmentStats = await Task.aggregate([
+      { $match: req.user.role === 'admin' ? {} : { department: req.user.department } },
+      {
+        $group: {
+          _id: '$department',
+          total: { $sum: 1 },
+          todo: { $sum: { $cond: [{ $eq: ['$status', 'todo'] }, 1, 0] } },
+          inprogress: { $sum: { $cond: [{ $eq: ['$status', 'inprogress'] }, 1, 0] } },
+          completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } }
+        }
+      }
+    ]);
+
+    res.json({
+      totalTasks,
+      todoTasks,
+      inprogressTasks,
+      completedTasks,
+      departmentStats
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

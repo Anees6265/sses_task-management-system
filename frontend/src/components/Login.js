@@ -1,7 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 
-const Login = ({ onToggle }) => {
+const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const { login } = useContext(AuthContext);
@@ -61,15 +61,6 @@ const Login = ({ onToggle }) => {
             Sign In
           </button>
         </form>
-        
-        <div className="mt-6 text-center">
-          <p className="text-gray-600">
-            Don't have an account?{' '}
-            <button onClick={onToggle} className="text-orange-600 font-semibold hover:text-orange-700 hover:underline">
-              Create Account
-            </button>
-          </p>
-        </div>
       </div>
     </div>
   );

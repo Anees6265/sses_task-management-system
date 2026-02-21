@@ -21,8 +21,10 @@ const userSchema = new mongoose.Schema({
   },
   department: {
     type: String,
-    enum: ['ITEG', 'MEG', 'BEG', 'B.Tech'],
-    required: true
+    trim: true,
+    required: function() {
+      return this.role !== 'admin';
+    }
   },
   role: {
     type: String,

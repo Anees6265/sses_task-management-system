@@ -1,28 +1,54 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { taskAPI, userAPI } from '../services/api';
+import { taskAPI, userAPI, departmentAPI } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
+import Dashboard from './Dashboard';
 
 const KanbanBoard = () => {
   const [tasks, setTasks] = useState({ todo: [], inprogress: [], completed: [] });
   const [showModal, setShowModal] = useState(false);
-  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '' });
+  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
   const [activeView, setActiveView] = useState('board');
   const [users, setUsers] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
+    if (user?.role === 'admin') {
+      setActiveView('dashboard');
+      fetchDepartments();
+    }
     fetchTasks();
     fetchUsers();
-  }, []);
+  }, [user]);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [activeView]);
+
+  const fetchDepartments = async () => {
+    try {
+      const { data } = await departmentAPI.getAllDepartments();
+      setDepartments(data || []);
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+    }
+  };
 
   const fetchTasks = async () => {
     try {
       const { data } = await taskAPI.getTasks();
+      let filteredData = data;
+      
+      // Filter by department if admin selected specific department (not dashboard or board)
+      if (user?.role === 'admin' && activeView !== 'dashboard' && activeView !== 'board') {
+        filteredData = data.filter(task => task.department === activeView);
+      }
+      
       const grouped = { todo: [], inprogress: [], completed: [] };
-      data.forEach(task => grouped[task.status].push(task));
+      filteredData.forEach(task => grouped[task.status].push(task));
       setTasks(grouped);
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -69,8 +95,18 @@ const KanbanBoard = () => {
       if (!taskData.assignedTo) delete taskData.assignedTo;
       if (!taskData.dueDate) delete taskData.dueDate;
       
+      // Set department for admin
+      if (user?.role === 'admin') {
+        if (!taskData.department) {
+          alert('Please select a department');
+          return;
+        }
+      } else {
+        delete taskData.department;
+      }
+      
       await taskAPI.createTask(taskData);
-      setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '' });
+      setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
       setShowModal(false);
       fetchTasks();
     } catch (error) {
@@ -192,18 +228,24 @@ const KanbanBoard = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 pt-[73px]">
       <Navbar />
       
       <div className="flex flex-col md:flex-row">
-        <Sidebar activeView={activeView} setActiveView={setActiveView} />
+        <Sidebar activeView={activeView} setActiveView={setActiveView} userRole={user?.role} />
         
-        <main className="flex-1 p-4 md:p-6 overflow-x-hidden">
-          {activeView === 'board' && (
+        <main className="flex-1 p-4 md:p-6 overflow-x-hidden md:ml-64">
+          {activeView === 'dashboard' && user?.role === 'admin' && (
+            <Dashboard />
+          )}
+
+          {activeView !== 'dashboard' && activeView !== 'tasks' && activeView !== 'analytics' && activeView !== 'settings' && (
             <>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <div>
-                  <h2 className="text-2xl md:text-3xl font-bold text-gray-800">Sprint Board</h2>
+                  <h2 className="text-2xl md:text-3xl font-bold text-gray-800">
+                    {activeView === 'board' ? 'Sprint Board' : activeView}
+                  </h2>
                   <p className="text-gray-600 mt-1 text-sm md:text-base">Manage your tasks with drag & drop</p>
                 </div>
                 <button
@@ -305,6 +347,23 @@ const KanbanBoard = () => {
                   <option value="high">🔴 High Priority</option>
                 </select>
               </div>
+              
+              {user?.role === 'admin' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Department *</label>
+                  <select
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-sm md:text-base"
+                    value={newTask.department}
+                    onChange={(e) => setNewTask({ ...newTask, department: e.target.value })}
+                    required={user?.role === 'admin'}
+                  >
+                    <option value="">Select Department</option>
+                    {departments.map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>

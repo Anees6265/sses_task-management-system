@@ -1,26 +1,64 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { departmentAPI } from '../services/api';
 
-const Register = ({ onToggle }) => {
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', department: 'ITEG' });
+const Register = ({ onClose, isModal = false }) => {
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', department: '', role: 'user' });
   const [error, setError] = useState('');
-  const { register } = useContext(AuthContext);
+  const [success, setSuccess] = useState('');
+  const [departments, setDepartments] = useState(['ITEG', 'MEG', 'BEG', 'B.Tech']);
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customDepartment, setCustomDepartment] = useState('');
+  const { registerUser } = useContext(AuthContext);
+
+  useEffect(() => {
+    fetchDepartments();
+  }, []);
+
+  const fetchDepartments = async () => {
+    try {
+      const { data } = await departmentAPI.getAllDepartments();
+      if (data && data.length > 0) {
+        setDepartments(data);
+      }
+    } catch (error) {
+      console.log('Using default departments');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await register(formData);
+      const submitData = { ...formData };
+      if (showCustomInput && customDepartment) {
+        submitData.department = customDepartment.trim();
+      }
+      await registerUser(submitData);
+      setSuccess('User registered successfully!');
+      setError('');
+      setTimeout(() => {
+        if (onClose) onClose();
+      }, 2000);
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed');
+      setSuccess('');
     }
   };
 
+  const containerClass = isModal 
+    ? "" 
+    : "min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50";
+  
+  const cardClass = isModal
+    ? ""
+    : "bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100";
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
-      <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Create Account</h1>
-          <p className="text-gray-500">Join us and start managing your tasks</p>
+    <div className={containerClass}>
+      <div className={cardClass}>
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Register New User</h1>
+          <p className="text-gray-500 text-sm">Create a new account for the system</p>
         </div>
         
         {error && (
@@ -29,75 +67,134 @@ const Register = ({ onToggle }) => {
           </div>
         )}
         
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-            <input
-              type="text"
-              placeholder="Enter your name"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
+        {success && (
+          <div className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-lg mb-4 text-sm">
+            {success}
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
-            <select
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition"
-              value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-              required
-            >
-              <option value="ITEG">ITEG - Information Technology Excellence Group</option>
-              <option value="MEG">MEG - Management Excellence Group</option>
-              <option value="BEG">BEG - Biology Excellence Group</option>
-              <option value="B.Tech">B.Tech - Bachelor of Technology</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-            <input
-              type="password"
-              placeholder="Minimum 6 characters"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              required
-              minLength="6"
-            />
-          </div>
-          
-          <button 
-            type="submit"
-            className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-          >
-            Create Account
-          </button>
-        </form>
+        )}
         
-        <div className="mt-6 text-center">
-          <p className="text-gray-600">
-            Already have an account?{' '}
-            <button onClick={onToggle} className="text-orange-600 font-semibold hover:text-orange-700 hover:underline">
-              Sign In
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+              <input
+                type="text"
+                placeholder="Enter name"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-sm"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+              <input
+                type="email"
+                placeholder="Enter email"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-sm"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+              <select
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-sm"
+                value={formData.role}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                required
+              >
+                <option value="user">👤 User</option>
+                <option value="admin">👑 Admin</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+              <input
+                type="password"
+                placeholder="Min 6 characters"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-sm"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                required
+                minLength="6"
+              />
+            </div>
+          </div>
+          
+          {formData.role === 'user' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+              {!showCustomInput ? (
+                <div className="space-y-2">
+                  <select
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-sm"
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    required
+                  >
+                    <option value="">Select Department</option>
+                    {departments.map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomInput(true)}
+                    className="text-xs text-orange-600 hover:text-orange-700 font-medium"
+                  >
+                    + Add Custom Department
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Enter custom department"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-sm"
+                    value={customDepartment}
+                    onChange={(e) => setCustomDepartment(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCustomInput(false);
+                      setCustomDepartment('');
+                    }}
+                    className="text-xs text-gray-600 hover:text-gray-700 font-medium"
+                  >
+                    ← Back to list
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <div className="flex gap-3 pt-4">
+            <button 
+              type="submit"
+              className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2.5 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition shadow-md text-sm"
+            >
+              Create Account
             </button>
-          </p>
-        </div>
+            {isModal && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-semibold hover:bg-gray-200 transition text-sm"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </form>
       </div>
     </div>
   );
