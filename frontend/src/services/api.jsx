@@ -1,21 +1,23 @@
 import axios from 'axios';
+import { Capacitor } from '@capacitor/core';
 
 // PRODUCTION: Use your deployed backend URL
-// Replace 'your-backend' with your actual Render app name
 const API_URL = import.meta.env.VITE_API_URL || 'https://sses-task-backend.onrender.com/api';
 
 console.log('=== API Configuration ===');
 console.log('API_URL:', API_URL);
-console.log('Environment:', import.meta.env.MODE);
+console.log('Platform:', Capacitor.getPlatform());
+console.log('Is Native:', Capacitor.isNativePlatform());
 
+// Create axios instance with mobile-friendly config
 const api = axios.create({
   baseURL: API_URL,
   headers: { 
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   },
-  timeout: 30000, // 30 second timeout for slow connections
-  withCredentials: false // Important for CORS
+  timeout: 30000,
+  withCredentials: false
 });
 
 // Request interceptor
@@ -31,37 +33,61 @@ api.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
-// Response interceptor
+// Response interceptor with detailed logging
 api.interceptors.response.use(
   (response) => {
-    console.log('Response received:', response.status);
+    console.log('✅ Response received:', response.status);
     return response;
   },
   (error) => {
-    console.error('API Error:', error.message);
-    console.error('Error config:', error.config);
+    console.error('❌ API Error:', error.message);
     
     if (error.response) {
-      console.error('Error response:', error.response.status, error.response.data);
+      console.error('Response error:', error.response.status, error.response.data);
     } else if (error.request) {
-      console.error('No response received.');
-      console.error('Request details:', {
-        url: error.config?.url,
-        method: error.config?.method,
-        baseURL: error.config?.baseURL
-      });
+      console.error('No response - Network issue');
+      console.error('URL:', error.config?.baseURL + error.config?.url);
+      console.error('Method:', error.config?.method);
     } else {
-      console.error('Error setting up request:', error.message);
+      console.error('Request setup error:', error.message);
     }
     
     return Promise.reject(error);
   }
 );
 
+// Auth API with error handling
 export const authAPI = {
-  register: (data) => api.post('/auth/register', data),
-  login: (data) => api.post('/auth/login', data),
-  getMe: () => api.get('/auth/me')
+  register: async (data) => {
+    try {
+      console.log('Registering user...');
+      return await api.post('/auth/register', data);
+    } catch (error) {
+      console.error('Register failed:', error);
+      throw error;
+    }
+  },
+  
+  login: async (data) => {
+    try {
+      console.log('Logging in user:', data.email);
+      const response = await api.post('/auth/login', data);
+      console.log('Login successful');
+      return response;
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    }
+  },
+  
+  getMe: async () => {
+    try {
+      return await api.get('/auth/me');
+    } catch (error) {
+      console.error('Get user failed:', error);
+      throw error;
+    }
+  }
 };
 
 export const taskAPI = {
