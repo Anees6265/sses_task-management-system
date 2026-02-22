@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { taskAPI } from '../services/api.jsx';
+import { useLanguage } from '../context/LanguageContext.jsx';
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { t } = useLanguage();
 
   useEffect(() => {
     fetchStats();
@@ -25,7 +27,7 @@ const Dashboard = () => {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading dashboard...</p>
+          <p className="text-gray-600 font-medium">{t('loadingDashboard')}</p>
         </div>
       </div>
     );
@@ -44,12 +46,12 @@ const Dashboard = () => {
         <div>
           <h2 className="text-xl md:text-3xl font-bold text-gray-800 flex items-center space-x-2">
             <span className="text-2xl md:text-4xl">📊</span>
-            <span>Admin Dashboard</span>
+            <span>{t('adminDashboard')}</span>
           </h2>
-          <p className="text-xs md:text-base text-gray-600 mt-1">Overview of all departments</p>
+          <p className="text-xs md:text-base text-gray-600 mt-1">{t('overviewDepartments')}</p>
         </div>
         <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-4 md:px-6 py-2 md:py-3 rounded-xl shadow-lg">
-          <p className="text-xs md:text-sm font-medium opacity-90">Overall Progress</p>
+          <p className="text-xs md:text-sm font-medium opacity-90">{t('overallProgress')}</p>
           <p className="text-2xl md:text-3xl font-bold">{overallProgress}%</p>
         </div>
       </div>
@@ -63,7 +65,7 @@ const Dashboard = () => {
               <span className="text-xl md:text-3xl">📊</span>
             </div>
             <div className="md:text-right">
-              <p className="text-xs md:text-sm font-medium text-gray-500">Total Tasks</p>
+              <p className="text-xs md:text-sm font-medium text-gray-500">{t('totalTasks')}</p>
               <p className="text-2xl md:text-4xl font-bold text-gray-800 mt-0.5 md:mt-1">{stats?.totalTasks || 0}</p>
             </div>
           </div>
@@ -79,7 +81,7 @@ const Dashboard = () => {
               <span className="text-xl md:text-3xl">📋</span>
             </div>
             <div className="md:text-right">
-              <p className="text-xs md:text-sm font-medium text-gray-500">To Do</p>
+              <p className="text-xs md:text-sm font-medium text-gray-500">{t('todo')}</p>
               <p className="text-2xl md:text-4xl font-bold text-blue-600 mt-0.5 md:mt-1">{stats?.todoTasks || 0}</p>
             </div>
           </div>
@@ -95,7 +97,7 @@ const Dashboard = () => {
               <span className="text-xl md:text-3xl">🚀</span>
             </div>
             <div className="md:text-right">
-              <p className="text-xs md:text-sm font-medium text-gray-500">In Progress</p>
+              <p className="text-xs md:text-sm font-medium text-gray-500">{t('inProgress')}</p>
               <p className="text-2xl md:text-4xl font-bold text-orange-600 mt-0.5 md:mt-1">{stats?.inprogressTasks || 0}</p>
             </div>
           </div>
@@ -111,7 +113,7 @@ const Dashboard = () => {
               <span className="text-xl md:text-3xl">✅</span>
             </div>
             <div className="md:text-right">
-              <p className="text-xs md:text-sm font-medium text-gray-500">Completed</p>
+              <p className="text-xs md:text-sm font-medium text-gray-500">{t('completed')}</p>
               <p className="text-2xl md:text-4xl font-bold text-green-600 mt-0.5 md:mt-1">{stats?.completedTasks || 0}</p>
             </div>
           </div>
@@ -126,10 +128,10 @@ const Dashboard = () => {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-6 gap-2">
           <h3 className="text-lg md:text-2xl font-bold text-gray-800 flex items-center space-x-2">
             <span className="text-2xl md:text-3xl">🏛️</span>
-            <span>Department Performance</span>
+            <span>{t('departmentPerformance')}</span>
           </h3>
           <div className="text-xs md:text-sm text-gray-500 bg-gray-100 px-3 md:px-4 py-1.5 md:py-2 rounded-lg w-fit">
-            {stats?.departmentStats?.length || 0} Departments
+            {stats?.departmentStats?.length || 0} {t('departments')}
           </div>
         </div>
 
@@ -151,21 +153,21 @@ const Dashboard = () => {
                     <div className="flex justify-between items-center">
                       <span className="text-xs md:text-sm text-gray-600 flex items-center space-x-1">
                         <span>📊</span>
-                        <span>Total</span>
+                        <span>{t('total')}</span>
                       </span>
                       <span className="font-bold text-gray-800 text-sm md:text-lg">{dept.total}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-xs md:text-sm text-gray-600 flex items-center space-x-1">
                         <span>📋</span>
-                        <span>To Do</span>
+                        <span>{t('todo')}</span>
                       </span>
                       <span className="font-semibold text-blue-600 text-xs md:text-base">{dept.todo}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-xs md:text-sm text-gray-600 flex items-center space-x-1">
                         <span>🚀</span>
-                        <span>Progress</span>
+                        <span>{t('progress')}</span>
                       </span>
                       <span className="font-semibold text-orange-600 text-xs md:text-base">{dept.inprogress}</span>
                     </div>

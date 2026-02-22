@@ -1,10 +1,12 @@
 import React, { useContext, useState } from 'react';
 import { AuthContext } from '../context/AuthContext.jsx';
+import { useLanguage } from '../context/LanguageContext.jsx';
 import Register from './Register.jsx';
 import logo from '../assets/images/singaji_educational_society_logo.jpg';
 
 const Navbar = ({ onMenuClick }) => {
   const { user, logout } = useContext(AuthContext);
+  const { language, toggleLanguage, t } = useLanguage();
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -42,12 +44,20 @@ const Navbar = ({ onMenuClick }) => {
           </div>
           
           <div className="flex items-center space-x-2 md:space-x-4">
+            <button
+              onClick={toggleLanguage}
+              className="px-2 md:px-3 py-1.5 md:py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition font-medium text-xs md:text-sm flex items-center gap-1"
+            >
+              <span>🌐</span>
+              <span>{language === 'en' ? 'हिं' : 'EN'}</span>
+            </button>
+            
             {user?.role === 'admin' && (
               <button
                 onClick={() => setShowRegisterModal(true)}
                 className="px-2 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg hover:from-orange-600 hover:to-amber-600 transition font-medium text-xs md:text-sm flex items-center justify-center shadow-sm"
               >
-                <span>Register</span>
+                <span>{t('register')}</span>
               </button>
             )}
             
@@ -83,7 +93,7 @@ const Navbar = ({ onMenuClick }) => {
                         }}
                         className="w-full flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition text-sm"
                       >
-                        <span>Settings</span>
+                        <span>{t('settings')}</span>
                       </button>
                       <button
                         onClick={() => {
@@ -92,7 +102,7 @@ const Navbar = ({ onMenuClick }) => {
                         }}
                         className="w-full flex items-center space-x-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition text-sm"
                       >
-                        <span>Logout</span>
+                        <span>{t('logout')}</span>
                       </button>
                     </div>
                   </div>
@@ -123,10 +133,10 @@ const Navbar = ({ onMenuClick }) => {
       {showSettingsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-3">
           <div className="bg-white p-6 md:p-8 rounded-2xl w-full max-w-md shadow-2xl">
-            <h3 className="text-lg md:text-xl font-bold mb-4 text-gray-800">Update Profile</h3>
+            <h3 className="text-lg md:text-xl font-bold mb-4 text-gray-800">{t('updateProfile')}</h3>
             <form className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('name')}</label>
                 <input
                   type="text"
                   defaultValue={user?.name}
@@ -134,7 +144,7 @@ const Navbar = ({ onMenuClick }) => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('email')}</label>
                 <input
                   type="email"
                   defaultValue={user?.email}
@@ -142,10 +152,10 @@ const Navbar = ({ onMenuClick }) => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">New Password (optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('newPassword')}</label>
                 <input
                   type="password"
-                  placeholder="Leave blank to keep current"
+                  placeholder={t('leaveBlank')}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 text-sm"
                 />
               </div>
@@ -154,14 +164,14 @@ const Navbar = ({ onMenuClick }) => {
                   type="submit"
                   className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition text-sm"
                 >
-                  Update
+                  {t('update')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowSettingsModal(false)}
                   className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-200 transition text-sm"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
               </div>
             </form>
@@ -172,8 +182,8 @@ const Navbar = ({ onMenuClick }) => {
       {showLogoutConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-3">
           <div className="bg-white p-6 md:p-8 rounded-2xl w-full max-w-sm shadow-2xl">
-            <h3 className="text-lg md:text-xl font-bold mb-3 md:mb-4 text-gray-800">Logout?</h3>
-            <p className="text-sm md:text-base text-gray-600 mb-4 md:mb-6">Are you sure you want to logout?</p>
+            <h3 className="text-lg md:text-xl font-bold mb-3 md:mb-4 text-gray-800">{t('logout')}?</h3>
+            <p className="text-sm md:text-base text-gray-600 mb-4 md:mb-6">{t('logoutConfirm')}</p>
             <div className="flex gap-3">
               <button
                 onClick={() => {
@@ -182,13 +192,13 @@ const Navbar = ({ onMenuClick }) => {
                 }}
                 className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2 md:py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition text-xs md:text-base"
               >
-                Logout
+                {t('logout')}
               </button>
               <button
                 onClick={() => setShowLogoutConfirm(false)}
                 className="flex-1 bg-gray-100 text-gray-700 py-2 md:py-3 rounded-lg font-semibold hover:bg-gray-200 transition text-xs md:text-base"
               >
-                Cancel
+                {t('cancel')}
               </button>
             </div>
           </div>

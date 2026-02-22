@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { taskAPI, userAPI, departmentAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
+import { useLanguage } from '../context/LanguageContext.jsx';
 import Navbar from './Navbar.jsx';
 import Sidebar from './Sidebar.jsx';
 import Dashboard from './Dashboard.jsx';
@@ -19,6 +20,7 @@ const KanbanBoard = () => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { user } = useContext(AuthContext);
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (user?.role === 'admin') {
@@ -262,7 +264,7 @@ const KanbanBoard = () => {
               {tasks.length === 0 && (
                 <div className="text-center py-6 md:py-12 text-gray-400">
                   <p className="text-2xl md:text-4xl mb-1 md:mb-2">📭</p>
-                  <p className="text-xs md:text-sm">No tasks</p>
+                  <p className="text-xs md:text-sm">{t('noTasks')}</p>
                 </div>
               )}
             </div>
@@ -297,36 +299,36 @@ const KanbanBoard = () => {
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 md:mb-6 gap-2 md:gap-3">
                 <div>
                   <h2 className="text-lg md:text-3xl font-bold text-gray-800">
-                    {activeView === 'board' ? 'Sprint Board' : activeView}
+                    {activeView === 'board' ? t('sprintBoard') : activeView}
                   </h2>
-                  <p className="text-gray-600 mt-0.5 md:mt-1 text-xs md:text-base">Drag & drop tasks</p>
+                  <p className="text-gray-600 mt-0.5 md:mt-1 text-xs md:text-base">{t('dragDrop')}</p>
                 </div>
                 <button
                   onClick={() => setShowModal(true)}
                   className="w-full sm:w-auto px-3 md:px-6 py-2 md:py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition shadow-lg text-xs md:text-base"
                 >
-                  + New Task
+                  + {t('newTask')}
                 </button>
               </div>
 
               <DragDropContext onDragEnd={handleDragEnd}>
                 <div className="flex flex-col lg:grid lg:grid-cols-3 gap-3 md:gap-6">
                   <Column 
-                    title="To Do" 
+                    title={t('todo')} 
                     tasks={tasks.todo} 
                     droppableId="todo" 
                     emoji="📋" 
                     bgColor="bg-white"
                   />
                   <Column 
-                    title="In Progress" 
+                    title={t('inProgress')} 
                     tasks={tasks.inprogress} 
                     droppableId="inprogress" 
                     emoji="🚀" 
                     bgColor="bg-white"
                   />
                   <Column 
-                    title="Completed" 
+                    title={t('completed')} 
                     tasks={tasks.completed} 
                     droppableId="completed" 
                     emoji="✅" 
@@ -339,22 +341,22 @@ const KanbanBoard = () => {
 
           {activeView === 'tasks' && (
             <div className="bg-white rounded-xl p-4 md:p-8 border border-gray-200">
-              <h2 className="text-lg md:text-2xl font-bold text-gray-800 mb-4">All Tasks</h2>
-              <p className="text-gray-600 text-sm md:text-base">Coming soon...</p>
+              <h2 className="text-lg md:text-2xl font-bold text-gray-800 mb-4">{t('allTasks')}</h2>
+              <p className="text-gray-600 text-sm md:text-base">{t('comingSoon')}</p>
             </div>
           )}
 
           {activeView === 'analytics' && (
             <div className="bg-white rounded-xl p-4 md:p-8 border border-gray-200">
-              <h2 className="text-lg md:text-2xl font-bold text-gray-800 mb-4">Analytics</h2>
-              <p className="text-gray-600 text-sm md:text-base">Coming soon...</p>
+              <h2 className="text-lg md:text-2xl font-bold text-gray-800 mb-4">{t('analytics')}</h2>
+              <p className="text-gray-600 text-sm md:text-base">{t('comingSoon')}</p>
             </div>
           )}
 
           {activeView === 'settings' && (
             <div className="bg-white rounded-xl p-4 md:p-8 border border-gray-200">
-              <h2 className="text-lg md:text-2xl font-bold text-gray-800 mb-4">Settings</h2>
-              <p className="text-gray-600 text-sm md:text-base">Coming soon...</p>
+              <h2 className="text-lg md:text-2xl font-bold text-gray-800 mb-4">{t('settings')}</h2>
+              <p className="text-gray-600 text-sm md:text-base">{t('comingSoon')}</p>
             </div>
           )}
         </main>
@@ -364,14 +366,14 @@ const KanbanBoard = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
           <div className="bg-white p-4 md:p-8 rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-base md:text-2xl font-bold mb-3 md:mb-6 text-gray-800">
-              {editingTask ? 'Edit Task' : 'Create New Task'}
+              {editingTask ? t('editTask') : t('createTask')}
             </h2>
             <form onSubmit={handleCreateTask} className="space-y-2.5 md:space-y-4">
               <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Task Title</label>
+                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">{t('taskTitle')}</label>
                 <input
                   type="text"
-                  placeholder="Enter task title"
+                  placeholder={t('enterTitle')}
                   className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs md:text-base"
                   value={newTask.title}
                   onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
@@ -380,9 +382,9 @@ const KanbanBoard = () => {
               </div>
               
               <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Description</label>
+                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">{t('description')}</label>
                 <textarea
-                  placeholder="Enter task description"
+                  placeholder={t('enterDescription')}
                   className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs md:text-base"
                   value={newTask.description}
                   onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
@@ -391,28 +393,28 @@ const KanbanBoard = () => {
               </div>
               
               <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Priority</label>
+                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">{t('priority')}</label>
                 <select
                   className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs md:text-base"
                   value={newTask.priority}
                   onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
                 >
-                  <option value="low">🟢 Low Priority</option>
-                  <option value="medium">🟡 Medium Priority</option>
-                  <option value="high">🔴 High Priority</option>
+                  <option value="low">🟢 {t('lowPriority')}</option>
+                  <option value="medium">🟡 {t('mediumPriority')}</option>
+                  <option value="high">🔴 {t('highPriority')}</option>
                 </select>
               </div>
               
               {user?.role === 'admin' && (
                 <div>
-                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Department *</label>
+                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">{t('selectDepartment')} *</label>
                   <select
                     className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs md:text-base"
                     value={newTask.department}
                     onChange={(e) => setNewTask({ ...newTask, department: e.target.value })}
                     required={user?.role === 'admin'}
                   >
-                    <option value="">Select Department</option>
+                    <option value="">{t('selectDepartment')}</option>
                     {departments.map(dept => (
                       <option key={dept} value={dept}>{dept}</option>
                     ))}
@@ -421,7 +423,7 @@ const KanbanBoard = () => {
               )}
               
               <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Due Date</label>
+                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">{t('dueDate')}</label>
                 <input
                   type="date"
                   className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs md:text-base"
@@ -432,13 +434,13 @@ const KanbanBoard = () => {
               </div>
               
               <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Assign To</label>
+                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">{t('assignTo')}</label>
                 <select
                   className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs md:text-base"
                   value={newTask.assignedTo}
                   onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
                 >
-                  <option value="">Unassigned</option>
+                  <option value="">{t('unassigned')}</option>
                   {users.map(u => (
                     <option key={u._id} value={u._id}>{u.name} ({u.email})</option>
                   ))}
@@ -450,7 +452,7 @@ const KanbanBoard = () => {
                   type="submit"
                   className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2 md:py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition shadow-lg text-xs md:text-base"
                 >
-                  {editingTask ? 'Update Task' : 'Create Task'}
+                  {editingTask ? t('updateTask') : t('createTaskBtn')}
                 </button>
                 <button
                   type="button"
@@ -461,7 +463,7 @@ const KanbanBoard = () => {
                   }}
                   className="flex-1 bg-gray-100 text-gray-700 py-2 md:py-3 rounded-lg font-semibold hover:bg-gray-200 transition text-xs md:text-base"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
               </div>
             </form>
@@ -472,20 +474,20 @@ const KanbanBoard = () => {
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
           <div className="bg-white p-6 md:p-8 rounded-2xl w-full max-w-sm shadow-2xl">
-            <h3 className="text-lg md:text-xl font-bold mb-3 md:mb-4 text-gray-800">Delete Task?</h3>
-            <p className="text-sm md:text-base text-gray-600 mb-4 md:mb-6">Are you sure you want to delete this task? This action cannot be undone.</p>
+            <h3 className="text-lg md:text-xl font-bold mb-3 md:mb-4 text-gray-800">{t('deleteTask')}</h3>
+            <p className="text-sm md:text-base text-gray-600 mb-4 md:mb-6">{t('deleteConfirm')}</p>
             <div className="flex gap-3">
               <button
                 onClick={() => handleDeleteTask(deleteConfirm)}
                 className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2 md:py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition text-xs md:text-base"
               >
-                Delete
+                {t('delete')}
               </button>
               <button
                 onClick={() => setDeleteConfirm(null)}
                 className="flex-1 bg-gray-100 text-gray-700 py-2 md:py-3 rounded-lg font-semibold hover:bg-gray-200 transition text-xs md:text-base"
               >
-                Cancel
+                {t('cancel')}
               </button>
             </div>
           </div>

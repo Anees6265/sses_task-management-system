@@ -1,5 +1,6 @@
 import React, { useContext } from 'react';
 import { AuthContext, AuthProvider } from './context/AuthContext.jsx';
+import { LanguageProvider } from './context/LanguageContext.jsx';
 import Login from './components/Login.jsx';
 import KanbanBoard from './components/KanbanBoard.jsx';
 
@@ -23,9 +24,11 @@ const AppContent = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </LanguageProvider>
   );
 }
 
