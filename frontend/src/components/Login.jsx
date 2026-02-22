@@ -11,14 +11,15 @@ const Login = () => {
     setError(''); // Clear previous errors
     try {
       console.log('Attempting login with:', formData.email);
-      console.log('API URL:', 'http://172.19.16.1:5000/api');
+      console.log('API URL:', import.meta.env.VITE_API_URL || 'https://sses-task-backend.onrender.com/api');
       await login(formData);
     } catch (err) {
       console.error('Login error:', err);
       console.error('Error response:', err.response);
       const errorMsg = err.response?.data?.message || err.message || 'Login failed - Cannot connect to server';
       setError(errorMsg);
-      alert(`Login Error: ${errorMsg}\n\nAPI: http://172.19.16.1:5000/api\nEmail: ${formData.email}`);
+      const actualApiUrl = import.meta.env.VITE_API_URL || 'https://sses-task-backend.onrender.com/api';
+      alert(`Login Error: ${errorMsg}\n\nAPI: ${actualApiUrl}\nEmail: ${formData.email}`);
     }
   };
 
