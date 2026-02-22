@@ -5,15 +5,19 @@ import { AuthContext } from '../context/AuthContext.jsx';
 import Navbar from './Navbar.jsx';
 import Sidebar from './Sidebar.jsx';
 import Dashboard from './Dashboard.jsx';
+import Loader from './Loader.jsx';
 
 const KanbanBoard = () => {
   const [tasks, setTasks] = useState({ todo: [], inprogress: [], completed: [] });
   const [showModal, setShowModal] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
   const [activeView, setActiveView] = useState('board');
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const { user } = useContext(AuthContext);
 
   useEffect(() => {
@@ -39,11 +43,11 @@ const KanbanBoard = () => {
   };
 
   const fetchTasks = async () => {
+    setLoading(true);
     try {
       const { data } = await taskAPI.getTasks();
       let filteredData = data;
       
-      // Filter by department if admin selected specific department (not dashboard or board)
       if (user?.role === 'admin' && activeView !== 'dashboard' && activeView !== 'board') {
         filteredData = data.filter(task => task.department === activeView);
       }
@@ -53,6 +57,8 @@ const KanbanBoard = () => {
       setTasks(grouped);
     } catch (error) {
       console.error('Error fetching tasks:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -91,33 +97,56 @@ const KanbanBoard = () => {
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
       const taskData = { ...newTask };
       if (!taskData.assignedTo) delete taskData.assignedTo;
       if (!taskData.dueDate) delete taskData.dueDate;
       
-      // Set department for admin
       if (user?.role === 'admin') {
         if (!taskData.department) {
           alert('Please select a department');
+          setLoading(false);
           return;
         }
       } else {
         delete taskData.department;
       }
       
-      await taskAPI.createTask(taskData);
+      if (editingTask) {
+        await taskAPI.updateTask(editingTask._id, taskData);
+      } else {
+        await taskAPI.createTask(taskData);
+      }
+      
       setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
+      setEditingTask(null);
       setShowModal(false);
       fetchTasks();
     } catch (error) {
-      console.error('Error creating task:', error);
+      console.error('Error saving task:', error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleEditTask = (task) => {
+    setEditingTask(task);
+    setNewTask({
+      title: task.title,
+      description: task.description || '',
+      priority: task.priority,
+      dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
+      assignedTo: task.assignedTo?._id || task.assignedTo || '',
+      department: task.department || ''
+    });
+    setShowModal(true);
   };
 
   const handleDeleteTask = async (id) => {
     try {
       await taskAPI.deleteTask(id);
+      setDeleteConfirm(null);
       fetchTasks();
     } catch (error) {
       console.error('Error deleting task:', error);
@@ -125,9 +154,9 @@ const KanbanBoard = () => {
   };
 
   const Column = ({ title, tasks, droppableId, emoji, bgColor }) => (
-    <div className="flex-1 min-w-full lg:min-w-[300px]">
-      <div className={`${bgColor} rounded-lg md:rounded-xl p-2.5 md:p-4 h-full border-2 border-gray-200 shadow-sm`}>
-        <div className="flex items-center justify-between mb-2.5 md:mb-4 pb-2 md:pb-3 border-b-2 border-gray-200">
+    <div className="w-full lg:flex-1 lg:min-w-[300px] h-[400px] lg:h-[calc(100vh-200px)]">
+      <div className={`${bgColor} rounded-lg md:rounded-xl p-2.5 md:p-4 h-full border-2 border-gray-200 shadow-sm flex flex-col`}>
+        <div className="flex items-center justify-between mb-2.5 md:mb-4 pb-2 md:pb-3 border-b-2 border-gray-200 flex-shrink-0">
           <h3 className="font-bold text-xs md:text-lg text-gray-800 flex items-center space-x-1.5 md:space-x-2">
             <span className="text-base md:text-2xl">{emoji}</span>
             <span className="truncate">{title}</span>
@@ -142,9 +171,10 @@ const KanbanBoard = () => {
             <div
               ref={provided.innerRef}
               {...provided.droppableProps}
-              className={`space-y-2 min-h-[200px] md:min-h-[calc(100vh-280px)] transition-colors ${
+              className={`space-y-2 overflow-y-auto flex-1 pr-1 ${
                 snapshot.isDraggingOver ? 'bg-orange-100 rounded-lg p-2' : ''
               }`}
+              style={{ maxHeight: 'calc(100vh - 280px)' }}
             >
               {tasks.map((task, index) => (
                 <Draggable key={task._id} draggableId={task._id} index={index}>
@@ -161,12 +191,26 @@ const KanbanBoard = () => {
                         <h4 className="font-semibold text-gray-800 flex-1 text-xs md:text-base leading-tight break-words">
                           {task.title}
                         </h4>
-                        <button
-                          onClick={() => handleDeleteTask(task._id)}
-                          className="text-gray-400 hover:text-red-500 transition text-lg md:text-xl font-bold flex-shrink-0 -mt-1"
-                        >
-                          ×
-                        </button>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditTask(task);
+                            }}
+                            className="text-blue-500 hover:text-blue-700 transition text-base md:text-lg font-bold px-1"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteConfirm(task._id);
+                            }}
+                            className="text-gray-400 hover:text-red-500 transition text-xl md:text-2xl font-bold -mt-1"
+                          >
+                            ×
+                          </button>
+                        </div>
                       </div>
                       
                       {task.description && (
@@ -229,7 +273,9 @@ const KanbanBoard = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 pt-[73px]">
+    <>
+      {loading && <Loader />}
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 pt-[73px]">
       <Navbar onMenuClick={() => setIsMobileSidebarOpen(true)} />
       
       <div className="flex flex-col md:flex-row">
@@ -264,34 +310,28 @@ const KanbanBoard = () => {
               </div>
 
               <DragDropContext onDragEnd={handleDragEnd}>
-                <div className="flex lg:grid lg:grid-cols-3 gap-2.5 md:gap-6 overflow-x-auto lg:overflow-x-visible pb-3 lg:pb-0 snap-x snap-mandatory lg:snap-none -mx-3 px-3 md:mx-0 md:px-0">
-                  <div className="snap-center min-w-[85vw] sm:min-w-[70vw] lg:min-w-0">
-                    <Column 
-                      title="To Do" 
-                      tasks={tasks.todo} 
-                      droppableId="todo" 
-                      emoji="📋" 
-                      bgColor="bg-blue-50"
-                    />
-                  </div>
-                  <div className="snap-center min-w-[85vw] sm:min-w-[70vw] lg:min-w-0">
-                    <Column 
-                      title="In Progress" 
-                      tasks={tasks.inprogress} 
-                      droppableId="inprogress" 
-                      emoji="🚀" 
-                      bgColor="bg-purple-50"
-                    />
-                  </div>
-                  <div className="snap-center min-w-[85vw] sm:min-w-[70vw] lg:min-w-0">
-                    <Column 
-                      title="Completed" 
-                      tasks={tasks.completed} 
-                      droppableId="completed" 
-                      emoji="✅" 
-                      bgColor="bg-green-50"
-                    />
-                  </div>
+                <div className="flex flex-col lg:grid lg:grid-cols-3 gap-3 md:gap-6">
+                  <Column 
+                    title="To Do" 
+                    tasks={tasks.todo} 
+                    droppableId="todo" 
+                    emoji="📋" 
+                    bgColor="bg-blue-50"
+                  />
+                  <Column 
+                    title="In Progress" 
+                    tasks={tasks.inprogress} 
+                    droppableId="inprogress" 
+                    emoji="🚀" 
+                    bgColor="bg-purple-50"
+                  />
+                  <Column 
+                    title="Completed" 
+                    tasks={tasks.completed} 
+                    droppableId="completed" 
+                    emoji="✅" 
+                    bgColor="bg-green-50"
+                  />
                 </div>
               </DragDropContext>
             </>
@@ -323,7 +363,9 @@ const KanbanBoard = () => {
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
           <div className="bg-white p-4 md:p-8 rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-base md:text-2xl font-bold mb-3 md:mb-6 text-gray-800">Create New Task</h2>
+            <h2 className="text-base md:text-2xl font-bold mb-3 md:mb-6 text-gray-800">
+              {editingTask ? 'Edit Task' : 'Create New Task'}
+            </h2>
             <form onSubmit={handleCreateTask} className="space-y-2.5 md:space-y-4">
               <div>
                 <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Task Title</label>
@@ -408,11 +450,15 @@ const KanbanBoard = () => {
                   type="submit"
                   className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2 md:py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition shadow-lg text-xs md:text-base"
                 >
-                  Create Task
+                  {editingTask ? 'Update Task' : 'Create Task'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingTask(null);
+                    setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
+                  }}
                   className="flex-1 bg-gray-100 text-gray-700 py-2 md:py-3 rounded-lg font-semibold hover:bg-gray-200 transition text-xs md:text-base"
                 >
                   Cancel
@@ -422,7 +468,31 @@ const KanbanBoard = () => {
           </div>
         </div>
       )}
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
+          <div className="bg-white p-6 md:p-8 rounded-2xl w-full max-w-sm shadow-2xl">
+            <h3 className="text-lg md:text-xl font-bold mb-3 md:mb-4 text-gray-800">Delete Task?</h3>
+            <p className="text-sm md:text-base text-gray-600 mb-4 md:mb-6">Are you sure you want to delete this task? This action cannot be undone.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleDeleteTask(deleteConfirm)}
+                className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2 md:py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition text-xs md:text-base"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 bg-gray-100 text-gray-700 py-2 md:py-3 rounded-lg font-semibold hover:bg-gray-200 transition text-xs md:text-base"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+    </>
   );
 };
 

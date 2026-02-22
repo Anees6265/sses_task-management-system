@@ -1,10 +1,12 @@
 import React, { useContext, useState } from 'react';
 import { AuthContext } from '../context/AuthContext.jsx';
 import Register from './Register.jsx';
+import logo from '../assets/images/singaji_educational_society_logo.jpg';
 
 const Navbar = ({ onMenuClick }) => {
   const { user, logout } = useContext(AuthContext);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   return (
     <>
@@ -23,12 +25,10 @@ const Navbar = ({ onMenuClick }) => {
             
             <h1 className="text-lg md:text-2xl font-bold text-gray-800 flex items-center space-x-2 md:space-x-3">
               <img 
-                src="https://www.sssism.org/images/logo.png" 
-                alt="SSSISM Logo" 
-                className="h-8 w-8 md:h-10 md:w-10 object-contain"
-                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'inline'; }}
+                src={logo}
+                alt="SSISM Logo" 
+                className="h-8 w-8 md:h-10 md:w-10 object-contain rounded bg-white p-1"
               />
-              <span className="hidden" style={{display: 'none'}}>🏫</span>
               <span className="hidden sm:inline">Sant Singaji Educational Society</span>
               <span className="sm:hidden">SSES</span>
             </h1>
@@ -63,7 +63,7 @@ const Navbar = ({ onMenuClick }) => {
             </div>
             
             <button
-              onClick={logout}
+              onClick={() => setShowLogoutConfirm(true)}
               className="px-2 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg hover:from-orange-600 hover:to-amber-600 transition font-medium text-xs md:text-sm shadow-sm"
             >
               <span className="hidden sm:inline">Logout</span>
@@ -85,6 +85,32 @@ const Navbar = ({ onMenuClick }) => {
             </button>
             <div className="p-8">
               <Register onClose={() => setShowRegisterModal(false)} isModal={true} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-3">
+          <div className="bg-white p-6 md:p-8 rounded-2xl w-full max-w-sm shadow-2xl">
+            <h3 className="text-lg md:text-xl font-bold mb-3 md:mb-4 text-gray-800">Logout?</h3>
+            <p className="text-sm md:text-base text-gray-600 mb-4 md:mb-6">Are you sure you want to logout?</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  logout();
+                  setShowLogoutConfirm(false);
+                }}
+                className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2 md:py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition text-xs md:text-base"
+              >
+                Logout
+              </button>
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 bg-gray-100 text-gray-700 py-2 md:py-3 rounded-lg font-semibold hover:bg-gray-200 transition text-xs md:text-base"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 {
   "appId": "com.sses.taskmanager",
-  "appName": "Task Manager",
+  "appName": "SSISM Task Manager",
   "webDir": "dist",
   "server": {
     "cleartext": true,

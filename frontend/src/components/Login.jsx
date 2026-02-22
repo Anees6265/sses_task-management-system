@@ -1,14 +1,18 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext.jsx';
+import Loader from './Loader.jsx';
+import logo from '../assets/images/singaji_educational_society_logo.jpg';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { login } = useContext(AuthContext);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(''); // Clear previous errors
+    setError('');
+    setLoading(true);
     try {
       console.log('Attempting login with:', formData.email);
       console.log('API URL:', import.meta.env.VITE_API_URL || 'https://sses-task-backend.onrender.com/api');
@@ -20,13 +24,24 @@ const Login = () => {
       setError(errorMsg);
       const actualApiUrl = import.meta.env.VITE_API_URL || 'https://sses-task-backend.onrender.com/api';
       alert(`Login Error: ${errorMsg}\n\nAPI: ${actualApiUrl}\nEmail: ${formData.email}`);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4">
+    <>
+      {loading && <Loader />}
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4">
       <div className="bg-white p-6 md:p-10 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100">
         <div className="text-center mb-6 md:mb-8">
+          <div className="flex justify-center mb-4">
+            <img 
+              src={logo}
+              alt="Singaji Educational Society Logo" 
+              className="h-20 w-20 md:h-24 md:w-24 object-contain"
+            />
+          </div>
           <h1 className="text-2xl md:text-4xl font-bold text-gray-800 mb-2">Welcome Back</h1>
           <p className="text-sm md:text-base text-gray-500">Sign in to continue</p>
         </div>
@@ -71,6 +86,7 @@ const Login = () => {
         </form>
       </div>
     </div>
+    </>
   );
 };
 
