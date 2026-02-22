@@ -14,7 +14,8 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   },
-  timeout: 10000 // 10 second timeout
+  timeout: 30000, // 30 second timeout for slow connections
+  withCredentials: false // Important for CORS
 });
 
 // Request interceptor
@@ -38,12 +39,21 @@ api.interceptors.response.use(
   },
   (error) => {
     console.error('API Error:', error.message);
+    console.error('Error config:', error.config);
+    
     if (error.response) {
       console.error('Error response:', error.response.status, error.response.data);
     } else if (error.request) {
-      console.error('No response received. Network issue or CORS.');
-      console.error('Request:', error.request);
+      console.error('No response received.');
+      console.error('Request details:', {
+        url: error.config?.url,
+        method: error.config?.method,
+        baseURL: error.config?.baseURL
+      });
+    } else {
+      console.error('Error setting up request:', error.message);
     }
+    
     return Promise.reject(error);
   }
 );
