@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { taskAPI, userAPI, departmentAPI } from '../services/api';
-import { AuthContext } from '../context/AuthContext';
-import Navbar from './Navbar';
-import Sidebar from './Sidebar';
-import Dashboard from './Dashboard';
+import { taskAPI, userAPI, departmentAPI } from '../services/api.jsx';
+import { AuthContext } from '../context/AuthContext.jsx';
+import Navbar from './Navbar.jsx';
+import Sidebar from './Sidebar.jsx';
+import Dashboard from './Dashboard.jsx';
 
 const KanbanBoard = () => {
   const [tasks, setTasks] = useState({ todo: [], inprogress: [], completed: [] });

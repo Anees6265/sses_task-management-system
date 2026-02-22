@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { AuthContext } from '../context/AuthContext';
-import { departmentAPI } from '../services/api';
+import { AuthContext } from '../context/AuthContext.jsx';
+import { departmentAPI } from '../services/api.jsx';
 
 const Register = ({ onClose, isModal = false }) => {
   const [formData, setFormData] = useState({ name: '', email: '', password: '', department: '', role: 'user' });
