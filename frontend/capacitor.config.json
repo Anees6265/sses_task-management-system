@@ -1,5 +1,9 @@
 {
   "appId": "com.sses.taskmanager",
   "appName": "Task Manager",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "cleartext": true,
+    "androidScheme": "http"
+  }
 }
