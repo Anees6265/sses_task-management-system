@@ -8,10 +8,17 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(''); // Clear previous errors
     try {
+      console.log('Attempting login with:', formData.email);
+      console.log('API URL:', 'http://172.19.16.1:5000/api');
       await login(formData);
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+      console.error('Login error:', err);
+      console.error('Error response:', err.response);
+      const errorMsg = err.response?.data?.message || err.message || 'Login failed - Cannot connect to server';
+      setError(errorMsg);
+      alert(`Login Error: ${errorMsg}\n\nAPI: http://172.19.16.1:5000/api\nEmail: ${formData.email}`);
     }
   };
 
