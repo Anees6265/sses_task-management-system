@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Capacitor } from '@capacitor/core';
 
 // PRODUCTION: Use your deployed backend URL
-const API_URL = import.meta.env.VITE_API_URL || 'https://sses-task-backend.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://sses-task-management-system.onrender.com/api';
 
 console.log('=== API Configuration ===');
 console.log('API_URL:', API_URL);
