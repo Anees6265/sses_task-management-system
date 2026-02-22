@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { departmentAPI } from '../services/api.jsx';
 
-const Sidebar = ({ activeView, setActiveView, userRole }) => {
+const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobileOpen }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [departments, setDepartments] = useState([]);
 
@@ -40,9 +40,21 @@ const Sidebar = ({ activeView, setActiveView, userRole }) => {
   const menuItems = userRole === 'admin' ? adminMenuItems : userMenuItems;
 
   return (
-    <aside className={`bg-white border-r border-gray-200 transition-all duration-300 hidden md:block fixed left-0 top-[73px] h-[calc(100vh-73px)] z-40 ${
-      isCollapsed ? 'w-16 md:w-20' : 'w-48 md:w-64'
-    }`}>
+    <>
+      {/* Mobile Overlay */}
+      {isMobileOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <aside className={`bg-white border-r border-gray-200 transition-all duration-300 fixed left-0 top-[73px] h-[calc(100vh-73px)] z-50 ${
+        isMobileOpen ? 'translate-x-0' : '-translate-x-full'
+      } md:translate-x-0 ${
+        isCollapsed ? 'w-16 md:w-20' : 'w-64'
+      }`}>
       <div className="p-2 md:p-4 h-full flex flex-col">
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -55,7 +67,10 @@ const Sidebar = ({ activeView, setActiveView, userRole }) => {
           {menuItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveView(item.id)}
+              onClick={() => {
+                setActiveView(item.id);
+                setIsMobileOpen(false);
+              }}
               className={`w-full flex items-center space-x-2 md:space-x-3 px-2 md:px-4 py-2 md:py-3 rounded-lg transition text-sm md:text-base ${
                 activeView === item.id
                   ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md'
@@ -78,6 +93,7 @@ const Sidebar = ({ activeView, setActiveView, userRole }) => {
         )}
       </div>
     </aside>
+    </>
   );
 };
 

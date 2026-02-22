@@ -3,11 +3,15 @@
 Professional task management system with Kanban board, authentication, and MongoDB backend.
 
 ## 🚀 Features
-- JWT Authentication (Login/Register)
-- Drag & Drop Kanban Board (To Do → In Progress → Completed)
-- Task Priority Management
-- MongoDB Database
-- Responsive Design with Tailwind CSS
+- 📱 **Mobile-First Design** - Perfect responsive UI for mobile & desktop
+- 🔐 JWT Authentication (Login/Register)
+- 📋 Drag & Drop Kanban Board (To Do → In Progress → Completed)
+- 🎯 Task Priority Management
+- 💾 MongoDB Database
+- 🎨 Beautiful UI with Tailwind CSS
+- 📲 PWA Support - Install as mobile app
+- 🍔 Mobile Sidebar with Hamburger Menu
+- 👆 Touch-Optimized Drag & Drop
 
 ## 📁 Project Structure
 ```
@@ -70,6 +74,30 @@ Todo_List/
    ```bash
    npm start
    ```
+
+## 📱 Mobile App (APK)
+
+### Build Android APK
+Detailed guide: See `APK_BUILD_GUIDE.md` and `QUICK_APK_BUILD.md`
+
+**Quick Method:**
+```bash
+cd frontend
+npm install @capacitor/core @capacitor/cli @capacitor/android
+npx cap init "Task Manager" "com.sses.taskmanager" --web-dir=dist
+npm run build
+npx cap add android
+npx cap sync
+npx cap open android
+```
+Then build APK in Android Studio: **Build → Build APK**
+
+### Share APK
+- Direct file share (WhatsApp, Email, Drive)
+- Firebase App Distribution
+- Google Play Store
+
+---
 
 ## 🌐 Deployment
 
