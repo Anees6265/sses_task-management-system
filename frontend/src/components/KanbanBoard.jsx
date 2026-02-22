@@ -275,7 +275,7 @@ const KanbanBoard = () => {
   return (
     <>
       {loading && <Loader />}
-      <div className="min-h-screen bg-gray-100" style={{ paddingTop: 'calc(65px + env(safe-area-inset-top, 0px))' }}>
+      <div className="min-h-screen bg-gray-100 pt-[56px] md:pt-[65px]">
       <Navbar onMenuClick={() => setIsMobileSidebarOpen(true)} />
       
       <div className="flex flex-col md:flex-row">
