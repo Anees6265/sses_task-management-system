@@ -50,7 +50,7 @@ const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobil
       )}
       
       {/* Sidebar */}
-      <aside className={`bg-white border-r border-gray-200 transition-all duration-300 fixed left-0 top-[73px] h-[calc(100vh-73px)] z-50 ${
+      <aside className={`bg-white border-r border-gray-200 transition-all duration-300 fixed left-0 top-[65px] h-[calc(100vh-65px)] z-50 ${
         isMobileOpen ? 'translate-x-0' : '-translate-x-full'
       } md:translate-x-0 ${
         isCollapsed ? 'w-16 md:w-20' : 'w-64'
@@ -58,9 +58,12 @@ const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobil
       <div className="p-2 md:p-4 h-full flex flex-col">
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="w-full mb-4 md:mb-6 p-2 hover:bg-gray-100 rounded-lg transition text-gray-600 text-sm md:text-base flex-shrink-0"
+          className="w-full mb-4 md:mb-6 p-2 hover:bg-gray-100 rounded-lg transition text-gray-600 text-sm md:text-base flex items-center justify-center space-x-2 flex-shrink-0"
         >
-          {isCollapsed ? '→' : '←'}
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            {!isCollapsed && <span>Hide menu</span>}
         </button>
 
         <nav className="space-y-1 md:space-y-2 flex-1 overflow-y-auto">

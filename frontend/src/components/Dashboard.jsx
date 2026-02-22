@@ -174,7 +174,7 @@ const Dashboard = () => {
                         <span>✅</span>
                         <span>Done</span>
                       </span>
-                      <span className="font-semibold text-green-600 text-xs md:text-base">{dept.completed}</span>
+                      <span className="font-semibold text-gray-700 text-xs md:text-base">{dept.completed}</span>
                     </div>
                   </div>
 

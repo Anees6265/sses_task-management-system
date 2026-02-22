@@ -172,7 +172,7 @@ const KanbanBoard = () => {
               ref={provided.innerRef}
               {...provided.droppableProps}
               className={`space-y-2 overflow-y-auto flex-1 pr-1 ${
-                snapshot.isDraggingOver ? 'bg-orange-100 rounded-lg p-2' : ''
+                snapshot.isDraggingOver ? 'bg-gray-200 rounded-lg p-2' : ''
               }`}
               style={{ maxHeight: 'calc(100vh - 280px)' }}
             >
@@ -275,7 +275,7 @@ const KanbanBoard = () => {
   return (
     <>
       {loading && <Loader />}
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50" style={{ paddingTop: 'calc(73px + env(safe-area-inset-top, 0px))' }}>
+      <div className="min-h-screen bg-gray-100" style={{ paddingTop: 'calc(65px + env(safe-area-inset-top, 0px))' }}>
       <Navbar onMenuClick={() => setIsMobileSidebarOpen(true)} />
       
       <div className="flex flex-col md:flex-row">
@@ -316,21 +316,21 @@ const KanbanBoard = () => {
                     tasks={tasks.todo} 
                     droppableId="todo" 
                     emoji="📋" 
-                    bgColor="bg-blue-50"
+                    bgColor="bg-white"
                   />
                   <Column 
                     title="In Progress" 
                     tasks={tasks.inprogress} 
                     droppableId="inprogress" 
                     emoji="🚀" 
-                    bgColor="bg-purple-50"
+                    bgColor="bg-white"
                   />
                   <Column 
                     title="Completed" 
                     tasks={tasks.completed} 
                     droppableId="completed" 
                     emoji="✅" 
-                    bgColor="bg-green-50"
+                    bgColor="bg-white"
                   />
                 </div>
               </DragDropContext>
