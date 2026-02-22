@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 // PRODUCTION: Use your deployed backend URL
-// Replace with your actual Render backend URL
-const API_URL = import.meta.env.VITE_API_URL || 'http://172.19.16.1:5000/api';
+// Replace 'your-backend' with your actual Render app name
+const API_URL = import.meta.env.VITE_API_URL || 'https://sses-task-backend.onrender.com/api';
 
 console.log('=== API Configuration ===');
 console.log('API_URL:', API_URL);
