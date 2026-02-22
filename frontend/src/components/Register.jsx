@@ -3,7 +3,7 @@ import { AuthContext } from '../context/AuthContext.jsx';
 import { departmentAPI } from '../services/api.jsx';
 
 const Register = ({ onClose, isModal = false }) => {
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', department: '', role: 'user' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', department: '', role: 'user', phoneNumber: '', telegramChatId: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [departments, setDepartments] = useState(['ITEG', 'MEG', 'BEG', 'B.Tech']);
@@ -102,16 +102,14 @@ const Register = ({ onClose, isModal = false }) => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
-              <select
+              <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number (Signal)</label>
+              <input
+                type="tel"
+                placeholder="+91XXXXXXXXXX"
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-sm"
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                required
-              >
-                <option value="user">👤 User</option>
-                <option value="admin">👑 Admin</option>
-              </select>
+                value={formData.phoneNumber}
+                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+              />
             </div>
             
             <div>
@@ -126,6 +124,19 @@ const Register = ({ onClose, isModal = false }) => {
                 minLength="6"
               />
             </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+            <select
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-sm"
+              value={formData.role}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+              required
+            >
+              <option value="user">👤 User</option>
+              <option value="admin">👑 Admin</option>
+            </select>
           </div>
           
           {formData.role === 'user' && (

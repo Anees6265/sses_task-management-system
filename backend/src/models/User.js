@@ -30,6 +30,14 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['admin', 'user'],
     default: 'user'
+  },
+  phoneNumber: {
+    type: String,
+    trim: true
+  },
+  telegramChatId: {
+    type: String,
+    trim: true
   }
 }, {
   timestamps: true

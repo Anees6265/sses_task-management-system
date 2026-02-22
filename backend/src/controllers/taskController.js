@@ -1,4 +1,8 @@
 const Task = require('../models/Task');
+const { sendTaskAssignmentEmail } = require('../services/emailService');
+const { sendWhatsAppMessage } = require('../services/whatsappService');
+const { sendSignalMessage } = require('../services/signalService');
+const User = require('../models/User');
 
 exports.getTasks = async (req, res) => {
   try {
@@ -23,6 +27,28 @@ exports.createTask = async (req, res) => {
     const populatedTask = await Task.findById(task._id)
       .populate('assignedTo', 'name email')
       .populate('createdBy', 'name email');
+    
+    if (populatedTask.assignedTo) {
+      await sendTaskAssignmentEmail(
+        populatedTask.assignedTo.email,
+        populatedTask.assignedTo.name,
+        populatedTask.title,
+        populatedTask.description,
+        populatedTask.priority,
+        populatedTask.dueDate
+      );
+      
+      if (populatedTask.assignedTo.phoneNumber) {
+        await sendSignalMessage(
+          populatedTask.assignedTo.phoneNumber,
+          populatedTask.title,
+          populatedTask.description,
+          populatedTask.priority,
+          populatedTask.dueDate
+        );
+      }
+    }
+    
     res.status(201).json(populatedTask);
   } catch (error) {
     res.status(500).json({ message: error.message });
