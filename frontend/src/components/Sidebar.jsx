@@ -50,11 +50,11 @@ const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobil
       )}
       
       {/* Sidebar */}
-      <aside className={`bg-white border-r border-gray-200 transition-all duration-300 fixed left-0 top-[56px] md:top-[65px] h-[calc(100vh-56px)] md:h-[calc(100vh-65px)] z-50 md:z-40 ${
+      <aside className={`bg-white border-r border-gray-200 transition-all duration-300 fixed left-0 z-50 md:z-40 ${
         isMobileOpen ? 'translate-x-0' : '-translate-x-full'
       } md:translate-x-0 ${
         isCollapsed ? 'w-16 md:w-20' : 'w-64'
-      }`}>
+      }`} style={{ top: 'calc(56px + env(safe-area-inset-top, 0px))', height: 'calc(100vh - 56px - env(safe-area-inset-top, 0px))' }}>
       <div className="p-2 md:p-4 h-full flex flex-col">
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
