@@ -275,7 +275,7 @@ const KanbanBoard = () => {
   return (
     <>
       {loading && <Loader />}
-      <div className="min-h-screen bg-gray-100" style={{ paddingTop: 'calc(65px + env(safe-area-inset-top, 0px))' }}>
+      <div className="min-h-screen bg-gray-100 pt-[65px]">
       <Navbar onMenuClick={() => setIsMobileSidebarOpen(true)} />
       
       <div className="flex flex-col md:flex-row">
@@ -287,7 +287,7 @@ const KanbanBoard = () => {
           setIsMobileOpen={setIsMobileSidebarOpen}
         />
         
-        <main className="flex-1 p-3 md:p-6 overflow-x-hidden md:ml-64">
+        <main className="flex-1 p-3 md:p-6 overflow-x-hidden md:ml-64 transition-all duration-300">
           {activeView === 'dashboard' && user?.role === 'admin' && (
             <Dashboard />
           )}

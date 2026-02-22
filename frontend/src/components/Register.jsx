@@ -91,10 +91,18 @@ const Register = ({ onClose, isModal = false }) => {
               <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Email</label>
               <input
                 type="email"
-                placeholder="Enter email"
+                placeholder="Enter @ssism.org email"
                 className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-xs md:text-sm"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => {
+                  const email = e.target.value;
+                  setFormData({ ...formData, email });
+                  if (email && !email.endsWith('@ssism.org')) {
+                    setError('Only @ssism.org email addresses are allowed');
+                  } else {
+                    setError('');
+                  }
+                }}
                 required
               />
             </div>

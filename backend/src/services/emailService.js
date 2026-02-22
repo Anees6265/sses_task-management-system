@@ -13,6 +13,53 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+const sendOTPEmail = async (userEmail, userName, otp) => {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: userEmail,
+    subject: 'Your Login OTP - SSES Task Manager',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb; border-radius: 10px;">
+        <div style="background: linear-gradient(to right, #f97316, #f59e0b); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 28px;">🔐 Login OTP</h1>
+        </div>
+        
+        <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">Hi <strong>${userName}</strong>,</p>
+          
+          <p style="font-size: 16px; color: #374151; margin-bottom: 25px;">Your OTP for login is:</p>
+          
+          <div style="background: #fef3c7; border: 2px solid #f59e0b; padding: 20px; margin-bottom: 25px; border-radius: 8px; text-align: center;">
+            <h2 style="color: #92400e; margin: 0; font-size: 36px; letter-spacing: 8px; font-weight: bold;">${otp}</h2>
+          </div>
+          
+          <p style="font-size: 14px; color: #ef4444; margin-bottom: 20px; font-weight: 600;">⏰ This OTP will expire in 10 minutes</p>
+          
+          <p style="font-size: 14px; color: #6b7280; margin-bottom: 25px;">If you didn't request this OTP, please ignore this email.</p>
+          
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+          
+          <p style="font-size: 12px; color: #9ca3af; text-align: center; margin: 0;">
+            This is an automated message from Sant Singaji Educational Society Task Management System
+          </p>
+        </div>
+      </div>
+    `
+  };
+
+  try {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.log('Email credentials not configured');
+      return;
+    }
+    await transporter.sendMail(mailOptions);
+    console.log(`OTP email sent to ${userEmail}`);
+  } catch (error) {
+    console.error('Error sending OTP email:', error.message);
+    throw error;
+  }
+};
+
 const sendTaskAssignmentEmail = async (userEmail, userName, taskTitle, taskDescription, priority, dueDate) => {
   const mailOptions = {
     from: process.env.EMAIL_USER,
@@ -100,4 +147,4 @@ const sendTaskAssignmentEmail = async (userEmail, userName, taskTitle, taskDescr
   }
 };
 
-module.exports = { sendTaskAssignmentEmail };
+module.exports = { sendTaskAssignmentEmail, sendOTPEmail };
