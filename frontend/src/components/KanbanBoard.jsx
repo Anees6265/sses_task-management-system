@@ -275,7 +275,7 @@ const KanbanBoard = () => {
   return (
     <>
       {loading && <Loader />}
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 pt-[73px]">
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50" style={{ paddingTop: 'calc(73px + env(safe-area-inset-top, 0px))' }}>
       <Navbar onMenuClick={() => setIsMobileSidebarOpen(true)} />
       
       <div className="flex flex-col md:flex-row">
