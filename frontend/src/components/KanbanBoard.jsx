@@ -178,10 +178,14 @@ const KanbanBoard = () => {
             <div
               ref={provided.innerRef}
               {...provided.droppableProps}
-              className={`space-y-2 overflow-y-auto flex-1 pr-1 ${
+              className={`space-y-2 overflow-y-auto flex-1 pr-1 scroll-smooth ${
                 snapshot.isDraggingOver ? 'bg-gray-200 rounded-lg p-2' : ''
               }`}
-              style={{ maxHeight: 'calc(100vh - 280px)' }}
+              style={{ 
+                maxHeight: 'calc(100vh - 280px)',
+                scrollBehavior: 'smooth',
+                WebkitOverflowScrolling: 'touch'
+              }}
             >
               {tasks.map((task, index) => (
                 <Draggable key={task._id} draggableId={task._id} index={index}>
