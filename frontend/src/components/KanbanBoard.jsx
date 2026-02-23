@@ -211,7 +211,7 @@ const KanbanBoard = () => {
                       }`}
                     >
                       <div className="flex justify-between items-start mb-2 gap-2">
-                        <h4 className="font-semibold text-gray-800 flex-1 text-xs md:text-base leading-tight break-words">
+                        <h4 className="font-semibold text-gray-800 flex-1 text-[15px] md:text-base leading-tight break-words">
                           {task.title}
                         </h4>
                         <div className="flex gap-1 flex-shrink-0">
@@ -221,7 +221,7 @@ const KanbanBoard = () => {
                               e.stopPropagation();
                               handleStatusChange(task._id, e.target.value);
                             }}
-                            className="text-[9px] md:text-xs px-0.5 md:px-1.5 py-0.5 border border-gray-300 rounded bg-white hover:bg-gray-50 cursor-pointer leading-tight"
+                            className="text-[11px] md:text-xs px-1 md:px-1.5 py-0.5 border border-gray-300 rounded bg-white hover:bg-gray-50 cursor-pointer leading-tight"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <option value="todo">📋 To Do</option>
@@ -250,7 +250,7 @@ const KanbanBoard = () => {
                       </div>
                       
                       {task.description && (
-                        <p className="text-xs md:text-sm text-gray-600 mb-2 line-clamp-2 break-words">
+                        <p className="text-[13px] md:text-sm text-gray-600 mb-2 line-clamp-2 break-words">
                           {task.description}
                         </p>
                       )}
@@ -258,14 +258,14 @@ const KanbanBoard = () => {
                       {task.assignedTo && (
                         <div className="flex items-center space-x-1 mb-1.5">
                           <span className="text-xs text-gray-500">👤</span>
-                          <span className="text-xs font-medium text-gray-700 truncate">{task.assignedTo.name}</span>
+                          <span className="text-[13px] md:text-sm font-medium text-gray-700 truncate">{task.assignedTo.name}</span>
                         </div>
                       )}
                       
                       {task.dueDate && (
                         <div className="flex items-center space-x-1 mb-2">
                           <span className="text-xs text-gray-500">📅</span>
-                          <span className={`text-xs font-medium ${
+                          <span className={`text-[13px] md:text-sm font-medium ${
                             new Date(task.dueDate) < new Date() && task.status !== 'completed'
                               ? 'text-red-600 font-bold'
                               : 'text-gray-700'
@@ -276,7 +276,7 @@ const KanbanBoard = () => {
                       )}
                       
                       <div className="flex items-center justify-between pt-1.5 border-t border-gray-100">
-                        <span className={`text-[9px] md:text-xs px-1.5 md:px-2 py-0.5 md:py-1 rounded-full font-semibold flex items-center space-x-0.5 md:space-x-1 ${
+                        <span className={`text-[11px] md:text-xs px-1.5 md:px-2 py-0.5 md:py-1 rounded-full font-semibold flex items-center space-x-0.5 md:space-x-1 ${
                           task.priority === 'high' ? 'bg-red-100 text-red-700 border border-red-200' :
                           task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
                           'bg-green-100 text-green-700 border border-green-200'
