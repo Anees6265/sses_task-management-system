@@ -14,7 +14,7 @@ const Navbar = ({ onMenuClick }) => {
 
   return (
     <>
-      <nav className="bg-white border-b border-gray-200 px-3 md:px-6 shadow-sm fixed left-0 right-0 z-[9999] min-h-[56px] md:h-[65px] flex items-center" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
+      <nav className="bg-white border-b border-gray-200 px-3 md:px-6 shadow-sm fixed left-0 right-0 z-50 min-h-[56px] md:h-[65px] flex items-center" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-2 md:space-x-4">
             {/* Mobile Menu Button */}

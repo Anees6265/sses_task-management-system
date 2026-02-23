@@ -69,7 +69,7 @@ const Login = () => {
   return (
     <>
       {loading && <Loader />}
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="bg-white p-6 md:p-10 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100">
         <div className="text-center mb-6 md:mb-8">
           <div className="flex justify-center mb-4">
@@ -176,13 +176,16 @@ const Login = () => {
                 <div>
                   <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2">Enter OTP</label>
                   <input
-                    type="text"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     placeholder="Enter 6-digit OTP"
                     className="w-full px-3 md:px-4 py-2.5 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-sm md:text-base text-center text-2xl tracking-widest"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     required
                     maxLength="6"
+                    autoComplete="one-time-code"
                   />
                 </div>
                 

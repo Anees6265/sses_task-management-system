@@ -32,7 +32,7 @@ const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobil
 
   const userMenuItems = [
     { id: 'board', icon: '📊', label: 'Kanban Board' },
-    { id: 'tasks', icon: '✅', label: 'All Tasks' },
+    { id: 'chats', icon: '💬', label: 'Chats' },
     { id: 'analytics', icon: '📈', label: 'Analytics' },
     { id: 'settings', icon: '⚙️', label: 'Settings' }
   ];

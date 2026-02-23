@@ -6,7 +6,10 @@ import { useLanguage } from '../context/LanguageContext.jsx';
 import Navbar from './Navbar.jsx';
 import Sidebar from './Sidebar.jsx';
 import Dashboard from './Dashboard.jsx';
+import TaskChats from './TaskChats.jsx';
 import Loader from './Loader.jsx';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const KanbanBoard = () => {
   const [tasks, setTasks] = useState({ todo: [], inprogress: [], completed: [] });
@@ -117,8 +120,10 @@ const KanbanBoard = () => {
       
       if (editingTask) {
         await taskAPI.updateTask(editingTask._id, taskData);
+        toast.success('Task updated successfully!', { position: 'top-right', autoClose: 3000 });
       } else {
         await taskAPI.createTask(taskData);
+        toast.success('Task created successfully!', { position: 'top-right', autoClose: 3000 });
       }
       
       setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
@@ -276,6 +281,7 @@ const KanbanBoard = () => {
 
   return (
     <>
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme="light" style={{ zIndex: 9999 }} />
       {loading && <Loader />}
       <div className="min-h-screen bg-gray-100 pt-[56px] md:pt-[65px]">
       <Navbar onMenuClick={() => setIsMobileSidebarOpen(true)} />
@@ -294,7 +300,7 @@ const KanbanBoard = () => {
             <Dashboard />
           )}
 
-          {activeView !== 'dashboard' && activeView !== 'tasks' && activeView !== 'analytics' && activeView !== 'settings' && (
+          {activeView !== 'dashboard' && activeView !== 'chats' && activeView !== 'analytics' && activeView !== 'settings' && (
             <>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 md:mb-6 gap-2 md:gap-3">
                 <div>
@@ -339,11 +345,8 @@ const KanbanBoard = () => {
             </>
           )}
 
-          {activeView === 'tasks' && (
-            <div className="bg-white rounded-xl p-4 md:p-8 border border-gray-200">
-              <h2 className="text-lg md:text-2xl font-bold text-gray-800 mb-4">{t('allTasks')}</h2>
-              <p className="text-gray-600 text-sm md:text-base">{t('comingSoon')}</p>
-            </div>
+          {activeView === 'chats' && (
+            <TaskChats />
           )}
 
           {activeView === 'analytics' && (
@@ -363,18 +366,37 @@ const KanbanBoard = () => {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3">
-          <div className="bg-white p-4 md:p-8 rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-base md:text-2xl font-bold mb-3 md:mb-6 text-gray-800">
-              {editingTask ? t('editTask') : t('createTask')}
-            </h2>
-            <form onSubmit={handleCreateTask} className="space-y-2.5 md:space-y-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4" onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowModal(false);
+            setEditingTask(null);
+            setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
+          }
+        }}>
+          <div className="bg-white p-4 sm:p-6 md:p-8 rounded-xl md:rounded-2xl w-full max-w-[95%] sm:max-w-xl md:max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4 sm:mb-5 md:mb-6">
+              <h2 className="text-base sm:text-lg md:text-2xl font-bold text-gray-800">
+                {editingTask ? t('editTask') : t('createTask')}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowModal(false);
+                  setEditingTask(null);
+                  setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
+                }}
+                className="text-gray-400 hover:text-gray-600 text-2xl sm:text-3xl font-light leading-none"
+              >
+                ×
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateTask} className="space-y-3 sm:space-y-4">
               <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">{t('taskTitle')}</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">{t('taskTitle')} *</label>
                 <input
                   type="text"
                   placeholder={t('enterTitle')}
-                  className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs md:text-base"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs sm:text-sm"
                   value={newTask.title}
                   onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                   required
@@ -382,75 +404,79 @@ const KanbanBoard = () => {
               </div>
               
               <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">{t('description')}</label>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">{t('description')}</label>
                 <textarea
                   placeholder={t('enterDescription')}
-                  className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs md:text-base"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs sm:text-sm resize-none"
                   value={newTask.description}
                   onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                   rows="3"
                 />
               </div>
               
-              <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">{t('priority')}</label>
-                <select
-                  className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs md:text-base"
-                  value={newTask.priority}
-                  onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
-                >
-                  <option value="low">🟢 {t('lowPriority')}</option>
-                  <option value="medium">🟡 {t('mediumPriority')}</option>
-                  <option value="high">🔴 {t('highPriority')}</option>
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">{t('priority')}</label>
+                  <select
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs sm:text-sm"
+                    value={newTask.priority}
+                    onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
+                  >
+                    <option value="low">🟢 {t('lowPriority')}</option>
+                    <option value="medium">🟡 {t('mediumPriority')}</option>
+                    <option value="high">🔴 {t('highPriority')}</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">{t('dueDate')}</label>
+                  <input
+                    type="date"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs sm:text-sm"
+                    value={newTask.dueDate}
+                    onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
               </div>
               
-              {user?.role === 'admin' && (
-                <div>
-                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">{t('selectDepartment')} *</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                {user?.role === 'admin' && (
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">{t('selectDepartment')} *</label>
+                    <select
+                      className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs sm:text-sm"
+                      value={newTask.department}
+                      onChange={(e) => setNewTask({ ...newTask, department: e.target.value })}
+                      required={user?.role === 'admin'}
+                    >
+                      <option value="">{t('selectDepartment')}</option>
+                      {departments.map(dept => (
+                        <option key={dept} value={dept}>{dept}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                
+                <div className={user?.role === 'admin' ? '' : 'sm:col-span-2'}>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">{t('assignTo')}</label>
                   <select
-                    className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs md:text-base"
-                    value={newTask.department}
-                    onChange={(e) => setNewTask({ ...newTask, department: e.target.value })}
-                    required={user?.role === 'admin'}
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs sm:text-sm"
+                    value={newTask.assignedTo}
+                    onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
                   >
-                    <option value="">{t('selectDepartment')}</option>
-                    {departments.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
+                    <option value="">{t('unassigned')}</option>
+                    {users.map(u => (
+                      <option key={u._id} value={u._id}>{u.name} ({u.email})</option>
                     ))}
                   </select>
                 </div>
-              )}
-              
-              <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">{t('dueDate')}</label>
-                <input
-                  type="date"
-                  className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs md:text-base"
-                  value={newTask.dueDate}
-                  onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
-                  min={new Date().toISOString().split('T')[0]}
-                />
               </div>
               
-              <div>
-                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">{t('assignTo')}</label>
-                <select
-                  className="w-full px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs md:text-base"
-                  value={newTask.assignedTo}
-                  onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
-                >
-                  <option value="">{t('unassigned')}</option>
-                  {users.map(u => (
-                    <option key={u._id} value={u._id}>{u.name} ({u.email})</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row gap-2 md:gap-3 mt-4 md:mt-6">
+              <div className="flex gap-2 sm:gap-3 pt-3 sm:pt-4 border-t">
                 <button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2 md:py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition shadow-lg text-xs md:text-base"
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2 sm:py-2.5 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition shadow-lg text-xs sm:text-sm"
                 >
                   {editingTask ? t('updateTask') : t('createTaskBtn')}
                 </button>
@@ -461,7 +487,7 @@ const KanbanBoard = () => {
                     setEditingTask(null);
                     setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
                   }}
-                  className="flex-1 bg-gray-100 text-gray-700 py-2 md:py-3 rounded-lg font-semibold hover:bg-gray-200 transition text-xs md:text-base"
+                  className="flex-1 bg-gray-100 text-gray-700 py-2 sm:py-2.5 rounded-lg font-semibold hover:bg-gray-200 transition text-xs sm:text-sm"
                 >
                   {t('cancel')}
                 </button>
