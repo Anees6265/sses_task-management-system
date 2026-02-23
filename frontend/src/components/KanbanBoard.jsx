@@ -160,6 +160,15 @@ const KanbanBoard = () => {
     }
   };
 
+  const handleStatusChange = async (taskId, newStatus) => {
+    try {
+      await taskAPI.updateTask(taskId, { status: newStatus });
+      fetchTasks();
+    } catch (error) {
+      console.error('Error updating task status:', error);
+    }
+  };
+
   const Column = ({ title, tasks, droppableId, emoji, bgColor }) => (
     <div className="w-full lg:flex-1 lg:min-w-[300px] h-[calc(100vh-180px)] md:h-[calc(100vh-200px)]">
       <div className={`${bgColor} rounded-lg md:rounded-xl p-2.5 md:p-4 h-full border-2 border-gray-200 shadow-sm flex flex-col`}>
@@ -203,6 +212,19 @@ const KanbanBoard = () => {
                           {task.title}
                         </h4>
                         <div className="flex gap-1 flex-shrink-0">
+                          <select
+                            value={task.status}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleStatusChange(task._id, e.target.value);
+                            }}
+                            className="text-xs px-1.5 py-0.5 border border-gray-300 rounded bg-white hover:bg-gray-50 cursor-pointer"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="todo">📋 To Do</option>
+                            <option value="inprogress">🚀 In Progress</option>
+                            <option value="completed">✅ Completed</option>
+                          </select>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
