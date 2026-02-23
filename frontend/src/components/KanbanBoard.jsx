@@ -126,12 +126,16 @@ const KanbanBoard = () => {
         toast.success('Task created successfully!', { position: 'top-right', autoClose: 3000 });
       }
       
+      // Reset form and close modal
       setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
       setEditingTask(null);
       setShowModal(false);
-      fetchTasks();
+      
+      // Refresh tasks immediately
+      await fetchTasks();
     } catch (error) {
       console.error('Error saving task:', error);
+      toast.error('Failed to save task', { position: 'top-right', autoClose: 3000 });
     } finally {
       setLoading(false);
     }
@@ -311,7 +315,24 @@ const KanbanBoard = () => {
 
   return (
     <>
-      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme="light" style={{ zIndex: 9999 }} />
+      <ToastContainer 
+        position="top-center" 
+        autoClose={3000} 
+        hideProgressBar={false} 
+        newestOnTop 
+        closeOnClick 
+        rtl={false} 
+        pauseOnFocusLoss 
+        draggable 
+        pauseOnHover 
+        theme="light" 
+        style={{ zIndex: 9999, top: '70px' }}
+        toastStyle={{
+          fontSize: '14px',
+          padding: '12px',
+          borderRadius: '8px'
+        }}
+      />
       {loading && <Loader />}
       <div className="min-h-screen bg-gray-100 pt-[56px] md:pt-[65px]">
       <Navbar onMenuClick={() => setIsMobileSidebarOpen(true)} />
