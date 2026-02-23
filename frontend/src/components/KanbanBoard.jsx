@@ -169,9 +169,12 @@ const KanbanBoard = () => {
     }
   };
 
-  const Column = ({ title, tasks, droppableId, emoji, bgColor }) => (
-    <div className="w-full lg:flex-1 lg:min-w-[300px] h-[calc(100vh-180px)] md:h-[calc(100vh-200px)]">
-      <div className={`${bgColor} rounded-lg md:rounded-xl p-2.5 md:p-4 h-full border-2 border-gray-200 shadow-sm flex flex-col`}>
+  const Column = ({ title, tasks, droppableId, emoji, bgColor }) => {
+    const hasScroll = tasks.length > 5;
+    
+    return (
+    <div className="w-full lg:flex-1 lg:min-w-[300px]" style={{ height: hasScroll ? 'calc(100vh-180px)' : 'auto', minHeight: hasScroll ? 'auto' : '200px' }}>
+      <div className={`${bgColor} rounded-lg md:rounded-xl p-2.5 md:p-4 ${hasScroll ? 'h-full' : 'min-h-[180px]'} border-2 border-gray-200 shadow-sm flex flex-col`}>
         <div className="flex items-center justify-between mb-2.5 md:mb-4 pb-2 md:pb-3 border-b-2 border-gray-200 flex-shrink-0">
           <h3 className="font-bold text-xs md:text-lg text-gray-800 flex items-center space-x-1.5 md:space-x-2">
             <span className="text-base md:text-2xl">{emoji}</span>
@@ -187,11 +190,11 @@ const KanbanBoard = () => {
             <div
               ref={provided.innerRef}
               {...provided.droppableProps}
-              className={`space-y-2 overflow-y-auto flex-1 pr-1 scroll-smooth ${
+              className={`space-y-2 ${hasScroll ? 'overflow-y-auto flex-1' : ''} pr-1 scroll-smooth ${
                 snapshot.isDraggingOver ? 'bg-gray-200 rounded-lg p-2' : ''
               }`}
               style={{ 
-                maxHeight: 'calc(100vh - 280px)',
+                maxHeight: hasScroll ? 'calc(100vh - 280px)' : 'none',
                 scrollBehavior: 'smooth',
                 WebkitOverflowScrolling: 'touch'
               }}
@@ -218,7 +221,7 @@ const KanbanBoard = () => {
                               e.stopPropagation();
                               handleStatusChange(task._id, e.target.value);
                             }}
-                            className="text-xs px-1.5 py-0.5 border border-gray-300 rounded bg-white hover:bg-gray-50 cursor-pointer"
+                            className="text-[9px] md:text-xs px-0.5 md:px-1.5 py-0.5 border border-gray-300 rounded bg-white hover:bg-gray-50 cursor-pointer leading-tight"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <option value="todo">📋 To Do</option>
@@ -273,12 +276,12 @@ const KanbanBoard = () => {
                       )}
                       
                       <div className="flex items-center justify-between pt-1.5 border-t border-gray-100">
-                        <span className={`text-xs px-2 py-1 rounded-full font-semibold flex items-center space-x-1 ${
+                        <span className={`text-[9px] md:text-xs px-1.5 md:px-2 py-0.5 md:py-1 rounded-full font-semibold flex items-center space-x-0.5 md:space-x-1 ${
                           task.priority === 'high' ? 'bg-red-100 text-red-700 border border-red-200' :
                           task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
                           'bg-green-100 text-green-700 border border-green-200'
                         }`}>
-                          <span>{task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢'}</span>
+                          <span className="text-[10px] md:text-xs">{task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢'}</span>
                           <span className="capitalize hidden sm:inline">{task.priority}</span>
                         </span>
                         
@@ -304,6 +307,7 @@ const KanbanBoard = () => {
       </div>
     </div>
   );
+  };
 
   return (
     <>
