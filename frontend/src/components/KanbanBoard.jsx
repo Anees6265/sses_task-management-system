@@ -161,7 +161,7 @@ const KanbanBoard = () => {
   };
 
   const Column = ({ title, tasks, droppableId, emoji, bgColor }) => (
-    <div className="w-full lg:flex-1 lg:min-w-[300px] h-[400px] lg:h-[calc(100vh-200px)]">
+    <div className="w-full lg:flex-1 lg:min-w-[300px] h-[calc(100vh-180px)] md:h-[calc(100vh-200px)]">
       <div className={`${bgColor} rounded-lg md:rounded-xl p-2.5 md:p-4 h-full border-2 border-gray-200 shadow-sm flex flex-col`}>
         <div className="flex items-center justify-between mb-2.5 md:mb-4 pb-2 md:pb-3 border-b-2 border-gray-200 flex-shrink-0">
           <h3 className="font-bold text-xs md:text-lg text-gray-800 flex items-center space-x-1.5 md:space-x-2">
@@ -322,7 +322,7 @@ const KanbanBoard = () => {
               </div>
 
               <DragDropContext onDragEnd={handleDragEnd}>
-                <div className="flex flex-col lg:grid lg:grid-cols-3 gap-3 md:gap-6">
+                <div className="flex flex-col lg:grid lg:grid-cols-3 gap-3 md:gap-6 overflow-x-hidden">
                   <Column 
                     title={t('todo')} 
                     tasks={tasks.todo} 
