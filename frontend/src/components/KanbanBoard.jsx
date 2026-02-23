@@ -102,40 +102,42 @@ const KanbanBoard = () => {
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    try {
-      const taskData = { ...newTask };
-      if (!taskData.assignedTo) delete taskData.assignedTo;
-      if (!taskData.dueDate) delete taskData.dueDate;
-      
-      if (user?.role === 'admin') {
-        if (!taskData.department) {
-          alert('Please select a department');
-          setLoading(false);
-          return;
-        }
-      } else {
-        delete taskData.department;
+    
+    const taskData = { ...newTask };
+    if (!taskData.assignedTo) delete taskData.assignedTo;
+    if (!taskData.dueDate) delete taskData.dueDate;
+    
+    if (user?.role === 'admin') {
+      if (!taskData.department) {
+        toast.error('Please select a department', { position: 'top-center', autoClose: 2000 });
+        return;
       }
-      
+    } else {
+      delete taskData.department;
+    }
+    
+    // Close modal immediately for better UX
+    setShowModal(false);
+    setLoading(true);
+    
+    try {
       if (editingTask) {
         await taskAPI.updateTask(editingTask._id, taskData);
-        toast.success('Task updated successfully!', { position: 'top-right', autoClose: 3000 });
+        toast.success('✅ Task updated!', { position: 'top-center', autoClose: 2000 });
       } else {
         await taskAPI.createTask(taskData);
-        toast.success('Task created successfully!', { position: 'top-right', autoClose: 3000 });
+        toast.success('✅ Task created!', { position: 'top-center', autoClose: 2000 });
       }
       
-      // Reset form and close modal
+      // Reset form
       setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
       setEditingTask(null);
-      setShowModal(false);
       
-      // Refresh tasks immediately
+      // Refresh tasks
       await fetchTasks();
     } catch (error) {
       console.error('Error saving task:', error);
-      toast.error('Failed to save task', { position: 'top-right', autoClose: 3000 });
+      toast.error('❌ Failed to save task', { position: 'top-center', autoClose: 3000 });
     } finally {
       setLoading(false);
     }
@@ -417,14 +419,24 @@ const KanbanBoard = () => {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4" onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            setShowModal(false);
-            setEditingTask(null);
-            setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
-          }
-        }}>
-          <div className="bg-white p-4 sm:p-6 md:p-8 rounded-xl md:rounded-2xl w-full max-w-[95%] sm:max-w-xl md:max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4" 
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowModal(false);
+              setEditingTask(null);
+              setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
+            }
+          }}
+          onTouchStart={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowModal(false);
+              setEditingTask(null);
+              setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
+            }
+          }}
+        >
+          <div className="bg-white p-4 sm:p-6 md:p-8 rounded-xl md:rounded-2xl w-full max-w-[95%] sm:max-w-xl md:max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto" onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4 sm:mb-5 md:mb-6">
               <h2 className="text-base sm:text-lg md:text-2xl font-bold text-gray-800">
                 {editingTask ? t('editTask') : t('createTask')}
@@ -527,18 +539,20 @@ const KanbanBoard = () => {
               <div className="flex gap-2 sm:gap-3 pt-3 sm:pt-4 border-t">
                 <button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2 sm:py-2.5 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition shadow-lg text-xs sm:text-sm"
+                  disabled={loading}
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2 sm:py-2.5 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition shadow-lg text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {editingTask ? t('updateTask') : t('createTaskBtn')}
+                  {loading ? '⏳ Saving...' : (editingTask ? t('updateTask') : t('createTaskBtn'))}
                 </button>
                 <button
                   type="button"
+                  disabled={loading}
                   onClick={() => {
                     setShowModal(false);
                     setEditingTask(null);
                     setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
                   }}
-                  className="flex-1 bg-gray-100 text-gray-700 py-2 sm:py-2.5 rounded-lg font-semibold hover:bg-gray-200 transition text-xs sm:text-sm"
+                  className="flex-1 bg-gray-100 text-gray-700 py-2 sm:py-2.5 rounded-lg font-semibold hover:bg-gray-200 transition text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {t('cancel')}
                 </button>
