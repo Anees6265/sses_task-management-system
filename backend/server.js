@@ -6,6 +6,7 @@ const authRoutes = require('./src/routes/authRoutes');
 const taskRoutes = require('./src/routes/taskRoutes');
 const userRoutes = require('./src/routes/userRoutes');
 const departmentRoutes = require('./src/routes/departmentRoutes');
+const healthRoutes = require('./src/routes/healthRoutes');
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/departments', departmentRoutes);
+app.use('/api', healthRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Task Manager API Running' });
