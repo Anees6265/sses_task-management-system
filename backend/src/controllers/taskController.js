@@ -26,19 +26,21 @@ exports.createTask = async (req, res) => {
       .populate('assignedTo', 'name email phoneNumber')
       .populate('createdBy', 'name email');
     
-    // Send notifications asynchronously
-    if (populatedTask.assignedTo) {
+    // Send notifications to all assigned users
+    if (populatedTask.assignedTo && populatedTask.assignedTo.length > 0) {
       console.log('📧 Sending notifications for task:', populatedTask.title);
       
-      // Email notification
-      sendTaskAssignmentEmail(
-        populatedTask.assignedTo.email,
-        populatedTask.assignedTo.name,
-        populatedTask.title,
-        populatedTask.description,
-        populatedTask.priority,
-        populatedTask.dueDate
-      ).catch(err => console.error('❌ Email notification failed:', err.message));
+      // Send email to each assigned user
+      populatedTask.assignedTo.forEach(user => {
+        sendTaskAssignmentEmail(
+          user.email,
+          user.name,
+          populatedTask.title,
+          populatedTask.description,
+          populatedTask.priority,
+          populatedTask.dueDate
+        ).catch(err => console.error(`❌ Email failed for ${user.email}:`, err.message));
+      });
     }
     
     res.status(201).json(populatedTask);

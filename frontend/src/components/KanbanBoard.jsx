@@ -16,7 +16,8 @@ const KanbanBoard = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
+  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '', assignType: 'single', assignedUsers: [] });
+  const [userSearchQuery, setUserSearchQuery] = useState('');
   const [activeView, setActiveView] = useState('board');
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -104,7 +105,22 @@ const KanbanBoard = () => {
     e.preventDefault();
     
     const taskData = { ...newTask };
-    if (!taskData.assignedTo) delete taskData.assignedTo;
+    
+    // Handle assignment based on type
+    if (newTask.assignType === 'multi') {
+      taskData.assignedTo = newTask.assignedUsers;
+      delete taskData.assignType;
+      delete taskData.assignedUsers;
+    } else {
+      if (!taskData.assignedTo) {
+        taskData.assignedTo = [];
+      } else {
+        taskData.assignedTo = [taskData.assignedTo];
+      }
+      delete taskData.assignType;
+      delete taskData.assignedUsers;
+    }
+    
     if (!taskData.dueDate) delete taskData.dueDate;
     
     if (user?.role === 'admin') {
@@ -130,7 +146,8 @@ const KanbanBoard = () => {
       }
       
       // Reset form
-      setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
+      setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '', assignType: 'single', assignedUsers: [] });
+      setUserSearchQuery('');
       setEditingTask(null);
       
       // Refresh tasks
@@ -145,13 +162,19 @@ const KanbanBoard = () => {
 
   const handleEditTask = (task) => {
     setEditingTask(task);
+    const assignedIds = Array.isArray(task.assignedTo) 
+      ? task.assignedTo.map(u => u._id || u)
+      : task.assignedTo ? [task.assignedTo._id || task.assignedTo] : [];
+    
     setNewTask({
       title: task.title,
       description: task.description || '',
       priority: task.priority,
       dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
-      assignedTo: task.assignedTo?._id || task.assignedTo || '',
-      department: task.department || ''
+      assignedTo: assignedIds.length === 1 ? assignedIds[0] : '',
+      department: task.department || '',
+      assignType: assignedIds.length > 1 ? 'multi' : 'single',
+      assignedUsers: assignedIds.length > 1 ? assignedIds : []
     });
     setShowModal(true);
   };
@@ -261,10 +284,14 @@ const KanbanBoard = () => {
                         </p>
                       )}
                       
-                      {task.assignedTo && (
+                      {task.assignedTo && task.assignedTo.length > 0 && (
                         <div className="flex items-center space-x-1 mb-1.5">
                           <span className="text-xs text-gray-500">👤</span>
-                          <span className="text-[13px] md:text-sm font-medium text-gray-700 truncate">{task.assignedTo.name}</span>
+                          <span className="text-[13px] md:text-sm font-medium text-gray-700 truncate">
+                            {Array.isArray(task.assignedTo) 
+                              ? task.assignedTo.map(u => u.name).join(', ')
+                              : task.assignedTo.name}
+                          </span>
                         </div>
                       )}
                       
@@ -425,14 +452,16 @@ const KanbanBoard = () => {
             if (e.target === e.currentTarget) {
               setShowModal(false);
               setEditingTask(null);
-              setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
+              setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '', assignType: 'single', assignedUsers: [] });
+              setUserSearchQuery('');
             }
           }}
           onTouchStart={(e) => {
             if (e.target === e.currentTarget) {
               setShowModal(false);
               setEditingTask(null);
-              setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
+              setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '', assignType: 'single', assignedUsers: [] });
+              setUserSearchQuery('');
             }
           }}
         >
@@ -445,7 +474,8 @@ const KanbanBoard = () => {
                 onClick={() => {
                   setShowModal(false);
                   setEditingTask(null);
-                  setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
+                  setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '', assignType: 'single', assignedUsers: [] });
+                  setUserSearchQuery('');
                 }}
                 className="text-gray-400 hover:text-gray-600 text-2xl sm:text-3xl font-light leading-none"
               >
@@ -520,9 +550,40 @@ const KanbanBoard = () => {
                     </select>
                   </div>
                 )}
+              </div>
+              
+              {/* Assign To Section - Full Width */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">{t('assignTo')}</label>
                 
-                <div className={user?.role === 'admin' ? '' : 'sm:col-span-2'}>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">{t('assignTo')}</label>
+                {/* Radio Buttons */}
+                <div className="flex gap-3 sm:gap-4 mb-3">
+                  <label className="flex items-center gap-1.5 sm:gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="assignType"
+                      value="single"
+                      checked={newTask.assignType === 'single'}
+                      onChange={(e) => setNewTask({ ...newTask, assignType: e.target.value, assignedUsers: [] })}
+                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-500"
+                    />
+                    <span className="text-[11px] sm:text-sm text-gray-700 font-medium">Single Assign</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 sm:gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="assignType"
+                      value="multi"
+                      checked={newTask.assignType === 'multi'}
+                      onChange={(e) => setNewTask({ ...newTask, assignType: e.target.value, assignedTo: '' })}
+                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-500"
+                    />
+                    <span className="text-[11px] sm:text-sm text-gray-700 font-medium">Multi Assign</span>
+                  </label>
+                </div>
+                
+                {/* Single Select Dropdown */}
+                {newTask.assignType === 'single' && (
                   <select
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-xs sm:text-sm"
                     value={newTask.assignedTo}
@@ -533,7 +594,63 @@ const KanbanBoard = () => {
                       <option key={u._id} value={u._id}>{u.name} ({u.email})</option>
                     ))}
                   </select>
-                </div>
+                )}
+                
+                {/* Multi Select with Search */}
+                {newTask.assignType === 'multi' && (
+                  <div className="border border-gray-300 rounded-lg overflow-hidden">
+                    {/* Search Bar */}
+                    <div className="p-2 bg-gray-50 border-b border-gray-300">
+                      <input
+                        type="text"
+                        placeholder="🔍 Search users..."
+                        value={userSearchQuery}
+                        onChange={(e) => setUserSearchQuery(e.target.value)}
+                        className="w-full px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400"
+                      />
+                    </div>
+                    
+                    {/* Selected Count */}
+                    {newTask.assignedUsers.length > 0 && (
+                      <div className="px-2.5 sm:px-3 py-1.5 bg-orange-50 border-b border-orange-200 text-[11px] sm:text-xs text-orange-700 font-medium">
+                        ✓ {newTask.assignedUsers.length} user{newTask.assignedUsers.length > 1 ? 's' : ''} selected
+                      </div>
+                    )}
+                    
+                    {/* User List */}
+                    <div className="p-2 sm:p-3 max-h-36 sm:max-h-40 overflow-y-auto space-y-1.5 sm:space-y-2">
+                      {users.filter(u => 
+                        u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                        u.email.toLowerCase().includes(userSearchQuery.toLowerCase())
+                      ).length === 0 ? (
+                        <p className="text-[11px] sm:text-xs text-gray-500 text-center py-2">No users found</p>
+                      ) : (
+                        users
+                          .filter(u => 
+                            u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                            u.email.toLowerCase().includes(userSearchQuery.toLowerCase())
+                          )
+                          .map(u => (
+                            <label key={u._id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1.5 rounded active:bg-gray-100">
+                              <input
+                                type="checkbox"
+                                checked={newTask.assignedUsers.includes(u._id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setNewTask({ ...newTask, assignedUsers: [...newTask.assignedUsers, u._id] });
+                                  } else {
+                                    setNewTask({ ...newTask, assignedUsers: newTask.assignedUsers.filter(id => id !== u._id) });
+                                  }
+                                }}
+                                className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-500 rounded flex-shrink-0"
+                              />
+                              <span className="text-[11px] sm:text-sm text-gray-700 leading-tight">{u.name} ({u.email})</span>
+                            </label>
+                          ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div className="flex gap-2 sm:gap-3 pt-3 sm:pt-4 border-t">
@@ -550,7 +667,8 @@ const KanbanBoard = () => {
                   onClick={() => {
                     setShowModal(false);
                     setEditingTask(null);
-                    setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '' });
+                    setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '', assignType: 'single', assignedUsers: [] });
+                    setUserSearchQuery('');
                   }}
                   className="flex-1 bg-gray-100 text-gray-700 py-2 sm:py-2.5 rounded-lg font-semibold hover:bg-gray-200 transition text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
