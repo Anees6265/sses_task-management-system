@@ -25,32 +25,38 @@ exports.createTask = async (req, res) => {
       createdBy: req.user._id
     });
     const populatedTask = await Task.findById(task._id)
-      .populate('assignedTo', 'name email')
+      .populate('assignedTo', 'name email phoneNumber')
       .populate('createdBy', 'name email');
     
+    // Send notifications asynchronously
     if (populatedTask.assignedTo) {
-      await sendTaskAssignmentEmail(
+      console.log('📧 Sending notifications for task:', populatedTask.title);
+      
+      // Email notification
+      sendTaskAssignmentEmail(
         populatedTask.assignedTo.email,
         populatedTask.assignedTo.name,
         populatedTask.title,
         populatedTask.description,
         populatedTask.priority,
         populatedTask.dueDate
-      );
+      ).catch(err => console.error('❌ Email notification failed:', err.message));
       
+      // Signal notification (if phone number exists)
       if (populatedTask.assignedTo.phoneNumber) {
-        await sendSignalMessage(
+        sendSignalMessage(
           populatedTask.assignedTo.phoneNumber,
           populatedTask.title,
           populatedTask.description,
           populatedTask.priority,
           populatedTask.dueDate
-        );
+        ).catch(err => console.error('❌ Signal notification failed:', err.message));
       }
     }
     
     res.status(201).json(populatedTask);
   } catch (error) {
+    console.error('❌ Task creation error:', error);
     res.status(500).json({ message: error.message });
   }
 };

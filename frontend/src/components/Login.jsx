@@ -40,11 +40,13 @@ const Login = () => {
       console.log('OTP sent successfully:', response.data);
       setOtpSent(true);
       setError('');
+      alert('OTP sent successfully! Check your email.');
     } catch (err) {
       console.error('OTP send error:', err);
       console.error('Error response:', err.response);
-      const errorMsg = err.response?.data?.message || err.message || 'Failed to send OTP';
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to send OTP. Please check your internet connection.';
       setError(errorMsg);
+      alert('Failed to send OTP: ' + errorMsg);
     } finally {
       setLoading(false);
     }
@@ -52,15 +54,22 @@ const Login = () => {
 
   const handleVerifyOTP = async (e) => {
     e.preventDefault();
+    if (!otp || otp.length !== 6) {
+      setError('Please enter a valid 6-digit OTP');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
       const { data } = await api.post('/auth/verify-otp', { email: formData.email, otp });
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data));
+      alert('Login successful!');
       window.location.reload();
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid OTP');
+      const errorMsg = err.response?.data?.message || 'Invalid OTP. Please try again.';
+      setError(errorMsg);
+      alert('Verification failed: ' + errorMsg);
     } finally {
       setLoading(false);
     }

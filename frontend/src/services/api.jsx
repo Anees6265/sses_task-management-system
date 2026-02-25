@@ -80,6 +80,30 @@ export const authAPI = {
     }
   },
   
+  sendOTP: async (email) => {
+    try {
+      console.log('Sending OTP to:', email);
+      const response = await api.post('/auth/send-otp', { email });
+      console.log('OTP sent successfully');
+      return response;
+    } catch (error) {
+      console.error('Send OTP failed:', error);
+      throw error;
+    }
+  },
+  
+  verifyOTP: async (email, otp) => {
+    try {
+      console.log('Verifying OTP for:', email);
+      const response = await api.post('/auth/verify-otp', { email, otp });
+      console.log('OTP verified successfully');
+      return response;
+    } catch (error) {
+      console.error('Verify OTP failed:', error);
+      throw error;
+    }
+  },
+  
   getMe: async () => {
     try {
       return await api.get('/auth/me');

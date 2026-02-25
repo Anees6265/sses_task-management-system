@@ -10,12 +10,15 @@ const transporter = nodemailer.createTransport({
   },
   tls: {
     rejectUnauthorized: false
-  }
+  },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000
 });
 
 const sendOTPEmail = async (userEmail, userName, otp) => {
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: `"SSES Task Manager" <${process.env.EMAIL_USER}>`,
     to: userEmail,
     subject: 'Your Login OTP - SSES Task Manager',
     html: `
@@ -49,20 +52,24 @@ const sendOTPEmail = async (userEmail, userName, otp) => {
 
   try {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.log('Email credentials not configured');
-      return;
+      console.error('❌ Email credentials not configured');
+      throw new Error('Email service not configured');
     }
-    await transporter.sendMail(mailOptions);
-    console.log(`OTP email sent to ${userEmail}`);
+    
+    console.log('📧 Attempting to send OTP email to:', userEmail);
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ OTP email sent successfully:', info.messageId);
+    return info;
   } catch (error) {
-    console.error('Error sending OTP email:', error.message);
+    console.error('❌ Error sending OTP email:', error.message);
+    console.error('Full error:', error);
     throw error;
   }
 };
 
 const sendTaskAssignmentEmail = async (userEmail, userName, taskTitle, taskDescription, priority, dueDate) => {
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: `"SSES Task Manager" <${process.env.EMAIL_USER}>`,
     to: userEmail,
     subject: `New Task Assigned: ${taskTitle}`,
     html: `
@@ -137,13 +144,16 @@ const sendTaskAssignmentEmail = async (userEmail, userName, taskTitle, taskDescr
 
   try {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.log('Email credentials not configured');
+      console.error('❌ Email credentials not configured');
       return;
     }
-    await transporter.sendMail(mailOptions);
-    console.log(`Email sent to ${userEmail}`);
+    console.log('📧 Attempting to send task assignment email to:', userEmail);
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Task assignment email sent successfully:', info.messageId);
+    return info;
   } catch (error) {
-    console.error('Error sending email:', error.message);
+    console.error('❌ Error sending task assignment email:', error.message);
+    console.error('Full error:', error);
   }
 };
 

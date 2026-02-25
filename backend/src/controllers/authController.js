@@ -69,14 +69,16 @@ exports.sendOTP = async (req, res) => {
   try {
     const { email } = req.body;
 
-    console.log('OTP request for email:', email);
+    console.log('📧 OTP request received for email:', email);
 
     if (!email.endsWith('@ssism.org')) {
+      console.log('❌ Invalid email domain:', email);
       return res.status(400).json({ message: 'Only @ssism.org email addresses are allowed' });
     }
 
     const user = await User.findOne({ email });
     if (!user) {
+      console.log('❌ User not found:', email);
       return res.status(404).json({ message: 'User not found with this email' });
     }
 
@@ -85,19 +87,22 @@ exports.sendOTP = async (req, res) => {
     user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
 
-    console.log('OTP generated:', otp);
+    console.log('✅ OTP generated and saved:', otp);
 
     try {
       await sendOTPEmail(email, user.name, otp);
-      console.log('OTP email sent successfully');
+      console.log('✅ OTP email sent successfully to:', email);
+      res.json({ message: 'OTP sent to your email', success: true });
     } catch (emailError) {
-      console.error('Email send error:', emailError);
-      return res.status(500).json({ message: 'Failed to send OTP email. Please try again.' });
+      console.error('❌ Email send error:', emailError.message);
+      console.error('Full error:', emailError);
+      return res.status(500).json({ 
+        message: 'Failed to send OTP email. Please check your internet connection and try again.',
+        error: emailError.message 
+      });
     }
-
-    res.json({ message: 'OTP sent to your email' });
   } catch (error) {
-    console.error('Send OTP error:', error);
+    console.error('❌ Send OTP error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -106,22 +111,29 @@ exports.verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
+    console.log('🔑 OTP verification request for:', email);
+
     const user = await User.findOne({ email });
     if (!user) {
+      console.log('❌ User not found:', email);
       return res.status(404).json({ message: 'User not found' });
     }
 
     if (!user.otp || user.otp !== otp) {
+      console.log('❌ Invalid OTP. Expected:', user.otp, 'Received:', otp);
       return res.status(401).json({ message: 'Invalid OTP' });
     }
 
     if (new Date() > user.otpExpiry) {
+      console.log('❌ OTP expired for:', email);
       return res.status(401).json({ message: 'OTP expired' });
     }
 
     user.otp = undefined;
     user.otpExpiry = undefined;
     await user.save();
+
+    console.log('✅ OTP verified successfully for:', email);
 
     res.json({
       _id: user._id,
@@ -132,6 +144,7 @@ exports.verifyOTP = async (req, res) => {
       token: generateToken(user._id)
     });
   } catch (error) {
+    console.error('❌ Verify OTP error:', error);
     res.status(500).json({ message: error.message });
   }
 };
