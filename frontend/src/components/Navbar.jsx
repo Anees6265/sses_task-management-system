@@ -14,6 +14,9 @@ const Navbar = ({ onMenuClick }) => {
 
   return (
     <>
+      {/* White background for safe area above navbar */}
+      <div className="fixed top-0 left-0 right-0 bg-white z-50" style={{ height: 'env(safe-area-inset-top, 0px)' }} />
+      
       <nav className="bg-white border-b border-gray-200 px-3 md:px-6 shadow-sm fixed left-0 right-0 z-50 min-h-[56px] md:h-[65px] flex items-center" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-2 md:space-x-4">
