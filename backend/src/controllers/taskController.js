@@ -1,7 +1,5 @@
 const Task = require('../models/Task');
 const { sendTaskAssignmentEmail } = require('../services/emailService');
-const { sendWhatsAppMessage } = require('../services/whatsappService');
-const { sendSignalMessage } = require('../services/signalService');
 const User = require('../models/User');
 
 exports.getTasks = async (req, res) => {
@@ -41,17 +39,6 @@ exports.createTask = async (req, res) => {
         populatedTask.priority,
         populatedTask.dueDate
       ).catch(err => console.error('❌ Email notification failed:', err.message));
-      
-      // Signal notification (if phone number exists)
-      if (populatedTask.assignedTo.phoneNumber) {
-        sendSignalMessage(
-          populatedTask.assignedTo.phoneNumber,
-          populatedTask.title,
-          populatedTask.description,
-          populatedTask.priority,
-          populatedTask.dueDate
-        ).catch(err => console.error('❌ Signal notification failed:', err.message));
-      }
     }
     
     res.status(201).json(populatedTask);
