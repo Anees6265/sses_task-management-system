@@ -7,6 +7,7 @@ const taskRoutes = require('./src/routes/taskRoutes');
 const userRoutes = require('./src/routes/userRoutes');
 const departmentRoutes = require('./src/routes/departmentRoutes');
 const healthRoutes = require('./src/routes/healthRoutes');
+const testRoutes = require('./src/routes/testRoutes');
 
 const app = express();
 
@@ -34,12 +35,26 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`\n🌐 [${timestamp}] ${req.method} ${req.path}`);
+  console.log(`📱 User-Agent: ${req.get('user-agent') || 'Unknown'}`);
+  console.log(`🔑 Authorization: ${req.get('authorization') ? 'Present' : 'None'}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log(`📦 Body:`, JSON.stringify(req.body, null, 2));
+  }
+  next();
+});
+
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/departments', departmentRoutes);
+app.use('/api/test', testRoutes);
 app.use('/api', healthRoutes);
 
 app.get('/', (req, res) => {
@@ -53,4 +68,5 @@ app.listen(PORT, HOST, () => {
   console.log(`Server running on http://${HOST}:${PORT}`);
   console.log(`Local access: http://localhost:${PORT}`);
   console.log(`Network access: http://172.19.16.1:${PORT}`);
+  console.log(`\n📧 Email Config: ${process.env.EMAIL_USER ? '✅ Configured' : '❌ Not Configured'}`);
 });
