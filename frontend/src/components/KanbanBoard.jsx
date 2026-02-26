@@ -23,6 +23,7 @@ const KanbanBoard = () => {
   const [departments, setDepartments] = useState([]);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const { user } = useContext(AuthContext);
   const { t } = useLanguage();
 
@@ -192,9 +193,23 @@ const KanbanBoard = () => {
   const handleStatusChange = async (taskId, newStatus) => {
     try {
       await taskAPI.updateTask(taskId, { status: newStatus });
-      fetchTasks();
+      await fetchTasks();
+      toast.success('Task status updated!', { position: 'top-center', autoClose: 2000 });
     } catch (error) {
       console.error('Error updating task status:', error);
+      toast.error('Failed to update status', { position: 'top-center', autoClose: 2000 });
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchTasks();
+      toast.success('Refreshed!', { position: 'top-center', autoClose: 1500 });
+    } catch (error) {
+      console.error('Error refreshing:', error);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -383,11 +398,22 @@ const KanbanBoard = () => {
           {activeView !== 'dashboard' && activeView !== 'chats' && activeView !== 'analytics' && activeView !== 'settings' && (
             <>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 md:mb-6 gap-2 md:gap-3">
-                <div>
-                  <h2 className="text-lg md:text-3xl font-bold text-gray-800">
-                    {activeView === 'board' ? t('sprintBoard') : activeView}
-                  </h2>
-                  <p className="text-gray-600 mt-0.5 md:mt-1 text-xs md:text-base">{t('dragDrop')}</p>
+                <div className="flex items-center gap-3">
+                  <div>
+                    <h2 className="text-lg md:text-3xl font-bold text-gray-800">
+                      {activeView === 'board' ? t('sprintBoard') : activeView}
+                    </h2>
+                    <p className="text-gray-600 mt-0.5 md:mt-1 text-xs md:text-base">{t('dragDrop')}</p>
+                  </div>
+                  <button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="md:hidden p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition self-start"
+                  >
+                    <svg className={`w-5 h-5 text-gray-700 ${refreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
                 </div>
                 <button
                   onClick={() => setShowModal(true)}
