@@ -28,7 +28,7 @@ const KanbanBoard = () => {
   const { t } = useLanguage();
 
   useEffect(() => {
-    if (user?.role === 'admin') {
+    if (user?.role === 'admin' || user?.role === 'hod') {
       setActiveView('dashboard');
       fetchDepartments();
     }
@@ -55,7 +55,7 @@ const KanbanBoard = () => {
       const { data } = await taskAPI.getTasks();
       let filteredData = data;
       
-      if (user?.role === 'admin' && activeView !== 'dashboard' && activeView !== 'board') {
+      if ((user?.role === 'admin' || user?.role === 'hod') && activeView !== 'dashboard' && activeView !== 'board') {
         filteredData = data.filter(task => task.department === activeView);
       }
       
@@ -124,7 +124,7 @@ const KanbanBoard = () => {
     
     if (!taskData.dueDate) delete taskData.dueDate;
     
-    if (user?.role === 'admin') {
+    if (user?.role === 'admin' || user?.role === 'hod') {
       if (!taskData.department) {
         toast.error('Please select a department', { position: 'top-center', autoClose: 2000 });
         return;
@@ -391,7 +391,7 @@ const KanbanBoard = () => {
         />
         
         <main className="flex-1 p-3 md:p-6 overflow-x-hidden md:ml-64 transition-all duration-300">
-          {activeView === 'dashboard' && user?.role === 'admin' && (
+          {(activeView === 'dashboard' && (user?.role === 'admin' || user?.role === 'hod')) && (
             <Dashboard />
           )}
 
@@ -560,7 +560,7 @@ const KanbanBoard = () => {
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                {user?.role === 'admin' && (
+                {(user?.role === 'admin' || user?.role === 'hod') && (
                   <div>
                     <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">{t('selectDepartment')} *</label>
                     <select

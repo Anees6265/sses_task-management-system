@@ -37,7 +37,7 @@ const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobil
     { id: 'settings', icon: '⚙️', label: 'Settings' }
   ];
 
-  const menuItems = userRole === 'admin' ? adminMenuItems : userMenuItems;
+  const menuItems = (userRole === 'admin' || userRole === 'hod') ? adminMenuItems : userMenuItems;
 
   return (
     <>
@@ -86,7 +86,7 @@ const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobil
           ))}
         </nav>
 
-        {!isCollapsed && userRole !== 'admin' && (
+        {!isCollapsed && userRole !== 'admin' && userRole !== 'hod' && (
           <div className="mt-6 md:mt-8 p-3 md:p-4 bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg border border-orange-200 flex-shrink-0">
             <h3 className="font-semibold text-gray-800 mb-2 text-sm md:text-base">💡 Quick Tip</h3>
             <p className="text-xs text-gray-600">

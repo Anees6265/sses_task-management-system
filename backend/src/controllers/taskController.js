@@ -4,7 +4,9 @@ const User = require('../models/User');
 
 exports.getTasks = async (req, res) => {
   try {
-    const filter = req.user.role === 'admin' ? {} : { department: req.user.department };
+    const filter = (req.user.role === 'admin' || req.user.role === 'hod') 
+      ? (req.user.role === 'admin' ? {} : { department: req.user.department })
+      : { department: req.user.department };
     const tasks = await Task.find(filter)
       .populate('assignedTo', 'name email')
       .populate('createdBy', 'name email')
@@ -52,8 +54,8 @@ exports.createTask = async (req, res) => {
 
 exports.updateTask = async (req, res) => {
   try {
-    const filter = req.user.role === 'admin' 
-      ? { _id: req.params.id } 
+    const filter = (req.user.role === 'admin' || req.user.role === 'hod')
+      ? (req.user.role === 'admin' ? { _id: req.params.id } : { _id: req.params.id, department: req.user.department })
       : { _id: req.params.id, department: req.user.department };
     
     const task = await Task.findOneAndUpdate(
@@ -75,8 +77,8 @@ exports.updateTask = async (req, res) => {
 
 exports.deleteTask = async (req, res) => {
   try {
-    const filter = req.user.role === 'admin'
-      ? { _id: req.params.id }
+    const filter = (req.user.role === 'admin' || req.user.role === 'hod')
+      ? (req.user.role === 'admin' ? { _id: req.params.id } : { _id: req.params.id, department: req.user.department })
       : { _id: req.params.id, department: req.user.department };
     
     const task = await Task.findOneAndDelete(filter);
@@ -91,7 +93,9 @@ exports.deleteTask = async (req, res) => {
 
 exports.getDashboardStats = async (req, res) => {
   try {
-    const filter = req.user.role === 'admin' ? {} : { department: req.user.department };
+    const filter = (req.user.role === 'admin' || req.user.role === 'hod')
+      ? (req.user.role === 'admin' ? {} : { department: req.user.department })
+      : { department: req.user.department };
     
     const totalTasks = await Task.countDocuments(filter);
     const todoTasks = await Task.countDocuments({ ...filter, status: 'todo' });
@@ -99,7 +103,7 @@ exports.getDashboardStats = async (req, res) => {
     const completedTasks = await Task.countDocuments({ ...filter, status: 'completed' });
     
     const departmentStats = await Task.aggregate([
-      { $match: req.user.role === 'admin' ? {} : { department: req.user.department } },
+      { $match: (req.user.role === 'admin' || req.user.role === 'hod') ? (req.user.role === 'admin' ? {} : { department: req.user.department }) : { department: req.user.department } },
       {
         $group: {
           _id: '$department',
