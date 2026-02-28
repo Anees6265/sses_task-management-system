@@ -20,37 +20,52 @@ const Chat = () => {
   }, []);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket) {
+      console.log('⚠️ Socket not available');
+      return;
+    }
 
-    socket.on('receive-message', (message) => {
+    console.log('📡 Setting up socket listeners');
+
+    const handleReceiveMessage = (message) => {
+      console.log('📨 Message received:', message);
       if (selectedUser && (message.sender._id === selectedUser._id || message.receiver._id === selectedUser._id)) {
         setMessages(prev => [...prev, message]);
         socket.emit('mark-read', { sender: message.sender._id });
       }
       fetchConversations();
-    });
+    };
 
-    socket.on('message-sent', (message) => {
+    const handleMessageSent = (message) => {
+      console.log('✅ Message sent:', message);
       setMessages(prev => [...prev, message]);
-    });
+    };
 
-    socket.on('user-typing', ({ userId }) => {
+    const handleUserTyping = ({ userId }) => {
+      console.log('⌨️ User typing:', userId);
       if (selectedUser && userId === selectedUser._id) {
         setTyping(true);
       }
-    });
+    };
 
-    socket.on('user-stop-typing', ({ userId }) => {
+    const handleUserStopTyping = ({ userId }) => {
+      console.log('⏸️ User stop typing:', userId);
       if (selectedUser && userId === selectedUser._id) {
         setTyping(false);
       }
-    });
+    };
+
+    socket.on('receive-message', handleReceiveMessage);
+    socket.on('message-sent', handleMessageSent);
+    socket.on('user-typing', handleUserTyping);
+    socket.on('user-stop-typing', handleUserStopTyping);
 
     return () => {
-      socket.off('receive-message');
-      socket.off('message-sent');
-      socket.off('user-typing');
-      socket.off('user-stop-typing');
+      console.log('🧹 Cleaning up socket listeners');
+      socket.off('receive-message', handleReceiveMessage);
+      socket.off('message-sent', handleMessageSent);
+      socket.off('user-typing', handleUserTyping);
+      socket.off('user-stop-typing', handleUserStopTyping);
     };
   }, [socket, selectedUser]);
 
