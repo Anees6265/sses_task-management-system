@@ -21,9 +21,23 @@ const api = axios.create({
 });
 
 // Request interceptor
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 api.interceptors.request.use((config) => {
   console.log('Making request to:', config.baseURL + config.url);
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -33,13 +47,55 @@ api.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
-// Response interceptor with detailed logging
+// Response interceptor with token refresh
 api.interceptors.response.use(
   (response) => {
     console.log('✅ Response received:', response.status);
     return response;
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+    
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return api(originalRequest);
+        }).catch(err => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        localStorage.clear();
+        window.location.href = '/';
+        return Promise.reject(error);
+      }
+
+      try {
+        const { data } = await axios.post(`${API_URL}/auth/refresh-token`, { refreshToken });
+        const { accessToken } = data;
+        
+        localStorage.setItem('accessToken', accessToken);
+        api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        
+        processQueue(null, accessToken);
+        return api(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        localStorage.clear();
+        window.location.href = '/';
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+    
     console.error('❌ API Error:', error.message);
     
     if (error.response) {
@@ -109,6 +165,15 @@ export const authAPI = {
       return await api.get('/auth/me');
     } catch (error) {
       console.error('Get user failed:', error);
+      throw error;
+    }
+  },
+  
+  logout: async () => {
+    try {
+      return await api.post('/auth/logout');
+    } catch (error) {
+      console.error('Logout failed:', error);
       throw error;
     }
   }

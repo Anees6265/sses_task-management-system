@@ -4,6 +4,7 @@ import { LanguageProvider } from './context/LanguageContext.jsx';
 import { SocketProvider } from './context/SocketContext.jsx';
 import Login from './components/Login.jsx';
 import KanbanBoard from './components/KanbanBoard.jsx';
+import TokenExpiryWarning from './components/TokenExpiryWarning.jsx';
 
 const AppContent = () => {
   const { user, loading } = useContext(AuthContext);
@@ -22,6 +23,7 @@ const AppContent = () => {
 
   return (
     <SocketProvider>
+      <TokenExpiryWarning />
       <KanbanBoard />
     </SocketProvider>
   );

@@ -1,5 +1,6 @@
 const Message = require('../models/Message');
 const User = require('../models/User');
+const { encrypt, decrypt } = require('../utils/encryption');
 
 exports.getConversations = async (req, res) => {
   try {
@@ -83,13 +84,17 @@ exports.getMessages = async (req, res) => {
       .populate('receiver', 'name email')
       .sort({ createdAt: 1 });
     
-    // Mark messages as read
+    const decryptedMessages = messages.map(msg => ({
+      ...msg.toObject(),
+      message: decrypt(msg.message)
+    }));
+    
     await Message.updateMany(
       { sender: userId, receiver: currentUserId, read: false },
       { read: true }
     );
     
-    res.json(messages);
+    res.json(decryptedMessages);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -99,17 +104,22 @@ exports.sendMessage = async (req, res) => {
   try {
     const { receiver, message } = req.body;
     
+    const encryptedMessage = encrypt(message);
+    
     const newMessage = await Message.create({
       sender: req.user._id,
       receiver,
-      message
+      message: encryptedMessage
     });
     
     const populatedMessage = await Message.findById(newMessage._id)
       .populate('sender', 'name email')
       .populate('receiver', 'name email');
     
-    res.status(201).json(populatedMessage);
+    res.status(201).json({
+      ...populatedMessage.toObject(),
+      message: decrypt(populatedMessage.message)
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

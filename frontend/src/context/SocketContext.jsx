@@ -19,8 +19,10 @@ export const SocketProvider = ({ children }) => {
 
     console.log('🔌 Connecting to Socket.IO:', socketUrl);
 
+    const accessToken = localStorage.getItem('accessToken') || token;
+
     const newSocket = io(socketUrl, {
-      auth: { token },
+      auth: { token: accessToken },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,

@@ -49,6 +49,12 @@ const userSchema = new mongoose.Schema({
   telegramChatId: {
     type: String,
     trim: true
+  },
+  refreshToken: {
+    type: String
+  },
+  refreshTokenExpiry: {
+    type: Date
   }
 }, {
   timestamps: true

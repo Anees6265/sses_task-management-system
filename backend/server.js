@@ -13,6 +13,7 @@ const testRoutes = require('./src/routes/testRoutes');
 const chatRoutes = require('./src/routes/chatRoutes');
 const Message = require('./src/models/Message');
 const jwt = require('jsonwebtoken');
+const { encrypt, decrypt } = require('./src/utils/encryption');
 
 const app = express();
 const server = http.createServer(app);
@@ -100,24 +101,31 @@ io.on('connection', (socket) => {
   
   socket.on('send-message', async (data) => {
     try {
+      const encryptedMessage = encrypt(data.message);
+      
       const message = await Message.create({
         sender: socket.userId,
         receiver: data.receiver,
-        message: data.message
+        message: encryptedMessage
       });
       
       const populatedMessage = await Message.findById(message._id)
         .populate('sender', 'name email')
         .populate('receiver', 'name email');
       
+      const decryptedMessage = {
+        ...populatedMessage.toObject(),
+        message: decrypt(populatedMessage.message)
+      };
+      
       const receiverSocketId = onlineUsers.get(data.receiver);
       if (receiverSocketId) {
-        io.to(receiverSocketId).emit('receive-message', populatedMessage);
+        io.to(receiverSocketId).emit('receive-message', decryptedMessage);
         await Message.findByIdAndUpdate(message._id, { delivered: true });
         socket.emit('message-delivered', { messageId: message._id });
       }
       
-      socket.emit('message-sent', populatedMessage);
+      socket.emit('message-sent', decryptedMessage);
     } catch (error) {
       socket.emit('message-error', { error: error.message });
     }
