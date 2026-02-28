@@ -25,7 +25,9 @@ const taskSchema = new mongoose.Schema({
   },
   department: {
     type: String,
-    required: true,
+    required: function() {
+      return !this.isPersonal;
+    },
     trim: true
   },
   assignedTo: [{

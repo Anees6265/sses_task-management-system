@@ -7,22 +7,27 @@ exports.getTasks = async (req, res) => {
     let filter = {};
     
     if (req.user.role === 'admin') {
-      // Admin: All non-personal tasks
+      // Admin: Only tasks created by Admin or HOD (no faculty personal tasks)
+      const adminAndHodUsers = await User.find({ role: { $in: ['admin', 'hod'] } }).select('_id');
+      const adminAndHodIds = adminAndHodUsers.map(u => u._id);
+      
       filter = {
-        $or: [
-          { isPersonal: false },
-          { isPersonal: { $exists: false } }
-        ]
+        createdBy: { $in: adminAndHodIds }
       };
     } else if (req.user.role === 'hod') {
-      // HOD: All tasks in their department except personal tasks of faculty
+      // HOD: Tasks in their department created by Admin/HOD, or their own tasks
+      const adminAndHodUsers = await User.find({ 
+        role: { $in: ['admin', 'hod'] },
+        $or: [
+          { department: req.user.department },
+          { role: 'admin' }
+        ]
+      }).select('_id');
+      const adminAndHodIds = adminAndHodUsers.map(u => u._id);
+      
       filter = { 
         department: req.user.department,
-        $or: [
-          { isPersonal: false },
-          { isPersonal: { $exists: false } },
-          { createdBy: req.user._id }
-        ]
+        createdBy: { $in: adminAndHodIds }
       };
     } else {
       // Faculty: Only tasks assigned to them
@@ -48,12 +53,13 @@ exports.getTasksByFaculty = async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
     
+    // Get Admin and HOD users
+    const adminAndHodUsers = await User.find({ role: { $in: ['admin', 'hod'] } }).select('_id');
+    const adminAndHodIds = adminAndHodUsers.map(u => u._id);
+    
     let filter = { 
       assignedTo: facultyId,
-      $or: [
-        { isPersonal: false },
-        { isPersonal: { $exists: false } }
-      ]
+      createdBy: { $in: adminAndHodIds }
     };
     
     // HOD can only see faculty in their department
@@ -174,20 +180,21 @@ exports.getDashboardStats = async (req, res) => {
     let filter = {};
     
     if (req.user.role === 'admin') {
-      filter = {
-        $or: [
-          { isPersonal: false },
-          { isPersonal: { $exists: false } }
-        ]
-      };
+      const adminAndHodUsers = await User.find({ role: { $in: ['admin', 'hod'] } }).select('_id');
+      const adminAndHodIds = adminAndHodUsers.map(u => u._id);
+      filter = { createdBy: { $in: adminAndHodIds } };
     } else if (req.user.role === 'hod') {
+      const adminAndHodUsers = await User.find({ 
+        role: { $in: ['admin', 'hod'] },
+        $or: [
+          { department: req.user.department },
+          { role: 'admin' }
+        ]
+      }).select('_id');
+      const adminAndHodIds = adminAndHodUsers.map(u => u._id);
       filter = { 
         department: req.user.department,
-        $or: [
-          { isPersonal: false },
-          { isPersonal: { $exists: false } },
-          { createdBy: req.user._id }
-        ]
+        createdBy: { $in: adminAndHodIds }
       };
     } else {
       // Faculty: Only their assigned tasks
@@ -199,8 +206,20 @@ exports.getDashboardStats = async (req, res) => {
     const inprogressTasks = await Task.countDocuments({ ...filter, status: 'inprogress' });
     const completedTasks = await Task.countDocuments({ ...filter, status: 'completed' });
     
+    let matchFilter = filter;
+    if (req.user.role === 'admin') {
+      const adminAndHodUsers = await User.find({ role: { $in: ['admin', 'hod'] } }).select('_id');
+      matchFilter = { createdBy: { $in: adminAndHodUsers.map(u => u._id) } };
+    } else if (req.user.role === 'hod') {
+      const adminAndHodUsers = await User.find({ 
+        role: { $in: ['admin', 'hod'] },
+        $or: [{ department: req.user.department }, { role: 'admin' }]
+      }).select('_id');
+      matchFilter = { department: req.user.department, createdBy: { $in: adminAndHodUsers.map(u => u._id) } };
+    }
+    
     const departmentStats = await Task.aggregate([
-      { $match: req.user.role === 'admin' ? { $or: [{ isPersonal: false }, { isPersonal: { $exists: false } }] } : (req.user.role === 'hod' ? { department: req.user.department, $or: [{ isPersonal: false }, { isPersonal: { $exists: false } }] } : { assignedTo: req.user._id }) },
+      { $match: matchFilter },
       {
         $group: {
           _id: '$department',
@@ -215,8 +234,13 @@ exports.getDashboardStats = async (req, res) => {
     // Faculty-wise stats for HOD
     let facultyStats = [];
     if (req.user.role === 'hod') {
+      const adminAndHodUsers = await User.find({ 
+        role: { $in: ['admin', 'hod'] },
+        $or: [{ department: req.user.department }, { role: 'admin' }]
+      }).select('_id');
+      
       facultyStats = await Task.aggregate([
-        { $match: { department: req.user.department, $or: [{ isPersonal: false }, { isPersonal: { $exists: false } }] } },
+        { $match: { department: req.user.department, createdBy: { $in: adminAndHodUsers.map(u => u._id) } } },
         { $unwind: '$assignedTo' },
         {
           $lookup: {

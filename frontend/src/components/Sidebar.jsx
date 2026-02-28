@@ -38,6 +38,7 @@ const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobil
   const adminMenuItems = [
     { id: 'dashboard', icon: '📊', label: 'Dashboard' },
     { id: 'board', icon: '📋', label: userRole === 'hod' ? 'My Department' : 'All Tasks' },
+    { id: 'chats', icon: '💬', label: 'Chats' },
     ...(userRole === 'admin' ? departments.map(dept => ({
       id: dept,
       icon: '🏛️',
@@ -48,6 +49,7 @@ const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobil
   const hodMenuItems = [
     { id: 'dashboard', icon: '📊', label: 'Dashboard' },
     { id: 'board', icon: '📋', label: 'My Department' },
+    { id: 'chats', icon: '💬', label: 'Chats' },
     ...facultyList.map(faculty => ({
       id: `faculty-${faculty._id}`,
       icon: '👨🏫',

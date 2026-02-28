@@ -6,7 +6,7 @@ import { useLanguage } from '../context/LanguageContext.jsx';
 import Navbar from './Navbar.jsx';
 import Sidebar from './Sidebar.jsx';
 import Dashboard from './Dashboard.jsx';
-import TaskChats from './TaskChats.jsx';
+import Chat from './Chat.jsx';
 import Loader from './Loader.jsx';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -482,7 +482,7 @@ const KanbanBoard = () => {
           )}
 
           {activeView === 'chats' && (
-            <TaskChats />
+            <Chat />
           )}
 
           {activeView === 'analytics' && (

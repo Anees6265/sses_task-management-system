@@ -131,4 +131,11 @@ export const departmentAPI = {
   getAllDepartments: () => api.get('/departments')
 };
 
+export const chatAPI = {
+  getConversations: () => api.get('/chat/conversations'),
+  getMessages: (userId) => api.get(`/chat/messages/${userId}`),
+  sendMessage: (data) => api.post('/chat/send', data),
+  markAsRead: (userId) => api.put(`/chat/read/${userId}`)
+};
+
 export default api;

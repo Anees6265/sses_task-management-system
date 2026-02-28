@@ -1,6 +1,7 @@
 import React, { useContext } from 'react';
 import { AuthContext, AuthProvider } from './context/AuthContext.jsx';
 import { LanguageProvider } from './context/LanguageContext.jsx';
+import { SocketProvider } from './context/SocketContext.jsx';
 import Login from './components/Login.jsx';
 import KanbanBoard from './components/KanbanBoard.jsx';
 
@@ -19,7 +20,11 @@ const AppContent = () => {
     return <Login />;
   }
 
-  return <KanbanBoard />;
+  return (
+    <SocketProvider>
+      <KanbanBoard />
+    </SocketProvider>
+  );
 };
 
 function App() {
