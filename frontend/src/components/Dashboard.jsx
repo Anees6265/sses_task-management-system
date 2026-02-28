@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { taskAPI } from '../services/api.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { AuthContext } from '../context/AuthContext.jsx';
 
-const Dashboard = () => {
+const Dashboard = ({ onFacultyClick }) => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const { t } = useLanguage();
+  const { user } = useContext(AuthContext);
 
   useEffect(() => {
     fetchStats();
@@ -123,19 +125,90 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Department-wise Stats */}
+      {/* Department-wise Stats (Admin) or Faculty-wise Stats (HOD) */}
       <div className="bg-white rounded-2xl p-4 md:p-6 shadow-xl border-2 border-gray-100">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-6 gap-2">
           <h3 className="text-lg md:text-2xl font-bold text-gray-800 flex items-center space-x-2">
-            <span className="text-2xl md:text-3xl">🏛️</span>
-            <span>{t('departmentPerformance')}</span>
+            <span className="text-2xl md:text-3xl">{user?.role === 'hod' ? '👨🏫' : '🏛️'}</span>
+            <span>{user?.role === 'hod' ? 'Faculty Performance' : t('departmentPerformance')}</span>
           </h3>
           <div className="text-xs md:text-sm text-gray-500 bg-gray-100 px-3 md:px-4 py-1.5 md:py-2 rounded-lg w-fit">
-            {stats?.departmentStats?.length || 0} {t('departments')}
+            {user?.role === 'hod' 
+              ? `${stats?.facultyStats?.length || 0} Faculty Members`
+              : `${stats?.departmentStats?.length || 0} ${t('departments')}`
+            }
           </div>
         </div>
 
-        {stats?.departmentStats && stats.departmentStats.length > 0 ? (
+        {user?.role === 'hod' && stats?.facultyStats && stats.facultyStats.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+            {stats.facultyStats.map((faculty) => {
+              const facultyProgress = calculateProgress(faculty.completed, faculty.total);
+              
+              return (
+                <div 
+                  key={faculty._id} 
+                  onClick={() => onFacultyClick && onFacultyClick(faculty._id)}
+                  className="bg-white rounded-xl p-4 md:p-6 border-2 border-gray-200 hover:shadow-lg hover:border-blue-400 transition-all duration-300 cursor-pointer"
+                >
+                  <div className="flex items-center justify-between mb-3 md:mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                        {faculty.name?.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h4 className="text-sm md:text-base font-bold text-gray-800 truncate">{faculty.name}</h4>
+                        <p className="text-xs text-gray-500 truncate">{faculty.email}</p>
+                      </div>
+                    </div>
+                    <div className="bg-blue-100 text-blue-700 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs font-bold flex-shrink-0">
+                      {facultyProgress}%
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 md:space-y-3 mb-3 md:mb-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs md:text-sm text-gray-600 flex items-center space-x-1">
+                        <span>📋</span>
+                        <span>{t('total')}</span>
+                      </span>
+                      <span className="font-bold text-gray-800 text-sm md:text-lg">{faculty.total}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs md:text-sm text-gray-600 flex items-center space-x-1">
+                        <span>📋</span>
+                        <span>{t('todo')}</span>
+                      </span>
+                      <span className="font-semibold text-blue-600 text-xs md:text-base">{faculty.todo}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs md:text-sm text-gray-600 flex items-center space-x-1">
+                        <span>🚀</span>
+                        <span>{t('progress')}</span>
+                      </span>
+                      <span className="font-semibold text-orange-600 text-xs md:text-base">{faculty.inprogress}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs md:text-sm text-gray-600 flex items-center space-x-1">
+                        <span>✅</span>
+                        <span>Done</span>
+                      </span>
+                      <span className="font-semibold text-green-600 text-xs md:text-base">{faculty.completed}</span>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="bg-gray-200 h-2 md:h-3 rounded-full overflow-hidden">
+                    <div 
+                      className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full transition-all duration-500 rounded-full"
+                      style={{ width: `${facultyProgress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : user?.role === 'admin' && stats?.departmentStats && stats.departmentStats.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
             {stats.departmentStats.map((dept) => {
               const deptProgress = calculateProgress(dept.completed, dept.total);

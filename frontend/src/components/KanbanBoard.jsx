@@ -24,6 +24,8 @@ const KanbanBoard = () => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
+  const [selectedFacultyId, setSelectedFacultyId] = useState(null);
   const { user } = useContext(AuthContext);
   const { t } = useLanguage();
 
@@ -38,7 +40,7 @@ const KanbanBoard = () => {
 
   useEffect(() => {
     fetchTasks();
-  }, [activeView]);
+  }, [activeView, selectedFacultyId]);
 
   const fetchDepartments = async () => {
     try {
@@ -52,10 +54,18 @@ const KanbanBoard = () => {
   const fetchTasks = async () => {
     setLoading(true);
     try {
-      const { data } = await taskAPI.getTasks();
+      let data;
+      if (selectedFacultyId) {
+        const response = await taskAPI.getTasksByFaculty(selectedFacultyId);
+        data = response.data;
+      } else {
+        const response = await taskAPI.getTasks();
+        data = response.data;
+      }
+      
       let filteredData = data;
       
-      if ((user?.role === 'admin' || user?.role === 'hod') && activeView !== 'dashboard' && activeView !== 'board') {
+      if ((user?.role === 'admin' || user?.role === 'hod') && activeView !== 'dashboard' && activeView !== 'board' && !selectedFacultyId) {
         filteredData = data.filter(task => task.department === activeView);
       }
       
@@ -201,6 +211,11 @@ const KanbanBoard = () => {
     }
   };
 
+  const handleFacultyClick = (facultyId) => {
+    setSelectedFacultyId(facultyId);
+    setActiveView('board');
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -281,15 +296,17 @@ const KanbanBoard = () => {
                           >
                             ✏️
                           </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteConfirm(task._id);
-                            }}
-                            className="text-gray-400 hover:text-red-500 transition text-xl md:text-2xl font-bold -mt-1"
-                          >
-                            ×
-                          </button>
+                          {(user?.role === 'admin' || user?.role === 'hod') && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteConfirm(task._id);
+                              }}
+                              className="text-gray-400 hover:text-red-500 transition text-xl md:text-2xl font-bold -mt-1"
+                            >
+                              ×
+                            </button>
+                          )}
                         </div>
                       </div>
                       
@@ -379,7 +396,7 @@ const KanbanBoard = () => {
       />
       {loading && <Loader />}
       <div className="min-h-screen bg-gray-100 pt-[56px] md:pt-[65px]">
-      <Navbar onMenuClick={() => setIsMobileSidebarOpen(true)} />
+      <Navbar onMenuClick={() => setIsMobileSidebarOpen(true)} onFacultyCreated={() => setSidebarRefreshTrigger(prev => prev + 1)} />
       
       <div className="flex flex-col md:flex-row">
         <Sidebar 
@@ -388,17 +405,30 @@ const KanbanBoard = () => {
           userRole={user?.role}
           isMobileOpen={isMobileSidebarOpen}
           setIsMobileOpen={setIsMobileSidebarOpen}
+          refreshTrigger={sidebarRefreshTrigger}
         />
         
         <main className="flex-1 p-3 md:p-6 overflow-x-hidden md:ml-64 transition-all duration-300">
           {(activeView === 'dashboard' && (user?.role === 'admin' || user?.role === 'hod')) && (
-            <Dashboard />
+            <Dashboard onFacultyClick={handleFacultyClick} />
           )}
 
           {activeView !== 'dashboard' && activeView !== 'chats' && activeView !== 'analytics' && activeView !== 'settings' && (
             <>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 md:mb-6 gap-2 md:gap-3">
                 <div className="flex items-center gap-3">
+                  {selectedFacultyId && (
+                    <button
+                      onClick={() => {
+                        setSelectedFacultyId(null);
+                        setActiveView('dashboard');
+                      }}
+                      className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-lg transition flex items-center gap-2 text-sm font-medium shadow-sm"
+                    >
+                      <span className="text-lg">←</span>
+                      <span className="hidden sm:inline">Back</span>
+                    </button>
+                  )}
                   <div>
                     <h2 className="text-lg md:text-3xl font-bold text-gray-800">
                       {activeView === 'board' ? t('sprintBoard') : activeView}
@@ -419,7 +449,7 @@ const KanbanBoard = () => {
                   onClick={() => setShowModal(true)}
                   className="w-full sm:w-auto px-3 md:px-6 py-2 md:py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition shadow-lg text-xs md:text-base"
                 >
-                  + {t('newTask')}
+                  + {user?.role === 'user' ? 'New Personal Task' : t('newTask')}
                 </button>
               </div>
 
@@ -578,7 +608,8 @@ const KanbanBoard = () => {
                 )}
               </div>
               
-              {/* Assign To Section - Full Width */}
+              {/* Assign To Section - Only for Admin/HOD */}
+              {(user?.role === 'admin' || user?.role === 'hod') && (
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">{t('assignTo')}</label>
                 
@@ -678,6 +709,7 @@ const KanbanBoard = () => {
                   </div>
                 )}
               </div>
+              )}
               
               <div className="flex gap-2 sm:gap-3 pt-3 sm:pt-4 border-t">
                 <button

@@ -36,6 +36,10 @@ const taskSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  isPersonal: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

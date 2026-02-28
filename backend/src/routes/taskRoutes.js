@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getTasks, createTask, updateTask, deleteTask, getDashboardStats } = require('../controllers/taskController');
+const { getTasks, getTasksByFaculty, createTask, updateTask, deleteTask, getDashboardStats } = require('../controllers/taskController');
 const { protect } = require('../middleware/auth');
 
 // Handle OPTIONS preflight requests BEFORE protect middleware
@@ -9,6 +9,7 @@ router.options('*', (req, res) => res.sendStatus(200));
 router.use(protect);
 
 router.get('/stats', getDashboardStats);
+router.get('/faculty/:facultyId', getTasksByFaculty);
 
 router.route('/')
   .get(getTasks)

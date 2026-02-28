@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { departmentAPI } from '../services/api.jsx';
 
-const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobileOpen }) => {
+const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobileOpen, refreshTrigger }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [departments, setDepartments] = useState([]);
+  const [facultyList, setFacultyList] = useState([]);
 
   useEffect(() => {
-    if (userRole === 'admin') {
+    if (userRole === 'admin' || userRole === 'hod') {
       fetchDepartments();
+      if (userRole === 'hod') {
+        fetchFaculty();
+      }
     }
-  }, [userRole]);
+  }, [userRole, refreshTrigger]);
 
   const fetchDepartments = async () => {
     try {
@@ -20,13 +24,34 @@ const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobil
     }
   };
 
+  const fetchFaculty = async () => {
+    try {
+      const { data } = await userAPI.getAllUsers();
+      // Filter only faculty (users with role 'user')
+      const faculty = data.filter(u => u.role === 'user');
+      setFacultyList(faculty);
+    } catch (error) {
+      console.error('Error fetching faculty:', error);
+    }
+  };
+
   const adminMenuItems = [
     { id: 'dashboard', icon: '📊', label: 'Dashboard' },
-    { id: 'board', icon: '📋', label: 'All Tasks' },
-    ...departments.map(dept => ({
+    { id: 'board', icon: '📋', label: userRole === 'hod' ? 'My Department' : 'All Tasks' },
+    ...(userRole === 'admin' ? departments.map(dept => ({
       id: dept,
       icon: '🏛️',
       label: dept
+    })) : [])
+  ];
+
+  const hodMenuItems = [
+    { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+    { id: 'board', icon: '📋', label: 'My Department' },
+    ...facultyList.map(faculty => ({
+      id: `faculty-${faculty._id}`,
+      icon: '👨🏫',
+      label: faculty.name
     }))
   ];
 
@@ -37,7 +62,7 @@ const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobil
     { id: 'settings', icon: '⚙️', label: 'Settings' }
   ];
 
-  const menuItems = (userRole === 'admin' || userRole === 'hod') ? adminMenuItems : userMenuItems;
+  const menuItems = userRole === 'admin' ? adminMenuItems : (userRole === 'hod' ? hodMenuItems : userMenuItems);
 
   return (
     <>

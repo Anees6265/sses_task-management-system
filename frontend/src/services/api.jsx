@@ -116,6 +116,7 @@ export const authAPI = {
 
 export const taskAPI = {
   getTasks: () => api.get('/tasks'),
+  getTasksByFaculty: (facultyId) => api.get(`/tasks/faculty/${facultyId}`),
   createTask: (data) => api.post('/tasks', data),
   updateTask: (id, data) => api.put(`/tasks/${id}`, data),
   deleteTask: (id) => api.delete(`/tasks/${id}`),
