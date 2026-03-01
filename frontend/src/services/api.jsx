@@ -203,4 +203,15 @@ export const chatAPI = {
   markAsRead: (userId) => api.put(`/chat/read/${userId}`)
 };
 
+// Socket.IO connection helper
+export const getSocketUrl = () => {
+  const API_URL = import.meta.env.VITE_API_URL || 'https://sses-task-management-system.onrender.com/api';
+  return API_URL.replace('/api', '');
+};
+
+export const notificationAPI = {
+  saveFCMToken: (token) => api.post('/notifications/fcm-token', { fcmToken: token }),
+  updatePreferences: (prefs) => api.put('/notifications/preferences', prefs)
+};
+
 export default api;

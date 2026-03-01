@@ -11,6 +11,7 @@ const departmentRoutes = require('./src/routes/departmentRoutes');
 const healthRoutes = require('./src/routes/healthRoutes');
 const testRoutes = require('./src/routes/testRoutes');
 const chatRoutes = require('./src/routes/chatRoutes');
+const notificationRoutes = require('./src/routes/notificationRoutes');
 const Message = require('./src/models/Message');
 const jwt = require('jsonwebtoken');
 const { encrypt, decrypt } = require('./src/utils/encryption');
@@ -69,6 +70,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/test', testRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api', healthRoutes);
 
 app.get('/', (req, res) => {
@@ -123,6 +125,14 @@ io.on('connection', (socket) => {
         io.to(receiverSocketId).emit('receive-message', decryptedMessage);
         await Message.findByIdAndUpdate(message._id, { delivered: true });
         socket.emit('message-delivered', { messageId: message._id });
+      } else {
+        // Send push notification if user is offline
+        const User = require('./src/models/User');
+        const receiver = await User.findById(data.receiver);
+        if (receiver && receiver.fcmToken && receiver.notificationPreferences.chat) {
+          console.log('📨 Sending push notification to offline user');
+          // TODO: Send via FCM when integrated
+        }
       }
       
       socket.emit('message-sent', decryptedMessage);

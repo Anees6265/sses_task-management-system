@@ -1,5 +1,6 @@
 const Task = require('../models/Task');
 const { sendTaskAssignmentEmail } = require('../services/emailService');
+const { sendPushNotification } = require('./notificationController');
 const User = require('../models/User');
 
 exports.getTasks = async (req, res) => {
@@ -102,8 +103,9 @@ exports.createTask = async (req, res) => {
     if (populatedTask.assignedTo && populatedTask.assignedTo.length > 0) {
       console.log('📧 Sending notifications for task:', populatedTask.title);
       
-      // Send email to each assigned user
+      // Send email and push notification to each assigned user
       populatedTask.assignedTo.forEach(user => {
+        // Email notification
         sendTaskAssignmentEmail(
           user.email,
           user.name,
@@ -112,6 +114,14 @@ exports.createTask = async (req, res) => {
           populatedTask.priority,
           populatedTask.dueDate
         ).catch(err => console.error(`❌ Email failed for ${user.email}:`, err.message));
+        
+        // Push notification
+        sendPushNotification(
+          user._id,
+          '📋 New Task Assigned',
+          `${populatedTask.title} - Priority: ${populatedTask.priority}`,
+          { type: 'task', taskId: populatedTask._id.toString() }
+        ).catch(err => console.error(`❌ Push notification failed for ${user.email}:`, err.message));
       });
     }
     

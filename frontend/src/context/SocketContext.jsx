@@ -11,12 +11,13 @@ export const SocketProvider = ({ children }) => {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
     if (!token) {
       console.log('⚠️ No token found, skipping socket connection');
       return;
     }
 
+    // Dynamic socket URL based on environment
     const API_URL = import.meta.env.VITE_API_URL || 'https://sses-task-management-system.onrender.com/api';
     const socketUrl = API_URL.replace('/api', '');
 
@@ -29,7 +30,7 @@ export const SocketProvider = ({ children }) => {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      reconnectionAttempts: Infinity,
+      reconnectionAttempts: 10,
       timeout: 20000,
       forceNew: true
     });

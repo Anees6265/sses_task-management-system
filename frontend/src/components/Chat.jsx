@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { chatAPI } from '../services/api.jsx';
+import { showNotification } from '../utils/notifications';
 
 const Chat = () => {
-  const { socket, onlineUsers } = useSocket();
+  const { socket, onlineUsers, connected } = useSocket();
   const [conversations, setConversations] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -15,7 +16,20 @@ const Chat = () => {
 
   useEffect(() => {
     fetchConversations();
-  }, []);
+    
+    // Auto-refresh conversations if socket is not connected
+    let intervalId;
+    if (!connected) {
+      intervalId = setInterval(() => {
+        console.log('🔄 Auto-refreshing conversations (socket disconnected)');
+        fetchConversations();
+      }, 5000); // Refresh every 5 seconds when offline
+    }
+    
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [connected]);
 
   useEffect(() => {
     if (!socket) {
@@ -30,6 +44,12 @@ const Chat = () => {
       if (selectedUser && (message.sender._id === selectedUser._id || message.receiver._id === selectedUser._id)) {
         setMessages(prev => [...prev, message]);
         socket.emit('mark-read', { sender: message.sender._id });
+      } else {
+        // Show notification for messages from other users
+        showNotification(
+          `New message from ${message.sender.name}`,
+          message.message
+        );
       }
       fetchConversations();
     };
@@ -37,6 +57,18 @@ const Chat = () => {
     const handleMessageSent = (message) => {
       console.log('✅ Message sent:', message);
       setMessages(prev => [...prev, message]);
+    };
+    
+    const handleMessageError = (error) => {
+      console.error('❌ Message error:', error);
+      alert('Failed to send message: ' + error.error);
+    };
+    
+    const handleMessageDelivered = ({ messageId }) => {
+      console.log('📦 Message delivered:', messageId);
+      setMessages(prev => prev.map(msg => 
+        msg._id === messageId ? { ...msg, delivered: true } : msg
+      ));
     };
 
     const handleUserTyping = ({ userId }) => {
@@ -55,6 +87,8 @@ const Chat = () => {
 
     socket.on('receive-message', handleReceiveMessage);
     socket.on('message-sent', handleMessageSent);
+    socket.on('message-error', handleMessageError);
+    socket.on('message-delivered', handleMessageDelivered);
     socket.on('user-typing', handleUserTyping);
     socket.on('user-stop-typing', handleUserStopTyping);
 
@@ -62,6 +96,8 @@ const Chat = () => {
       console.log('🧹 Cleaning up socket listeners');
       socket.off('receive-message', handleReceiveMessage);
       socket.off('message-sent', handleMessageSent);
+      socket.off('message-error', handleMessageError);
+      socket.off('message-delivered', handleMessageDelivered);
       socket.off('user-typing', handleUserTyping);
       socket.off('user-stop-typing', handleUserStopTyping);
     };
@@ -110,14 +146,17 @@ const Chat = () => {
     };
 
     // Clear input immediately for better UX
+    const originalMessage = newMessage;
     setNewMessage('');
 
-    if (socket) {
-      // Use socket if available
+    if (socket && connected) {
+      // Use socket if available and connected
+      console.log('🚀 Sending via Socket.IO:', messageData);
       socket.emit('send-message', messageData);
       socket.emit('stop-typing', { receiver: selectedUser._id });
     } else {
       // Fallback to REST API
+      console.log('🔄 Fallback to REST API:', messageData);
       try {
         const { data } = await chatAPI.sendMessage(messageData);
         setMessages(prev => [...prev, data]);
@@ -125,7 +164,8 @@ const Chat = () => {
       } catch (error) {
         console.error('Error sending message:', error);
         // Restore message on error
-        setNewMessage(messageData.message);
+        setNewMessage(originalMessage);
+        alert('Failed to send message. Please try again.');
       }
     }
   };
@@ -158,7 +198,13 @@ const Chat = () => {
         selectedUser ? 'hidden md:flex' : 'flex'
       } w-full md:w-1/3 bg-white border-r border-gray-200 flex-col`}>
         <div className="p-3 md:p-4 bg-gradient-to-r from-orange-500 to-amber-500 text-white sticky top-0 z-10">
-          <h2 className="text-lg md:text-xl font-bold">💬 Messages</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg md:text-xl font-bold">💬 Messages</h2>
+            <div className="flex items-center space-x-2">
+              <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'}`}></div>
+              <span className="text-xs">{connected ? 'Live' : 'Offline'}</span>
+            </div>
+          </div>
         </div>
         
         <div className="flex-1 overflow-y-auto">

@@ -50,6 +50,15 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  fcmToken: {
+    type: String,
+    trim: true
+  },
+  notificationPreferences: {
+    chat: { type: Boolean, default: true },
+    tasks: { type: Boolean, default: true },
+    email: { type: Boolean, default: true }
+  },
   refreshToken: {
     type: String
   },
