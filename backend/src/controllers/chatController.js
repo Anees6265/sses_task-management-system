@@ -5,6 +5,7 @@ const { encrypt, decrypt } = require('../utils/encryption');
 exports.getConversations = async (req, res) => {
   try {
     const userId = req.user._id;
+    console.log('🔍 Getting conversations for user:', req.user.email, 'Role:', req.user.role, 'Department:', req.user.department);
     
     // Get all users the current user can chat with
     let allowedUsers = [];
@@ -12,6 +13,7 @@ exports.getConversations = async (req, res) => {
     if (req.user.role === 'admin') {
       // Admin can chat with everyone
       allowedUsers = await User.find({ _id: { $ne: userId } }).select('name email role department');
+      console.log('✅ Admin - Found', allowedUsers.length, 'users');
     } else if (req.user.role === 'hod') {
       // HOD can chat with admin and faculty in their department
       allowedUsers = await User.find({
@@ -21,6 +23,7 @@ exports.getConversations = async (req, res) => {
           { department: req.user.department, role: 'user' }
         ]
       }).select('name email role department');
+      console.log('✅ HOD - Found', allowedUsers.length, 'users (admin + faculty in', req.user.department, ')');
     } else {
       // Faculty can chat with admin and their HOD
       allowedUsers = await User.find({
@@ -30,6 +33,7 @@ exports.getConversations = async (req, res) => {
           { role: 'hod', department: req.user.department }
         ]
       }).select('name email role department');
+      console.log('✅ Faculty - Found', allowedUsers.length, 'users (admin + HOD in', req.user.department, ')');
     }
     
     // Get last message with each user
@@ -63,8 +67,10 @@ exports.getConversations = async (req, res) => {
       return timeB - timeA;
     });
     
+    console.log('✅ Returning', conversations.length, 'conversations');
     res.json(conversations);
   } catch (error) {
+    console.error('❌ Error in getConversations:', error);
     res.status(500).json({ message: error.message });
   }
 };

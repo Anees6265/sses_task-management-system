@@ -159,15 +159,19 @@ const TaskChats = () => {
                     )}
                   </div>
 
-                  {task.assignedTo && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <div className="w-6 h-6 md:w-8 md:h-8 bg-gradient-to-br from-orange-400 to-amber-500 rounded-full flex items-center justify-center text-white text-xs md:text-sm font-semibold">
-                        {task.assignedTo.name?.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="text-xs md:text-sm font-medium text-gray-800">{task.assignedTo.name}</p>
-                        <p className="text-xs text-gray-500">{task.assignedTo.email}</p>
-                      </div>
+                  {task.assignedTo && task.assignedTo.length > 0 && (
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      {task.assignedTo.map((user, index) => (
+                        <div key={user._id || index} className="flex items-center gap-2">
+                          <div className="w-6 h-6 md:w-8 md:h-8 bg-gradient-to-br from-orange-400 to-amber-500 rounded-full flex items-center justify-center text-white text-xs md:text-sm font-semibold">
+                            {user.name?.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-xs md:text-sm font-medium text-gray-800">{user.name}</p>
+                            <p className="text-xs text-gray-500">{user.email}</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
 

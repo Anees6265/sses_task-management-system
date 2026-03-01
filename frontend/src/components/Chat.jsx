@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSocket } from '../context/SocketContext';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://sses-task-management-system.onrender.com/api';
+import { chatAPI } from '../services/api.jsx';
 
 const Chat = () => {
   const { socket, onlineUsers } = useSocket();
@@ -79,13 +77,12 @@ const Chat = () => {
 
   const fetchConversations = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const { data } = await axios.get(`${API_URL}/chat/conversations`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      console.log('🔍 Fetching conversations...');
+      const { data } = await chatAPI.getConversations();
+      console.log('✅ Conversations fetched:', data.length, 'users');
       setConversations(data);
     } catch (error) {
-      console.error('Error fetching conversations:', error);
+      console.error('❌ Error fetching conversations:', error.response?.data || error.message);
     }
   };
 
@@ -93,10 +90,7 @@ const Chat = () => {
     try {
       setLoading(true);
       setSelectedUser(user);
-      const token = localStorage.getItem('token');
-      const { data } = await axios.get(`${API_URL}/chat/messages/${user._id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const { data } = await chatAPI.getMessages(user._id);
       setMessages(data);
       socket?.emit('mark-read', { sender: user._id });
     } catch (error) {
@@ -106,17 +100,34 @@ const Chat = () => {
     }
   };
 
-  const sendMessage = (e) => {
+  const sendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedUser || !socket) return;
+    if (!newMessage.trim() || !selectedUser) return;
 
-    socket.emit('send-message', {
+    const messageData = {
       receiver: selectedUser._id,
       message: newMessage.trim()
-    });
+    };
 
+    // Clear input immediately for better UX
     setNewMessage('');
-    socket.emit('stop-typing', { receiver: selectedUser._id });
+
+    if (socket) {
+      // Use socket if available
+      socket.emit('send-message', messageData);
+      socket.emit('stop-typing', { receiver: selectedUser._id });
+    } else {
+      // Fallback to REST API
+      try {
+        const { data } = await chatAPI.sendMessage(messageData);
+        setMessages(prev => [...prev, data]);
+        fetchConversations();
+      } catch (error) {
+        console.error('Error sending message:', error);
+        // Restore message on error
+        setNewMessage(messageData.message);
+      }
+    }
   };
 
   const handleTyping = (e) => {
@@ -287,11 +298,14 @@ const Chat = () => {
                   onChange={handleTyping}
                   placeholder="Type a message..."
                   className="flex-1 px-3 py-2 md:px-4 md:py-2 text-sm md:text-base border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="sentences"
                 />
                 <button
                   type="submit"
                   disabled={!newMessage.trim()}
-                  className="px-4 py-2 md:px-6 md:py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-full font-semibold hover:from-orange-600 hover:to-amber-600 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base"
+                  className="px-4 py-2 md:px-6 md:py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-full font-semibold hover:from-orange-600 hover:to-amber-600 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base flex-shrink-0"
                 >
                   📤
                 </button>

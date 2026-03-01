@@ -12,17 +12,19 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!token) {
+      console.log('⚠️ No token found, skipping socket connection');
+      return;
+    }
 
     const API_URL = import.meta.env.VITE_API_URL || 'https://sses-task-management-system.onrender.com/api';
     const socketUrl = API_URL.replace('/api', '');
 
     console.log('🔌 Connecting to Socket.IO:', socketUrl);
-
-    const accessToken = localStorage.getItem('accessToken') || token;
+    console.log('🔑 Using token:', token.substring(0, 20) + '...');
 
     const newSocket = io(socketUrl, {
-      auth: { token: accessToken },
+      auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,

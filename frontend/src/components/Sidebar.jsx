@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { departmentAPI } from '../services/api.jsx';
+import { departmentAPI, userAPI } from '../services/api.jsx';
 
 const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobileOpen, refreshTrigger }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
