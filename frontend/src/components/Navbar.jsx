@@ -69,7 +69,7 @@ const Navbar = ({ onMenuClick, onFacultyCreated }) => {
             {user?.role === 'hod' && (
               <button
                 onClick={() => setShowCreateFacultyModal(true)}
-                className="px-2 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 transition font-medium text-xs md:text-sm flex items-center justify-center shadow-sm"
+                className="px-2 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg hover:from-orange-600 hover:to-amber-600 transition font-medium text-xs md:text-sm flex items-center justify-center shadow-sm"
               >
                 <span>👨‍🏫 Add Faculty</span>
               </button>

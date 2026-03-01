@@ -129,7 +129,7 @@ const Dashboard = ({ onFacultyClick }) => {
       <div className="bg-white rounded-2xl p-4 md:p-6 shadow-xl border-2 border-gray-100">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-6 gap-2">
           <h3 className="text-lg md:text-2xl font-bold text-gray-800 flex items-center space-x-2">
-            <span className="text-2xl md:text-3xl">{user?.role === 'hod' ? '👨🏫' : '🏛️'}</span>
+            <span className="text-2xl md:text-3xl">{user?.role === 'hod' ? '' : '🏛️'}</span>
             <span>{user?.role === 'hod' ? 'Faculty Performance' : t('departmentPerformance')}</span>
           </h3>
           <div className="text-xs md:text-sm text-gray-500 bg-gray-100 px-3 md:px-4 py-1.5 md:py-2 rounded-lg w-fit">
@@ -149,11 +149,11 @@ const Dashboard = ({ onFacultyClick }) => {
                 <div 
                   key={faculty._id} 
                   onClick={() => onFacultyClick && onFacultyClick(faculty._id)}
-                  className="bg-white rounded-xl p-4 md:p-6 border-2 border-gray-200 hover:shadow-lg hover:border-blue-400 transition-all duration-300 cursor-pointer"
+                  className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 md:p-6 border-2 border-gray-200 hover:shadow-xl hover:border-orange-400 transition-all duration-300 cursor-pointer"
                 >
                   <div className="flex items-center justify-between mb-3 md:mb-4">
                     <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                      <div className="w-10 h-10 bg-gradient-to-r from-orange-400 to-amber-400 rounded-full flex items-center justify-center text-white font-bold text-sm">
                         {faculty.name?.charAt(0).toUpperCase()}
                       </div>
                       <div>
@@ -161,7 +161,7 @@ const Dashboard = ({ onFacultyClick }) => {
                         <p className="text-xs text-gray-500 truncate">{faculty.email}</p>
                       </div>
                     </div>
-                    <div className="bg-blue-100 text-blue-700 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs font-bold flex-shrink-0">
+                    <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs font-bold flex-shrink-0">
                       {facultyProgress}%
                     </div>
                   </div>
@@ -200,7 +200,7 @@ const Dashboard = ({ onFacultyClick }) => {
                   {/* Progress Bar */}
                   <div className="bg-gray-200 h-2 md:h-3 rounded-full overflow-hidden">
                     <div 
-                      className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full transition-all duration-500 rounded-full"
+                      className="bg-gradient-to-r from-orange-500 to-amber-500 h-full transition-all duration-500 rounded-full"
                       style={{ width: `${facultyProgress}%` }}
                     ></div>
                   </div>
@@ -214,10 +214,10 @@ const Dashboard = ({ onFacultyClick }) => {
               const deptProgress = calculateProgress(dept.completed, dept.total);
               
               return (
-                <div key={dept._id} className="bg-white rounded-xl p-4 md:p-6 border-2 border-gray-200 hover:shadow-lg transition-all duration-300">
+                <div key={dept._id} className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 md:p-6 border-2 border-gray-200 hover:shadow-xl hover:border-orange-400 transition-all duration-300">
                   <div className="flex items-center justify-between mb-3 md:mb-4">
                     <h4 className="text-base md:text-xl font-bold text-gray-800 truncate pr-2">{dept._id}</h4>
-                    <div className="bg-gray-100 text-gray-700 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs font-bold flex-shrink-0">
+                    <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs font-bold flex-shrink-0">
                       {deptProgress}%
                     </div>
                   </div>
@@ -256,7 +256,7 @@ const Dashboard = ({ onFacultyClick }) => {
                   {/* Progress Bar */}
                   <div className="bg-gray-200 h-2 md:h-3 rounded-full overflow-hidden">
                     <div 
-                      className="bg-gray-800 h-full transition-all duration-500 rounded-full"
+                      className="bg-gradient-to-r from-orange-500 to-amber-500 h-full transition-all duration-500 rounded-full"
                       style={{ width: `${deptProgress}%` }}
                     ></div>
                   </div>
