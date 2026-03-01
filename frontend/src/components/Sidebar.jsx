@@ -1,17 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { departmentAPI, userAPI } from '../services/api.jsx';
+import { departmentAPI } from '../services/api.jsx';
 
 const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobileOpen, refreshTrigger }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [departments, setDepartments] = useState([]);
-  const [facultyList, setFacultyList] = useState([]);
 
   useEffect(() => {
-    if (userRole === 'admin' || userRole === 'hod') {
+    if (userRole === 'admin') {
       fetchDepartments();
-      if (userRole === 'hod') {
-        fetchFaculty();
-      }
     }
   }, [userRole, refreshTrigger]);
 
@@ -21,17 +17,6 @@ const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobil
       setDepartments(data || []);
     } catch (error) {
       console.error('Error fetching departments:', error);
-    }
-  };
-
-  const fetchFaculty = async () => {
-    try {
-      const { data } = await userAPI.getAllUsers();
-      // Filter only faculty (users with role 'user')
-      const faculty = data.filter(u => u.role === 'user');
-      setFacultyList(faculty);
-    } catch (error) {
-      console.error('Error fetching faculty:', error);
     }
   };
 
@@ -49,12 +34,7 @@ const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobil
   const hodMenuItems = [
     { id: 'dashboard', icon: '📊', label: 'Dashboard' },
     { id: 'board', icon: '📋', label: 'My Department' },
-    { id: 'chats', icon: '💬', label: 'Chats' },
-    ...facultyList.map(faculty => ({
-      id: `faculty-${faculty._id}`,
-      icon: '👨🏫',
-      label: faculty.name
-    }))
+    { id: 'chats', icon: '💬', label: 'Chats' }
   ];
 
   const userMenuItems = [
