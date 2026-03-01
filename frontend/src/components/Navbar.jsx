@@ -10,6 +10,7 @@ const Navbar = ({ onMenuClick, onFacultyCreated }) => {
   const { language, toggleLanguage, t } = useLanguage();
   const [showCreateHODModal, setShowCreateHODModal] = useState(false);
   const [showCreateFacultyModal, setShowCreateFacultyModal] = useState(false);
+  const [showCreateAdminModal, setShowCreateAdminModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -58,12 +59,20 @@ const Navbar = ({ onMenuClick, onFacultyCreated }) => {
             </button>
             
             {user?.role === 'admin' && (
-              <button
-                onClick={() => setShowCreateHODModal(true)}
-                className="px-2 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg hover:from-orange-600 hover:to-amber-600 transition font-medium text-xs md:text-sm flex items-center justify-center shadow-sm"
-              >
-                <span>🏛️ Create Department</span>
-              </button>
+              <>
+                <button
+                  onClick={() => setShowCreateAdminModal(true)}
+                  className="px-2 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg hover:from-orange-600 hover:to-amber-600 transition font-medium text-xs md:text-sm flex items-center justify-center shadow-sm"
+                >
+                  <span>👤 Create Admin</span>
+                </button>
+                <button
+                  onClick={() => setShowCreateHODModal(true)}
+                  className="px-2 md:px-4 py-1.5 md:py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg hover:from-orange-600 hover:to-amber-600 transition font-medium text-xs md:text-sm flex items-center justify-center shadow-sm"
+                >
+                  <span>🏛️ Create Department</span>
+                </button>
+              </>
             )}
             
             {user?.role === 'hod' && (
@@ -129,6 +138,23 @@ const Navbar = ({ onMenuClick, onFacultyCreated }) => {
           </div>
         </div>
       </nav>
+
+      {/* Create Admin Modal */}
+      {showCreateAdminModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto relative">
+            <button
+              onClick={() => setShowCreateAdminModal(false)}
+              className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 transition"
+            >
+              <span className="text-3xl font-light">×</span>
+            </button>
+            <div className="p-8">
+              <CreateHOD onClose={() => setShowCreateAdminModal(false)} isModal={true} isAdmin={true} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create HOD Modal */}
       {showCreateHODModal && (

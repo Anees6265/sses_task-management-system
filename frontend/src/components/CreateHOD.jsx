@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { authAPI } from '../services/api.jsx';
 import { toast } from 'react-toastify';
 
-const CreateHOD = ({ onClose, isModal }) => {
+const CreateHOD = ({ onClose, isModal, isAdmin }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -19,14 +19,15 @@ const CreateHOD = ({ onClose, isModal }) => {
     try {
       await authAPI.register({
         ...formData,
-        role: 'hod'
+        role: isAdmin ? 'admin' : 'hod',
+        department: isAdmin ? undefined : formData.department
       });
       
-      toast.success('✅ HOD created successfully!', { position: 'top-center', autoClose: 2000 });
+      toast.success(`✅ ${isAdmin ? 'Admin' : 'HOD'} created successfully!`, { position: 'top-center', autoClose: 2000 });
       setFormData({ name: '', email: '', password: '', department: '', phoneNumber: '' });
       if (onClose) onClose();
     } catch (error) {
-      toast.error(error.response?.data?.message || '❌ Failed to create HOD', { 
+      toast.error(error.response?.data?.message || `❌ Failed to create ${isAdmin ? 'Admin' : 'HOD'}`, { 
         position: 'top-center', 
         autoClose: 3000 
       });
@@ -39,7 +40,7 @@ const CreateHOD = ({ onClose, isModal }) => {
     <div className={isModal ? '' : 'min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center p-4'}>
       <div className={isModal ? 'w-full' : 'bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md'}>
         <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 text-gray-800">
-          🏛️ Create HOD
+          {isAdmin ? '👤 Create Admin' : '🏛️ Create HOD'}
         </h2>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -47,7 +48,7 @@ const CreateHOD = ({ onClose, isModal }) => {
             <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
             <input
               type="text"
-              placeholder="Enter HOD name"
+              placeholder={`Enter ${isAdmin ? 'Admin' : 'HOD'} name`}
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-sm"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -59,7 +60,7 @@ const CreateHOD = ({ onClose, isModal }) => {
             <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
             <input
               type="email"
-              placeholder="hod@ssism.org"
+              placeholder={`${isAdmin ? 'admin' : 'hod'}@ssism.org`}
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-sm"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -81,17 +82,19 @@ const CreateHOD = ({ onClose, isModal }) => {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Department *</label>
-            <input
-              type="text"
-              placeholder="e.g., Computer Science, Mechanical"
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-sm"
-              value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-              required
-            />
-          </div>
+          {!isAdmin && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Department *</label>
+              <input
+                type="text"
+                placeholder="e.g., Computer Science, Mechanical"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 transition text-sm"
+                value={formData.department}
+                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                required
+              />
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
@@ -109,7 +112,7 @@ const CreateHOD = ({ onClose, isModal }) => {
             disabled={loading}
             className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? '⏳ Creating...' : '✅ Create HOD'}
+            {loading ? '⏳ Creating...' : `✅ Create ${isAdmin ? 'Admin' : 'HOD'}`}
           </button>
         </form>
       </div>
