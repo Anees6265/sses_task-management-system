@@ -3,6 +3,7 @@ import { leaveAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { toast } from 'react-toastify';
+import FacultyProfileModal from './FacultyProfileModal.jsx';
 import { 
   FiCalendar, 
   FiPlus, 
@@ -21,13 +22,14 @@ import {
   FiActivity
 } from 'react-icons/fi';
 
-const LeaveDashboard = ({ onSelectDepartment }) => {
+const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   const { user } = useContext(AuthContext);
   const { t } = useLanguage();
 
   const [leaves, setLeaves] = useState([]);
   const [stats, setStats] = useState(null);
   const [attendanceData, setAttendanceData] = useState([]);
+  const [selectedFacultyProfile, setSelectedFacultyProfile] = useState(null);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('all');
   const [selectedDeptDetailModal, setSelectedDeptDetailModal] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -111,6 +113,22 @@ const LeaveDashboard = ({ onSelectDepartment }) => {
     }
   };
 
+  const canReviewLeave = (leave) => {
+    if (!leave || leave.status !== 'pending') return false;
+    if (user?.role === 'admin') return true;
+    if (user?.role === 'hod') {
+      const applicantId = leave.applicant?._id || leave.applicant;
+      const applicantEmail = leave.applicant?.email;
+      const isSelfLeave = (applicantId && applicantId === user?._id) || (applicantEmail && applicantEmail === user?.email);
+      const isDeptMatch = leave.department === user?.department || leave.applicant?.department === user?.department;
+      return isDeptMatch && !isSelfLeave;
+    }
+    return false;
+  };
+
+  const isFaculty = user?.role === 'user';
+  const userDept = user?.department;
+
   const filteredLeaves = leaves.filter(leave => {
     const matchesStatus = statusFilter === 'all' || leave.status === statusFilter;
     const matchesDept = selectedDeptFilter === 'all' || leave.department === selectedDeptFilter || leave.applicant?.department === selectedDeptFilter;
@@ -119,8 +137,19 @@ const LeaveDashboard = ({ onSelectDepartment }) => {
     const matchesSearch = applicantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           dept.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           leave.reason.toLowerCase().includes(searchQuery.toLowerCase());
+
+    if (isFaculty) {
+      const isMyLeave = leave.applicant?._id === user?._id || leave.applicant === user?._id;
+      const isMyDept = (userDept && (leave.department === userDept || leave.applicant?.department === userDept));
+      return matchesStatus && matchesSearch && (isMyLeave || isMyDept);
+    }
+
     return matchesStatus && matchesDept && matchesSearch;
   });
+
+  const displayAttendanceData = (isFaculty && userDept) 
+    ? attendanceData.filter(d => d.department.toLowerCase() === userDept.toLowerCase()) 
+    : attendanceData;
 
   const getLeaveTypeBadge = (type) => {
     switch (type) {
@@ -170,13 +199,15 @@ const LeaveDashboard = ({ onSelectDepartment }) => {
           <p className="text-xs md:text-sm text-slate-300 mt-1">Apply for leave, track department leave counts & manage team leave approvals</p>
         </div>
 
-        <button
-          onClick={() => setShowApplyModal(true)}
-          className="px-5 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-2xl font-bold transition shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 text-xs md:text-sm relative z-10 active:scale-95"
-        >
-          <FiPlus className="w-4 h-4" />
-          <span>Apply for Leave</span>
-        </button>
+        {user?.role !== 'admin' && (
+          <button
+            onClick={() => setShowApplyModal(true)}
+            className="px-5 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-2xl font-bold transition shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 text-xs md:text-sm relative z-10 active:scale-95"
+          >
+            <FiPlus className="w-4 h-4" />
+            <span>Apply for Leave</span>
+          </button>
+        )}
       </div>
 
       {/* Metrics & Quotas Grid */}
@@ -266,7 +297,7 @@ const LeaveDashboard = ({ onSelectDepartment }) => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {attendanceData.map((dept) => {
+          {displayAttendanceData.map((dept) => {
             const deptLeaves = leaves.filter(l => l.department === dept.department || l.applicant?.department === dept.department);
             const isSelected = selectedDeptFilter === dept.department;
 
@@ -393,13 +424,17 @@ const LeaveDashboard = ({ onSelectDepartment }) => {
               <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
                 {filteredLeaves.map((leave) => (
                   <tr key={leave._id} className="hover:bg-slate-50/80 transition">
-                    <td className="p-3.5">
+                    <td 
+                      className="p-3.5 cursor-pointer group"
+                      onClick={() => onOpenFacultyProfile ? onOpenFacultyProfile(leave.applicant) : setSelectedFacultyProfile(leave.applicant)}
+                      title="Click to view complete faculty profile & leave history"
+                    >
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center text-white font-extrabold text-xs">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center text-white font-extrabold text-xs shadow-sm group-hover:scale-105 transition">
                           {leave.applicant?.name?.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-bold text-slate-800 leading-tight">{leave.applicant?.name || 'N/A'}</p>
+                          <p className="font-bold text-slate-800 leading-tight group-hover:text-orange-600 transition">{leave.applicant?.name || 'N/A'}</p>
                           <p className="text-[11px] text-slate-400">{leave.department}</p>
                         </div>
                       </div>
@@ -414,7 +449,7 @@ const LeaveDashboard = ({ onSelectDepartment }) => {
                     <td className="p-3.5 text-right">
                       <div className="flex items-center justify-end gap-2">
                         {/* HOD/Admin Actions for Pending Leaves */}
-                        {(user?.role === 'admin' || (user?.role === 'hod' && leave.department === user?.department)) && leave.status === 'pending' && (
+                        {canReviewLeave(leave) && (
                           <>
                             <button
                               onClick={() => setReviewModal({ leave, action: 'approved' })}
@@ -431,13 +466,14 @@ const LeaveDashboard = ({ onSelectDepartment }) => {
                           </>
                         )}
 
-                        {/* Faculty Cancel pending leave */}
-                        {leave.applicant?._id === user?._id && leave.status === 'pending' && (
+                        {/* Faculty/Applicant Cancel pending or approved leave */}
+                        {((leave.applicant?._id === user?._id) || (leave.applicant === user?._id) || (leave.applicant?.email === user?.email)) && (leave.status === 'pending' || leave.status === 'approved') && (
                           <button
                             onClick={() => handleCancelLeave(leave._id)}
-                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition"
+                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition"
+                            title="Cancel your leave application if your plans change"
                           >
-                            Cancel
+                            Cancel Leave
                           </button>
                         )}
 
@@ -484,7 +520,6 @@ const LeaveDashboard = ({ onSelectDepartment }) => {
                   <option value="sick">Sick Leave (SL)</option>
                   <option value="earned">Earned Leave (EL)</option>
                   <option value="duty">On Duty (OD)</option>
-                  <option value="unpaid">Unpaid Leave</option>
                 </select>
               </div>
 
@@ -700,6 +735,22 @@ const LeaveDashboard = ({ onSelectDepartment }) => {
                         <p className="text-[11px] font-bold text-slate-500">
                           {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()} ({leave.totalDays} Days)
                         </p>
+                        {canReviewLeave(leave) && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <button
+                              onClick={() => setReviewModal({ leave, action: 'approved' })}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1"
+                            >
+                              <FiCheck className="w-3.5 h-3.5" /> Approve
+                            </button>
+                            <button
+                              onClick={() => setReviewModal({ leave, action: 'rejected' })}
+                              className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1"
+                            >
+                              <FiX className="w-3.5 h-3.5" /> Reject
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -717,6 +768,62 @@ const LeaveDashboard = ({ onSelectDepartment }) => {
                 className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition-all shadow-md"
               >
                 Close Department Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Faculty Profile Modal */}
+      {selectedFacultyProfile && (
+        <FacultyProfileModal
+          faculty={selectedFacultyProfile}
+          onClose={() => setSelectedFacultyProfile(null)}
+          onRefresh={fetchLeaveData}
+        />
+      )}
+
+      {/* Review Modal Dialog for HOD / Admin */}
+      {reviewModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-white p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 text-center fade-in">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
+              reviewModal.action === 'approved' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+            }`}>
+              {reviewModal.action === 'approved' ? <FiCheck className="w-6 h-6" /> : <FiX className="w-6 h-6" />}
+            </div>
+
+            <h3 className="text-lg font-extrabold text-slate-800 mb-1 capitalize">
+              {reviewModal.action} Leave Request
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">
+              Applicant: <span className="font-bold text-slate-700">{reviewModal.leave?.applicant?.name || 'Faculty'}</span> ({reviewModal.leave?.totalDays} Days)
+            </p>
+
+            <textarea
+              rows="2"
+              placeholder="Add optional review comment..."
+              value={reviewComment}
+              onChange={(e) => setReviewComment(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium mb-4 focus:ring-2 focus:ring-orange-400"
+            />
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleReviewAction}
+                className={`flex-1 text-white py-2.5 rounded-xl font-bold text-sm shadow-md transition ${
+                  reviewModal.action === 'approved' 
+                    ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20' 
+                    : 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'
+                }`}
+              >
+                Confirm {reviewModal.action === 'approved' ? 'Approve' : 'Reject'}
+              </button>
+              <button
+                onClick={() => setReviewModal(null)}
+                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+              >
+                Cancel
               </button>
             </div>
           </div>

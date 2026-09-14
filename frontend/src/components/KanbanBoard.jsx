@@ -32,6 +32,8 @@ import {
 
 import DepartmentDashboard from './DepartmentDashboard.jsx';
 import DepartmentDetailPage from './DepartmentDetailPage.jsx';
+import FacultyProfilePage from './FacultyProfilePage.jsx';
+import UserManagementPage from './UserManagementPage.jsx';
 
 const KanbanBoard = () => {
   const [tasks, setTasks] = useState({ todo: [], inprogress: [], completed: [] });
@@ -42,6 +44,7 @@ const KanbanBoard = () => {
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [activeView, setActiveView] = useState('board');
   const [selectedDepartmentName, setSelectedDepartmentName] = useState(null);
+  const [selectedFacultyForProfile, setSelectedFacultyForProfile] = useState(null);
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -55,6 +58,11 @@ const KanbanBoard = () => {
   const handleSelectDepartment = (deptName) => {
     setSelectedDepartmentName(deptName);
     setActiveView('dept-detail');
+  };
+
+  const handleOpenFacultyProfile = (facultyObj) => {
+    setSelectedFacultyForProfile(facultyObj || user);
+    setActiveView('faculty-profile');
   };
 
   useEffect(() => {
@@ -418,7 +426,11 @@ const KanbanBoard = () => {
       />
       {loading && <Loader />}
       <div className="min-h-screen bg-slate-50/50 pt-[60px] md:pt-[68px]">
-        <Navbar onMenuClick={() => setIsMobileSidebarOpen(true)} onFacultyCreated={() => setSidebarRefreshTrigger(prev => prev + 1)} />
+        <Navbar 
+          onMenuClick={() => setIsMobileSidebarOpen(true)} 
+          onFacultyCreated={() => setSidebarRefreshTrigger(prev => prev + 1)} 
+          onOpenProfile={() => handleOpenFacultyProfile(user)}
+        />
         
         <div className="flex flex-col md:flex-row">
           <Sidebar 
@@ -436,7 +448,7 @@ const KanbanBoard = () => {
             )}
 
             {activeView === 'leaves' && (
-              <LeaveDashboard onSelectDepartment={handleSelectDepartment} />
+              <LeaveDashboard onSelectDepartment={handleSelectDepartment} onOpenFacultyProfile={handleOpenFacultyProfile} />
             )}
 
             {activeView === 'departments-overview' && (
@@ -444,10 +456,14 @@ const KanbanBoard = () => {
             )}
 
             {activeView === 'dept-detail' && (
-              <DepartmentDetailPage departmentName={selectedDepartmentName} onBack={() => setActiveView('departments-overview')} />
+              <DepartmentDetailPage departmentName={selectedDepartmentName} onBack={() => setActiveView('departments-overview')} onOpenFacultyProfile={handleOpenFacultyProfile} />
             )}
 
-            {activeView !== 'dashboard' && activeView !== 'leaves' && activeView !== 'departments-overview' && activeView !== 'dept-detail' && activeView !== 'chats' && activeView !== 'analytics' && activeView !== 'settings' && (
+            {activeView === 'faculty-profile' && (
+              <FacultyProfilePage faculty={selectedFacultyForProfile || user} onBack={() => setActiveView('leaves')} />
+            )}
+
+            {activeView !== 'dashboard' && activeView !== 'leaves' && activeView !== 'departments-overview' && activeView !== 'dept-detail' && activeView !== 'faculty-profile' && activeView !== 'chats' && activeView !== 'users' && activeView !== 'analytics' && activeView !== 'settings' && (
               <>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3 fade-in">
                   <div className="flex items-center gap-3">
@@ -512,6 +528,10 @@ const KanbanBoard = () => {
                   </div>
                 </DragDropContext>
               </>
+            )}
+
+            {activeView === 'users' && (
+              <UserManagementPage onOpenFacultyProfile={handleOpenFacultyProfile} />
             )}
 
             {activeView === 'chats' && (

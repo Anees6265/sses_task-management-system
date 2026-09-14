@@ -66,6 +66,7 @@ exports.applyLeave = async (req, res) => {
 
 exports.getLeaves = async (req, res) => {
   try {
+    let mongoLeaves = [];
     if (mongoose.connection.readyState === 1) {
       let filter = {};
       if (req.user.role === 'admin') {
@@ -76,21 +77,25 @@ exports.getLeaves = async (req, res) => {
         filter = { applicant: req.user._id };
       }
 
-      const leaves = await Leave.find(filter)
+      mongoLeaves = await Leave.find(filter)
         .populate('applicant', 'name email department role')
         .populate('reviewedBy', 'name email')
         .sort({ createdAt: -1 });
-
-      return res.json(leaves);
-    } else {
-      let filtered = demoLeaves;
-      if (req.user.role === 'hod') {
-        filtered = demoLeaves.filter(l => l.department === req.user.department);
-      } else if (req.user.role === 'user') {
-        filtered = demoLeaves.filter(l => l.applicant._id === req.user._id);
-      }
-      return res.json(filtered);
     }
+
+    if (mongoLeaves && mongoLeaves.length > 0) {
+      return res.json(mongoLeaves);
+    }
+
+    let filtered = demoLeaves;
+    if (req.user.role === 'hod') {
+      filtered = demoLeaves.filter(l => l.department === req.user.department);
+    } else if (req.user.role === 'user') {
+      filtered = demoLeaves.filter(l => 
+        (l.applicant?._id === req.user._id) || (l.applicant === req.user._id) || (l.applicant?.email === req.user.email)
+      );
+    }
+    return res.json(filtered);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -105,14 +110,48 @@ exports.updateLeaveStatus = async (req, res) => {
       return res.status(400).json({ message: 'Invalid status. Must be approved or rejected' });
     }
 
+    let leave = null;
+    let isMongoDoc = false;
+
     if (mongoose.connection.readyState === 1) {
-      const leave = await Leave.findById(id);
-      if (!leave) return res.status(404).json({ message: 'Leave request not found' });
-
-      if (req.user.role !== 'admin' && (req.user.role !== 'hod' || leave.department !== req.user.department)) {
-        return res.status(403).json({ message: 'Access denied to review this leave' });
+      try {
+        leave = await Leave.findById(id);
+        if (leave) isMongoDoc = true;
+      } catch (err) {
+        console.warn('MongoDB findById failed, checking demo store:', err.message);
       }
+    }
 
+    if (!leave) {
+      leave = demoLeaves.find(l => l._id.toString() === id.toString());
+    }
+
+    if (!leave) {
+      return res.status(404).json({ message: 'Leave request not found' });
+    }
+
+    const applicantId = typeof leave.applicant === 'object' 
+      ? (leave.applicant?._id ? leave.applicant._id.toString() : '') 
+      : (leave.applicant ? leave.applicant.toString() : '');
+    const applicantEmail = typeof leave.applicant === 'object' ? leave.applicant?.email : '';
+
+    const isSelfLeave = (applicantId && applicantId === req.user._id.toString()) || 
+                        (applicantEmail && applicantEmail === req.user.email);
+
+    if (req.user.role === 'user') {
+      return res.status(403).json({ message: 'Faculty members cannot review leave requests' });
+    }
+
+    if (req.user.role === 'hod') {
+      if (isSelfLeave) {
+        return res.status(403).json({ message: 'HOD cannot approve their own leave request. Only Admin can review HOD leaves.' });
+      }
+      if (leave.department !== req.user.department) {
+        return res.status(403).json({ message: 'Access denied. You can only review leaves for your department.' });
+      }
+    }
+
+    if (isMongoDoc) {
       leave.status = status;
       leave.reviewComment = reviewComment || (status === 'approved' ? 'Approved' : 'Rejected');
       leave.reviewedBy = req.user._id;
@@ -125,9 +164,6 @@ exports.updateLeaveStatus = async (req, res) => {
 
       return res.json(updated);
     } else {
-      const leave = demoLeaves.find(l => l._id === id);
-      if (!leave) return res.status(404).json({ message: 'Leave request not found' });
-
       leave.status = status;
       leave.reviewComment = reviewComment || (status === 'approved' ? 'Approved' : 'Rejected');
       leave.reviewedBy = { _id: req.user._id, name: req.user.name, email: req.user.email };
@@ -136,6 +172,7 @@ exports.updateLeaveStatus = async (req, res) => {
       return res.json(leave);
     }
   } catch (error) {
+    console.error('Error in updateLeaveStatus:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -348,17 +385,36 @@ exports.cancelLeave = async (req, res) => {
   try {
     const { id } = req.params;
 
+    let leave = null;
     if (mongoose.connection.readyState === 1) {
-      const leave = await Leave.findOne({ _id: id, applicant: req.user._id, status: 'pending' });
-      if (!leave) return res.status(404).json({ message: 'Pending leave request not found' });
+      try {
+        leave = await Leave.findOne({ 
+          _id: id, 
+          applicant: req.user._id,
+          status: { $in: ['pending', 'approved'] }
+        });
+      } catch (err) {
+        console.warn('MongoDB cancel query error, checking demo store:', err.message);
+      }
+    }
+
+    if (leave) {
       leave.status = 'cancelled';
       await leave.save();
-      return res.json({ message: 'Leave cancelled successfully' });
+      return res.json({ message: 'Leave request cancelled successfully' });
     } else {
-      const leaveIndex = demoLeaves.findIndex(l => l._id === id && l.applicant._id === req.user._id);
-      if (leaveIndex === -1) return res.status(404).json({ message: 'Pending leave request not found' });
-      demoLeaves[leaveIndex].status = 'cancelled';
-      return res.json({ message: 'Leave cancelled successfully' });
+      const index = demoLeaves.findIndex(l => 
+        (String(l._id) === String(id)) && 
+        (l.applicant?._id === req.user._id || l.applicant === req.user._id || l.applicant?.email === req.user.email) &&
+        (l.status === 'pending' || l.status === 'approved')
+      );
+
+      if (index !== -1) {
+        demoLeaves[index].status = 'cancelled';
+        return res.json({ message: 'Leave request cancelled successfully' });
+      }
+
+      return res.status(404).json({ message: 'Active or pending leave request not found to cancel' });
     }
   } catch (error) {
     res.status(500).json({ message: error.message });

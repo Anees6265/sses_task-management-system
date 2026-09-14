@@ -18,7 +18,12 @@ exports.protect = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     if (mongoose.connection.readyState === 1) {
-      req.user = await User.findById(decoded.id).select('-password');
+      try {
+        req.user = await User.findById(decoded.id).select('-password');
+      } catch (dbErr) {
+        console.warn('⚠️ User lookup failed in auth middleware, falling back to mock user:', dbErr.message);
+        req.user = demoUsers.find(u => u._id === decoded.id) || demoUsers[0];
+      }
     } else {
       req.user = demoUsers.find(u => u._id === decoded.id) || demoUsers[0];
     }

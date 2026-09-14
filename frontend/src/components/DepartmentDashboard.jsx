@@ -44,7 +44,14 @@ const DepartmentDashboard = ({ onSelectDepartment }) => {
     }
   };
 
-  const filteredDepartments = attendanceData.filter(dept => 
+  const isFaculty = user?.role === 'user';
+  const userDepartment = user?.department;
+
+  const roleFilteredAttendanceData = isFaculty && userDepartment
+    ? attendanceData.filter(dept => dept.department.toLowerCase() === userDepartment.toLowerCase())
+    : attendanceData;
+
+  const filteredDepartments = roleFilteredAttendanceData.filter(dept => 
     dept.department.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -59,9 +66,9 @@ const DepartmentDashboard = ({ onSelectDepartment }) => {
     );
   }
 
-  const totalFacultyCount = attendanceData.reduce((acc, d) => acc + d.totalFaculty, 0);
-  const totalPresentCount = attendanceData.reduce((acc, d) => acc + d.presentCount, 0);
-  const totalAbsentCount = attendanceData.reduce((acc, d) => acc + d.absentCount, 0);
+  const totalFacultyCount = roleFilteredAttendanceData.reduce((acc, d) => acc + d.totalFaculty, 0);
+  const totalPresentCount = roleFilteredAttendanceData.reduce((acc, d) => acc + d.presentCount, 0);
+  const totalAbsentCount = roleFilteredAttendanceData.reduce((acc, d) => acc + d.absentCount, 0);
 
   return (
     <div className="space-y-6 fade-in pb-12">
@@ -71,21 +78,27 @@ const DepartmentDashboard = ({ onSelectDepartment }) => {
           <div className="flex items-center space-x-2 mb-1">
             <span className="px-3 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-bold rounded-full uppercase tracking-wider border border-orange-500/30 flex items-center gap-1.5">
               <FiBriefcase className="w-3.5 h-3.5" />
-              Department Directory
+              {isFaculty ? `${userDepartment} Portal` : 'Department Directory'}
             </span>
           </div>
           <h2 className="text-2xl md:text-3xl font-extrabold flex items-center gap-3 tracking-tight">
-            <span>Department Dashboard</span>
+            <span>{isFaculty ? `${userDepartment || 'My'} Department Dashboard` : 'Department Dashboard'}</span>
           </h2>
           <p className="text-xs md:text-sm text-slate-300 mt-1">
-            Overview of all departments, daily faculty attendance ratios & leave request counts
+            {isFaculty 
+              ? `Overview of your department (${userDepartment}), faculty attendance & leave status` 
+              : 'Overview of all departments, daily faculty attendance ratios & leave request counts'}
           </p>
         </div>
 
         <div className="bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-4 relative z-10">
           <div>
-            <p className="text-[10px] font-extrabold uppercase text-slate-300 tracking-wider">Total Departments</p>
-            <p className="text-2xl font-black text-white">{attendanceData.length} Active</p>
+            <p className="text-[10px] font-extrabold uppercase text-slate-300 tracking-wider">
+              {isFaculty ? 'Department' : 'Total Departments'}
+            </p>
+            <p className="text-2xl font-black text-white">
+              {isFaculty ? userDepartment : `${roleFilteredAttendanceData.length} Active`}
+            </p>
           </div>
         </div>
       </div>
@@ -143,10 +156,10 @@ const DepartmentDashboard = ({ onSelectDepartment }) => {
           <div>
             <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2.5">
               <FiBriefcase className="text-orange-500 w-6 h-6" />
-              <span>All Departments Directory</span>
+              <span>{isFaculty ? 'My Department' : 'All Departments Directory'}</span>
             </h3>
             <p className="text-xs text-slate-500 font-semibold mt-0.5">
-              Click any department card to view its complete faculty attendance list, leaves & tasks
+              {isFaculty ? 'Click to view complete faculty attendance, active leaves & department details' : 'Click any department card to view its complete faculty attendance list, leaves & tasks'}
             </p>
           </div>
 

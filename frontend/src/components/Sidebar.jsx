@@ -11,7 +11,8 @@ import {
   FiChevronLeft, 
   FiChevronRight,
   FiChevronDown,
-  FiBriefcase
+  FiBriefcase,
+  FiUsers
 } from 'react-icons/fi';
 
 const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobileOpen, refreshTrigger }) => {
@@ -34,7 +35,7 @@ const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobil
     }
   };
 
-  const isLeaveActive = activeView === 'leaves' || activeView === 'departments-overview' || activeView === 'dept-detail';
+  const isLeaveActive = activeView === 'leaves' || activeView === 'departments-overview' || activeView === 'dept-detail' || activeView === 'faculty-profile';
 
   return (
     <>
@@ -79,6 +80,24 @@ const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobil
               >
                 <FiPieChart className={`w-5 h-5 ${activeView === 'dashboard' ? 'text-white' : 'text-slate-500'}`} />
                 {!isCollapsed && <span className="truncate">Dashboard</span>}
+              </button>
+            )}
+
+            {(userRole === 'admin' || userRole === 'hod') && (
+              <button
+                onClick={() => {
+                  setActiveView('users');
+                  setIsMobileOpen(false);
+                }}
+                title={isCollapsed ? 'User Directory' : undefined}
+                className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-semibold text-xs md:text-sm ${
+                  activeView === 'users'
+                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+              >
+                <FiUsers className={`w-5 h-5 ${activeView === 'users' ? 'text-white' : 'text-slate-500'}`} />
+                {!isCollapsed && <span className="truncate">{userRole === 'admin' ? 'User & Faculty Directory' : 'Department Faculties'}</span>}
               </button>
             )}
 
@@ -148,7 +167,22 @@ const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobil
                     }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                    <span>Department Dashboard</span>
+                    <span>{userRole === 'user' ? 'My Department' : 'Department Dashboard'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveView('faculty-profile');
+                      setIsMobileOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+                      activeView === 'faculty-profile'
+                        ? 'bg-orange-500 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                    <span>My Profile & Leave Info</span>
                   </button>
                 </div>
               )}

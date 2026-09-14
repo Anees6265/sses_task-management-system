@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { taskAPI, leaveAPI } from '../services/api.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
+import FacultyProfileModal from './FacultyProfileModal.jsx';
 import { 
   FiPieChart, 
   FiCheckCircle, 
@@ -24,6 +25,7 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
   const [stats, setStats] = useState(null);
   const [attendanceData, setAttendanceData] = useState([]);
   const [selectedDeptAttendance, setSelectedDeptAttendance] = useState(null);
+  const [selectedFacultyProfile, setSelectedFacultyProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const { t } = useLanguage();
   const { user } = useContext(AuthContext);
@@ -415,6 +417,18 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Faculty Profile Modal */}
+      {selectedFacultyProfile && (
+        <FacultyProfileModal
+          faculty={selectedFacultyProfile}
+          onClose={() => setSelectedFacultyProfile(null)}
+          onRefresh={() => {
+            fetchStats();
+            fetchAttendance();
+          }}
+        />
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import CreateHOD from './CreateHOD.jsx';
 import CreateFaculty from './CreateFaculty.jsx';
+import FacultyProfileModal from './FacultyProfileModal.jsx';
 import logo from '../assets/images/singaji_educational_society_logo.jpg';
 import { 
   FiMenu, 
@@ -19,7 +20,7 @@ import {
   FiMail
 } from 'react-icons/fi';
 
-const Navbar = ({ onMenuClick, onFacultyCreated }) => {
+const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
   const { user, logout } = useContext(AuthContext);
   const { language, toggleLanguage, t } = useLanguage();
   const [showCreateHODModal, setShowCreateHODModal] = useState(false);
@@ -27,6 +28,7 @@ const Navbar = ({ onMenuClick, onFacultyCreated }) => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showFacultyProfileModal, setShowFacultyProfileModal] = useState(false);
 
   return (
     <>
@@ -146,6 +148,21 @@ const Navbar = ({ onMenuClick, onFacultyCreated }) => {
                       <button
                         onClick={() => {
                           setShowUserMenu(false);
+                          if (onOpenProfile) {
+                            onOpenProfile();
+                          } else {
+                            setShowFacultyProfileModal(true);
+                          }
+                        }}
+                        className="w-full flex items-center space-x-2.5 px-3.5 py-2.5 text-slate-700 hover:bg-slate-50 rounded-xl transition text-xs md:text-sm font-semibold"
+                      >
+                        <FiUser className="w-4 h-4 text-orange-500" />
+                        <span>My Profile & Leave Info</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false);
                           setShowSettingsModal(true);
                         }}
                         className="w-full flex items-center space-x-2.5 px-3.5 py-2.5 text-slate-700 hover:bg-slate-50 rounded-xl transition text-xs md:text-sm font-semibold"
@@ -172,6 +189,14 @@ const Navbar = ({ onMenuClick, onFacultyCreated }) => {
           </div>
         </div>
       </nav>
+
+      {/* Faculty Profile Modal */}
+      {showFacultyProfileModal && (
+        <FacultyProfileModal
+          faculty={user}
+          onClose={() => setShowFacultyProfileModal(false)}
+        />
+      )}
 
       {/* Create HOD Modal */}
       {showCreateHODModal && (

@@ -9,6 +9,7 @@ try {
 const connectDB = async () => {
   try {
     console.log('Attempting connection to Primary MongoDB...');
+    mongoose.set('bufferCommands', false);
     await mongoose.connect(process.env.MONGODB_URI, {
       serverSelectionTimeoutMS: 4000
     });
