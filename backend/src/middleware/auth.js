@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const User = require('../models/User');
+const { demoUsers } = require('../utils/mockStore');
 
 exports.protect = async (req, res, next) => {
   try {
@@ -14,7 +16,12 @@ exports.protect = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id).select('-password');
+    
+    if (mongoose.connection.readyState === 1) {
+      req.user = await User.findById(decoded.id).select('-password');
+    } else {
+      req.user = demoUsers.find(u => u._id === decoded.id) || demoUsers[0];
+    }
     
     if (!req.user) {
       return res.status(401).json({ message: 'User not found' });

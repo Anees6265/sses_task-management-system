@@ -2,6 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { chatAPI } from '../services/api.jsx';
 import { showNotification } from '../utils/notifications';
+import { 
+  FiSend, 
+  FiMessageSquare, 
+  FiUser, 
+  FiArrowLeft, 
+  FiWifi, 
+  FiWifiOff, 
+  FiCheck,
+  FiCheckCircle,
+  FiSearch
+} from 'react-icons/fi';
 
 const Chat = () => {
   const { socket, onlineUsers, connected } = useSocket();
@@ -11,19 +22,18 @@ const Chat = () => {
   const [newMessage, setNewMessage] = useState('');
   const [typing, setTyping] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
   useEffect(() => {
     fetchConversations();
     
-    // Auto-refresh conversations if socket is not connected
     let intervalId;
     if (!connected) {
       intervalId = setInterval(() => {
-        console.log('🔄 Auto-refreshing conversations (socket disconnected)');
         fetchConversations();
-      }, 5000); // Refresh every 5 seconds when offline
+      }, 5000);
     }
     
     return () => {
@@ -32,57 +42,38 @@ const Chat = () => {
   }, [connected]);
 
   useEffect(() => {
-    if (!socket) {
-      console.log('⚠️ Socket not available');
-      return;
-    }
-
-    console.log('📡 Setting up socket listeners');
+    if (!socket) return;
 
     const handleReceiveMessage = (message) => {
-      console.log('📨 Message received:', message);
       if (selectedUser && (message.sender._id === selectedUser._id || message.receiver._id === selectedUser._id)) {
         setMessages(prev => [...prev, message]);
         socket.emit('mark-read', { sender: message.sender._id });
       } else {
-        // Show notification for messages from other users
-        showNotification(
-          `New message from ${message.sender.name}`,
-          message.message
-        );
+        showNotification(`New message from ${message.sender.name}`, message.message);
       }
       fetchConversations();
     };
 
     const handleMessageSent = (message) => {
-      console.log('✅ Message sent:', message);
       setMessages(prev => [...prev, message]);
     };
     
     const handleMessageError = (error) => {
-      console.error('❌ Message error:', error);
       alert('Failed to send message: ' + error.error);
     };
     
     const handleMessageDelivered = ({ messageId }) => {
-      console.log('📦 Message delivered:', messageId);
       setMessages(prev => prev.map(msg => 
         msg._id === messageId ? { ...msg, delivered: true } : msg
       ));
     };
 
     const handleUserTyping = ({ userId }) => {
-      console.log('⌨️ User typing:', userId);
-      if (selectedUser && userId === selectedUser._id) {
-        setTyping(true);
-      }
+      if (selectedUser && userId === selectedUser._id) setTyping(true);
     };
 
     const handleUserStopTyping = ({ userId }) => {
-      console.log('⏸️ User stop typing:', userId);
-      if (selectedUser && userId === selectedUser._id) {
-        setTyping(false);
-      }
+      if (selectedUser && userId === selectedUser._id) setTyping(false);
     };
 
     socket.on('receive-message', handleReceiveMessage);
@@ -93,7 +84,6 @@ const Chat = () => {
     socket.on('user-stop-typing', handleUserStopTyping);
 
     return () => {
-      console.log('🧹 Cleaning up socket listeners');
       socket.off('receive-message', handleReceiveMessage);
       socket.off('message-sent', handleMessageSent);
       socket.off('message-error', handleMessageError);
@@ -113,12 +103,10 @@ const Chat = () => {
 
   const fetchConversations = async () => {
     try {
-      console.log('🔍 Fetching conversations...');
       const { data } = await chatAPI.getConversations();
-      console.log('✅ Conversations fetched:', data.length, 'users');
       setConversations(data);
     } catch (error) {
-      console.error('❌ Error fetching conversations:', error.response?.data || error.message);
+      console.error('Error fetching conversations:', error.response?.data || error.message);
     }
   };
 
@@ -145,25 +133,18 @@ const Chat = () => {
       message: newMessage.trim()
     };
 
-    // Clear input immediately for better UX
     const originalMessage = newMessage;
     setNewMessage('');
 
     if (socket && connected) {
-      // Use socket if available and connected
-      console.log('🚀 Sending via Socket.IO:', messageData);
       socket.emit('send-message', messageData);
       socket.emit('stop-typing', { receiver: selectedUser._id });
     } else {
-      // Fallback to REST API
-      console.log('🔄 Fallback to REST API:', messageData);
       try {
         const { data } = await chatAPI.sendMessage(messageData);
         setMessages(prev => [...prev, data]);
         fetchConversations();
       } catch (error) {
-        console.error('Error sending message:', error);
-        // Restore message on error
         setNewMessage(originalMessage);
         alert('Failed to send message. Please try again.');
       }
@@ -172,13 +153,9 @@ const Chat = () => {
 
   const handleTyping = (e) => {
     setNewMessage(e.target.value);
-    
     if (!socket || !selectedUser) return;
-    
     socket.emit('typing', { receiver: selectedUser._id });
-    
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    
     typingTimeoutRef.current = setTimeout(() => {
       socket.emit('stop-typing', { receiver: selectedUser._id });
     }, 1000);
@@ -191,65 +168,88 @@ const Chat = () => {
     return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const filteredConversations = conversations.filter(c => 
+    c.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.user?.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="flex flex-col md:flex-row h-[calc(100vh-120px)] md:h-[calc(100vh-120px)] bg-white md:rounded-lg overflow-hidden md:shadow-lg">
+    <div className="flex flex-col md:flex-row h-[calc(100vh-120px)] bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-100 fade-in">
       {/* Conversations List */}
       <div className={`${
         selectedUser ? 'hidden md:flex' : 'flex'
-      } w-full md:w-1/3 bg-white border-r border-gray-200 flex-col`}>
-        <div className="p-3 md:p-4 bg-gradient-to-r from-orange-500 to-amber-500 text-white sticky top-0 z-10">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg md:text-xl font-bold">💬 Messages</h2>
-            <div className="flex items-center space-x-2">
-              <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'}`}></div>
-              <span className="text-xs">{connected ? 'Live' : 'Offline'}</span>
+      } w-full md:w-80 lg:w-96 bg-white border-r border-slate-100 flex-col`}>
+        <div className="p-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white sticky top-0 z-10">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-extrabold flex items-center gap-2">
+              <FiMessageSquare className="text-orange-400 w-5 h-5" />
+              <span>Team Messaging</span>
+            </h2>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/10 rounded-full text-xs font-semibold">
+              {connected ? <FiWifi className="w-3.5 h-3.5 text-emerald-400" /> : <FiWifiOff className="w-3.5 h-3.5 text-rose-400" />}
+              <span className="text-[11px]">{connected ? 'Live' : 'Offline'}</span>
             </div>
+          </div>
+
+          <div className="relative">
+            <FiSearch className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search conversations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-white/10 border border-white/10 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-400"
+            />
           </div>
         </div>
         
         <div className="flex-1 overflow-y-auto">
-          {conversations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400 p-4">
-              <div className="text-5xl mb-3">💬</div>
-              <p className="text-sm text-center">No conversations yet</p>
+          {filteredConversations.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-slate-400 p-6 text-center">
+              <FiMessageSquare className="w-12 h-12 mb-3 text-slate-300" />
+              <p className="text-xs font-bold">No active conversations</p>
             </div>
           ) : (
-            conversations.map(({ user, lastMessage, unreadCount }) => (
+            filteredConversations.map(({ user, lastMessage, unreadCount }) => (
               <div
                 key={user._id}
                 onClick={() => fetchMessages(user)}
-                className={`p-3 md:p-4 border-b border-gray-100 cursor-pointer active:bg-gray-100 transition ${
-                  selectedUser?._id === user._id ? 'bg-orange-50' : ''
+                className={`p-3.5 border-b border-slate-100 cursor-pointer transition ${
+                  selectedUser?._id === user._id ? 'bg-orange-50/70 border-l-4 border-l-orange-500' : 'hover:bg-slate-50'
                 }`}
               >
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center gap-3">
                   <div className="relative flex-shrink-0">
-                    <div className="w-11 h-11 md:w-12 md:h-12 rounded-full bg-gradient-to-r from-orange-400 to-amber-400 flex items-center justify-center text-white font-bold text-base md:text-lg">
-                      {user.name.charAt(0).toUpperCase()}
+                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center text-white font-extrabold text-sm shadow-md shadow-orange-500/20">
+                      {user.name?.charAt(0).toUpperCase()}
                     </div>
                     {isOnline(user._id) && (
-                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                      <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white" />
                     )}
                   </div>
                   
                   <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start mb-0.5">
-                      <h3 className="font-semibold text-gray-800 truncate text-sm md:text-base">{user.name}</h3>
+                    <div className="flex justify-between items-baseline mb-0.5">
+                      <h3 className="font-bold text-slate-800 text-sm truncate">{user.name}</h3>
                       {lastMessage && (
-                        <span className="text-xs text-gray-500 flex-shrink-0 ml-2">{formatTime(lastMessage.createdAt)}</span>
+                        <span className="text-[10px] font-semibold text-slate-400 flex-shrink-0 ml-1">
+                          {formatTime(lastMessage.createdAt)}
+                        </span>
                       )}
                     </div>
                     <div className="flex justify-between items-center">
-                      <p className="text-xs md:text-sm text-gray-600 truncate">
-                        {lastMessage?.message || 'No messages yet'}
+                      <p className="text-xs text-slate-500 truncate leading-relaxed">
+                        {lastMessage?.message || 'Start conversation...'}
                       </p>
                       {unreadCount > 0 && (
-                        <span className="bg-orange-500 text-white text-xs rounded-full px-2 py-0.5 ml-2 flex-shrink-0">
+                        <span className="bg-orange-500 text-white text-[10px] font-extrabold rounded-full px-2 py-0.5 ml-2">
                           {unreadCount}
                         </span>
                       )}
                     </div>
-                    <span className="text-xs text-gray-500 capitalize">{user.role}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1 block">
+                      {user.role} • {user.department || 'All'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -261,40 +261,41 @@ const Chat = () => {
       {/* Chat Area */}
       <div className={`${
         selectedUser ? 'flex' : 'hidden md:flex'
-      } flex-1 flex-col bg-gray-50`}>
+      } flex-1 flex-col bg-slate-50/50`}>
         {selectedUser ? (
           <>
             {/* Chat Header */}
-            <div className="p-3 md:p-4 bg-white border-b border-gray-200 flex items-center space-x-3 sticky top-0 z-10">
-              <button
-                onClick={() => setSelectedUser(null)}
-                className="md:hidden text-orange-500 mr-2 p-1"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <div className="relative flex-shrink-0">
-                <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-r from-orange-400 to-amber-400 flex items-center justify-center text-white font-bold text-sm md:text-base">
-                  {selectedUser.name.charAt(0).toUpperCase()}
+            <div className="p-3.5 md:p-4 bg-white border-b border-slate-100 flex items-center justify-between sticky top-0 z-10 shadow-xs">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setSelectedUser(null)}
+                  className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  <FiArrowLeft className="w-5 h-5" />
+                </button>
+                <div className="relative flex-shrink-0">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center text-white font-extrabold text-sm shadow-md shadow-orange-500/20">
+                    {selectedUser.name?.charAt(0).toUpperCase()}
+                  </div>
+                  {isOnline(selectedUser._id) && (
+                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white" />
+                  )}
                 </div>
-                {isOnline(selectedUser._id) && (
-                  <div className="absolute bottom-0 right-0 w-2.5 h-2.5 md:w-3 md:h-3 bg-green-500 rounded-full border-2 border-white"></div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-800 truncate text-sm md:text-base">{selectedUser.name}</h3>
-                <p className="text-xs text-gray-500">
-                  {isOnline(selectedUser._id) ? '🟢 Online' : '⚫ Offline'}
-                </p>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm md:text-base leading-tight">{selectedUser.name}</h3>
+                  <p className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5 mt-0.5">
+                    <span className={`w-2 h-2 rounded-full ${isOnline(selectedUser._id) ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                    <span>{isOnline(selectedUser._id) ? 'Active Now' : 'Offline'}</span>
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-2 md:space-y-3" style={{ WebkitOverflowScrolling: 'touch' }}>
+            {/* Messages Container */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {loading ? (
                 <div className="flex justify-center items-center h-full">
-                  <div className="animate-spin rounded-full h-10 w-10 md:h-12 md:w-12 border-b-2 border-orange-500"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" />
                 </div>
               ) : (
                 <>
@@ -303,29 +304,28 @@ const Chat = () => {
                     return (
                       <div key={msg._id} className={`flex ${isSent ? 'justify-end' : 'justify-start'}`}>
                         <div
-                          className={`max-w-[75%] md:max-w-xs px-3 py-2 md:px-4 md:py-2 rounded-2xl ${
+                          className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-xs md:text-sm font-medium shadow-xs ${
                             isSent
-                              ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-br-none'
-                              : 'bg-white text-gray-800 rounded-bl-none shadow'
+                              ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-br-xs shadow-orange-500/10'
+                              : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs'
                           }`}
                         >
-                          <p className="break-words text-sm md:text-base">{msg.message}</p>
-                          <p className={`text-[10px] md:text-xs mt-1 ${isSent ? 'text-orange-100' : 'text-gray-500'}`}>
-                            {formatTime(msg.createdAt)}
-                            {isSent && msg.read && ' ✓✓'}
-                            {isSent && !msg.read && msg.delivered && ' ✓'}
-                          </p>
+                          <p className="break-words leading-relaxed">{msg.message}</p>
+                          <div className={`flex items-center justify-end gap-1 text-[10px] mt-1 ${isSent ? 'text-orange-100' : 'text-slate-400'}`}>
+                            <span>{formatTime(msg.createdAt)}</span>
+                            {isSent && (msg.read ? <FiCheckCircle className="w-3 h-3 text-white" /> : <FiCheck className="w-3 h-3 text-orange-200" />)}
+                          </div>
                         </div>
                       </div>
                     );
                   })}
                   {typing && (
                     <div className="flex justify-start">
-                      <div className="bg-white px-3 py-2 md:px-4 md:py-2 rounded-2xl rounded-bl-none shadow">
-                        <div className="flex space-x-1">
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      <div className="bg-white px-4 py-2.5 rounded-2xl rounded-bl-xs border border-slate-200/80 shadow-xs">
+                        <div className="flex space-x-1 items-center">
+                          <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" />
+                          <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce [animation-delay:0.15s]" />
+                          <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce [animation-delay:0.3s]" />
                         </div>
                       </div>
                     </div>
@@ -336,34 +336,30 @@ const Chat = () => {
             </div>
 
             {/* Message Input */}
-            <form onSubmit={sendMessage} className="p-2 md:p-4 bg-white border-t border-gray-200 sticky bottom-0">
-              <div className="flex space-x-2">
+            <form onSubmit={sendMessage} className="p-3 bg-white border-t border-slate-100 sticky bottom-0">
+              <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={newMessage}
                   onChange={handleTyping}
-                  placeholder="Type a message..."
-                  className="flex-1 px-3 py-2 md:px-4 md:py-2 text-sm md:text-base border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-400"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="sentences"
+                  placeholder="Write a message..."
+                  className="flex-1 px-4 py-2.5 text-xs md:text-sm border border-slate-200 rounded-2xl focus:ring-2 focus:ring-orange-400 text-slate-800 font-medium"
                 />
                 <button
                   type="submit"
                   disabled={!newMessage.trim()}
-                  className="px-4 py-2 md:px-6 md:py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-full font-semibold hover:from-orange-600 hover:to-amber-600 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base flex-shrink-0"
+                  className="p-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-2xl transition shadow-md shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                 >
-                  📤
+                  <FiSend className="w-4 h-4" />
                 </button>
               </div>
             </form>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-400 p-4">
-            <div className="text-center">
-              <div className="text-5xl md:text-6xl mb-3 md:mb-4">💬</div>
-              <p className="text-base md:text-xl">Select a conversation to start chatting</p>
-            </div>
+          <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-6 text-center">
+            <FiMessageSquare className="w-16 h-16 mb-4 text-slate-300" />
+            <h3 className="text-base font-bold text-slate-700">Select a Conversation</h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-xs">Choose a team member from the left list to start real-time encrypted messaging.</p>
           </div>
         )}
       </div>

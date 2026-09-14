@@ -1,14 +1,14 @@
 import React from 'react';
+import { FiLoader } from 'react-icons/fi';
 
 const Loader = () => {
   return (
-    <div className="fixed inset-0 bg-white bg-opacity-90 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="text-center">
-        <div className="relative w-20 h-20 mx-auto mb-4">
-          <div className="absolute inset-0 border-4 border-orange-200 rounded-full"></div>
-          <div className="absolute inset-0 border-4 border-orange-500 rounded-full border-t-transparent animate-spin"></div>
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[9999] fade-in">
+      <div className="bg-white/95 backdrop-blur-md p-6 rounded-3xl shadow-2xl border border-slate-100 flex flex-col items-center gap-3">
+        <div className="p-3 bg-orange-100 text-orange-600 rounded-2xl">
+          <FiLoader className="w-8 h-8 animate-spin" />
         </div>
-        <p className="text-gray-700 font-medium text-lg">Loading...</p>
+        <p className="text-slate-800 font-extrabold text-sm tracking-wide">Processing...</p>
       </div>
     </div>
   );

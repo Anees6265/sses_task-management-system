@@ -1,14 +1,26 @@
+const mongoose = require('mongoose');
 const Task = require('../models/Task');
 const { sendTaskAssignmentEmail } = require('../services/emailService');
 const { sendPushNotification } = require('./notificationController');
 const User = require('../models/User');
+const { demoTasks } = require('../utils/mockStore');
 
 exports.getTasks = async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚡ Serving tasks from Mock Store');
+      let tasks = demoTasks;
+      if (req.user.role === 'hod') {
+        tasks = demoTasks.filter(t => t.department === req.user.department);
+      } else if (req.user.role === 'user') {
+        tasks = demoTasks.filter(t => t.assignedTo && t.assignedTo.some(u => u._id === req.user._id));
+      }
+      return res.json(tasks);
+    }
+
     let filter = {};
     
     if (req.user.role === 'admin') {
-      // Admin: Only tasks created by Admin or HOD (no faculty personal tasks)
       const adminAndHodUsers = await User.find({ role: { $in: ['admin', 'hod'] } }).select('_id');
       const adminAndHodIds = adminAndHodUsers.map(u => u._id);
       
@@ -16,7 +28,6 @@ exports.getTasks = async (req, res) => {
         createdBy: { $in: adminAndHodIds }
       };
     } else if (req.user.role === 'hod') {
-      // HOD: Tasks in their department created by Admin/HOD, or their own tasks
       const adminAndHodUsers = await User.find({ 
         role: { $in: ['admin', 'hod'] },
         $or: [
@@ -31,7 +42,6 @@ exports.getTasks = async (req, res) => {
         createdBy: { $in: adminAndHodIds }
       };
     } else {
-      // Faculty: Only tasks assigned to them
       filter = { assignedTo: req.user._id };
     }
     
