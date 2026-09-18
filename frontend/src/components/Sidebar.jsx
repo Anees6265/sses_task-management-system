@@ -15,8 +15,29 @@ import {
   FiUsers
 } from 'react-icons/fi';
 
-const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobileOpen, refreshTrigger }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+const Sidebar = ({ 
+  activeView, 
+  setActiveView, 
+  userRole, 
+  isMobileOpen, 
+  setIsMobileOpen, 
+  refreshTrigger,
+  isCollapsed: controlledIsCollapsed,
+  setIsCollapsed: controlledSetIsCollapsed
+}) => {
+  const [internalIsCollapsed, setInternalIsCollapsed] = useState(false);
+  const isCollapsed = controlledIsCollapsed !== undefined ? controlledIsCollapsed : internalIsCollapsed;
+  const setIsCollapsed = (value) => {
+    if (controlledSetIsCollapsed) {
+      if (typeof value === 'function') {
+        controlledSetIsCollapsed(value(isCollapsed));
+      } else {
+        controlledSetIsCollapsed(value);
+      }
+    } else {
+      setInternalIsCollapsed(value);
+    }
+  };
   const [departments, setDepartments] = useState([]);
   const [isLeaveDropdownOpen, setIsLeaveDropdownOpen] = useState(true);
 

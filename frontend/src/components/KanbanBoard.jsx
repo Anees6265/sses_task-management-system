@@ -48,6 +48,9 @@ const KanbanBoard = () => {
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    return localStorage.getItem('sidebar_collapsed') === 'true';
+  });
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
@@ -440,9 +443,16 @@ const KanbanBoard = () => {
             isMobileOpen={isMobileSidebarOpen}
             setIsMobileOpen={setIsMobileSidebarOpen}
             refreshTrigger={sidebarRefreshTrigger}
+            isCollapsed={isSidebarCollapsed}
+            setIsCollapsed={(collapsed) => {
+              setIsSidebarCollapsed(collapsed);
+              localStorage.setItem('sidebar_collapsed', String(collapsed));
+            }}
           />
           
-          <main className="flex-1 p-4 md:p-6 overflow-x-hidden md:ml-64 transition-all duration-300">
+          <main className={`flex-1 p-4 md:p-6 overflow-x-hidden transition-all duration-300 ${
+            isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'
+          }`}>
             {(activeView === 'dashboard' && (user?.role === 'admin' || user?.role === 'hod')) && (
               <Dashboard onFacultyClick={handleFacultyClick} onSelectDepartment={handleSelectDepartment} />
             )}
