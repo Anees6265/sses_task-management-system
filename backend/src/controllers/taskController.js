@@ -1,15 +1,63 @@
+const mongoose = require('mongoose');
 const Task = require('../models/Task');
 const Department = require('../models/Department');
 const { sendTaskAssignmentEmail } = require('../services/emailService');
 const { sendPushNotification } = require('./notificationController');
 const User = require('../models/User');
+const { demoTasks, demoUsers } = require('../utils/mockStore');
+
+const getMockStats = (user) => {
+  let tasks = demoTasks;
+  if (user.role === 'hod') {
+    tasks = demoTasks.filter(t => t.department === user.department);
+  } else if (user.role === 'user') {
+    tasks = demoTasks.filter(t => t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(user._id)));
+  }
+
+  const totalTasks = tasks.length;
+  const todoTasks = tasks.filter(t => t.status === 'todo').length;
+  const inprogressTasks = tasks.filter(t => t.status === 'inprogress').length;
+  const completedTasks = tasks.filter(t => t.status === 'completed').length;
+
+  const deptMap = {};
+  tasks.forEach(t => {
+    const dept = t.department || 'General';
+    if (!deptMap[dept]) {
+      deptMap[dept] = { _id: dept, total: 0, todo: 0, inprogress: 0, completed: 0 };
+    }
+    deptMap[dept].total++;
+    if (t.status === 'todo') deptMap[dept].todo++;
+    if (t.status === 'inprogress') deptMap[dept].inprogress++;
+    if (t.status === 'completed') deptMap[dept].completed++;
+  });
+  const departmentStats = Object.values(deptMap);
+
+  return {
+    totalTasks,
+    todoTasks,
+    inprogressTasks,
+    completedTasks,
+    departmentStats,
+    facultyStats: []
+  };
+};
 
 exports.getTasks = async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚡ Serving tasks from Mock Store');
+      let tasks = demoTasks;
+      if (req.user.role === 'hod') {
+        tasks = demoTasks.filter(t => t.department === req.user.department);
+      } else if (req.user.role === 'user') {
+        tasks = demoTasks.filter(t => t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(req.user._id)));
+      }
+      return res.json(tasks);
+    }
+
     let filter = {};
     
     if (req.user.role === 'admin') {
-      // Admin: Only tasks created by Admin or HOD (no faculty personal tasks)
       const adminAndHodUsers = await User.find({ role: { $in: ['admin', 'hod'] } }).select('_id');
       const adminAndHodIds = adminAndHodUsers.map(u => u._id);
       
@@ -17,7 +65,6 @@ exports.getTasks = async (req, res) => {
         createdBy: { $in: adminAndHodIds }
       };
     } else if (req.user.role === 'hod') {
-      // HOD: Tasks in their department created by Admin/HOD, or their own tasks
       const adminAndHodUsers = await User.find({ 
         role: { $in: ['admin', 'hod'] },
         $or: [
@@ -32,7 +79,6 @@ exports.getTasks = async (req, res) => {
         createdBy: { $in: adminAndHodIds }
       };
     } else {
-      // Faculty: Only tasks assigned to them
       filter = { assignedTo: req.user._id };
     }
     
@@ -42,6 +88,16 @@ exports.getTasks = async (req, res) => {
       .sort({ createdAt: -1 });
     res.json(tasks);
   } catch (error) {
+    if (mongoose.connection.readyState !== 1 || (error.message && error.message.includes('buffering timed out'))) {
+      console.log('⚡ Serving tasks fallback from Mock Store');
+      let tasks = demoTasks;
+      if (req.user.role === 'hod') {
+        tasks = demoTasks.filter(t => t.department === req.user.department);
+      } else if (req.user.role === 'user') {
+        tasks = demoTasks.filter(t => t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(req.user._id)));
+      }
+      return res.json(tasks);
+    }
     res.status(500).json({ message: error.message });
   }
 };
@@ -53,6 +109,14 @@ exports.getTasksByFaculty = async (req, res) => {
     // Only HOD and Admin can view faculty tasks
     if (req.user.role !== 'admin' && req.user.role !== 'hod') {
       return res.status(403).json({ message: 'Access denied' });
+    }
+
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚡ Serving faculty tasks from Mock Store');
+      const tasks = demoTasks.filter(t => 
+        t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(facultyId))
+      );
+      return res.json(tasks);
     }
     
     // Get Admin and HOD users
@@ -76,12 +140,43 @@ exports.getTasksByFaculty = async (req, res) => {
     
     res.json(tasks);
   } catch (error) {
+    if (mongoose.connection.readyState !== 1 || (error.message && error.message.includes('buffering timed out'))) {
+      const tasks = demoTasks.filter(t => 
+        t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(req.params.facultyId))
+      );
+      return res.json(tasks);
+    }
     res.status(500).json({ message: error.message });
   }
 };
 
 exports.createTask = async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚡ Creating task in Mock Store');
+      let taskData = { ...req.body };
+      if (req.user.role === 'user') {
+        taskData.assignedTo = [req.user._id];
+        taskData.department = req.user.department;
+        taskData.isPersonal = true;
+      }
+      const newTask = {
+        _id: '64t' + Date.now().toString(16),
+        ...taskData,
+        status: taskData.status || 'todo',
+        priority: taskData.priority || 'medium',
+        department: taskData.department || req.user.department || 'General',
+        createdBy: { _id: req.user._id, name: req.user.name, email: req.user.email },
+        assignedTo: (taskData.assignedTo || []).map(id => {
+          const u = demoUsers.find(du => du._id === id);
+          return u ? { _id: u._id, name: u.name, email: u.email } : { _id: id, name: 'Assigned User', email: '' };
+        }),
+        createdAt: new Date().toISOString()
+      };
+      demoTasks.unshift(newTask);
+      return res.status(201).json(newTask);
+    }
+
     let taskData = { ...req.body };
     
     // Faculty can only create tasks for themselves
@@ -135,6 +230,16 @@ exports.createTask = async (req, res) => {
 
 exports.updateTask = async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚡ Updating task in Mock Store');
+      const index = demoTasks.findIndex(t => String(t._id) === String(req.params.id));
+      if (index !== -1) {
+        demoTasks[index] = { ...demoTasks[index], ...req.body };
+        return res.json(demoTasks[index]);
+      }
+      return res.status(404).json({ message: 'Task not found in mock store' });
+    }
+
     let filter = {};
     
     if (req.user.role === 'admin') {
@@ -165,6 +270,16 @@ exports.updateTask = async (req, res) => {
 
 exports.deleteTask = async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚡ Deleting task in Mock Store');
+      const index = demoTasks.findIndex(t => String(t._id) === String(req.params.id));
+      if (index !== -1) {
+        demoTasks.splice(index, 1);
+        return res.json({ message: 'Task deleted successfully' });
+      }
+      return res.status(404).json({ message: 'Task not found in mock store' });
+    }
+
     let filter = {};
     
     if (req.user.role === 'admin') {
@@ -188,6 +303,11 @@ exports.deleteTask = async (req, res) => {
 
 exports.getDashboardStats = async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚡ Serving dashboard stats from Mock Store');
+      return res.json(getMockStats(req.user));
+    }
+
     let filter = {};
     
     if (req.user.role === 'admin') {
@@ -312,6 +432,12 @@ exports.getDashboardStats = async (req, res) => {
       facultyStats
     });
   } catch (error) {
+    console.error('❌ Error in getDashboardStats:', error.message);
+    if (mongoose.connection.readyState !== 1 || (error.message && error.message.includes('buffering timed out'))) {
+      console.log('⚡ Serving dashboard stats fallback from Mock Store');
+      return res.json(getMockStats(req.user));
+    }
     res.status(500).json({ message: error.message });
   }
 };
+

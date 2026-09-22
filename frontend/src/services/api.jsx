@@ -188,8 +188,18 @@ export const taskAPI = {
   getDashboardStats: () => api.get('/tasks/stats')
 };
 
+export const leaveAPI = {
+  applyLeave: (data) => api.post('/leaves', data),
+  getLeaves: () => api.get('/leaves'),
+  getLeaveStats: () => api.get('/leaves/stats'),
+  getDailyAttendance: () => api.get('/leaves/attendance'),
+  updateLeaveStatus: (id, data) => api.put(`/leaves/${id}/status`, data),
+  cancelLeave: (id) => api.delete(`/leaves/${id}`)
+};
+
 export const userAPI = {
-  getAllUsers: () => api.get('/users')
+  getAllUsers: () => api.get('/users'),
+  updateUserDepartment: (id, department) => api.put(`/users/${id}/department`, { department })
 };
 
 export const departmentAPI = {

@@ -3,6 +3,17 @@ import { AuthContext } from '../context/AuthContext.jsx';
 import Loader from './Loader.jsx';
 import logo from '../assets/images/singaji_educational_society_logo.jpg';
 import api from '../services/api.jsx';
+import { 
+  FiMail, 
+  FiLock, 
+  FiKey, 
+  FiArrowRight, 
+  FiShield, 
+  FiCheckCircle, 
+  FiAlertCircle, 
+  FiSend,
+  FiRefreshCw
+} from 'react-icons/fi';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -37,16 +48,11 @@ const Login = () => {
     setLoading(true);
     try {
       const response = await api.post('/auth/send-otp', { email: formData.email });
-      console.log('OTP sent successfully:', response.data);
       setOtpSent(true);
       setError('');
-      alert('OTP sent successfully! Check your email.');
     } catch (err) {
-      console.error('OTP send error:', err);
-      console.error('Error response:', err.response);
-      const errorMsg = err.response?.data?.message || err.message || 'Failed to send OTP. Please check your internet connection.';
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to send OTP.';
       setError(errorMsg);
-      alert('Failed to send OTP: ' + errorMsg);
     } finally {
       setLoading(false);
     }
@@ -62,14 +68,12 @@ const Login = () => {
     setLoading(true);
     try {
       const { data } = await api.post('/auth/verify-otp', { email: formData.email, otp });
-      localStorage.setItem('token', data.token);
+      localStorage.setItem('token', data.accessToken || data.token);
       localStorage.setItem('user', JSON.stringify(data));
-      alert('Login successful!');
       window.location.reload();
     } catch (err) {
       const errorMsg = err.response?.data?.message || 'Invalid OTP. Please try again.';
       setError(errorMsg);
-      alert('Verification failed: ' + errorMsg);
     } finally {
       setLoading(false);
     }
@@ -78,146 +82,183 @@ const Login = () => {
   return (
     <>
       {loading && <Loader />}
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="bg-white p-6 md:p-10 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100">
-        <div className="text-center mb-6 md:mb-8">
-          <div className="flex justify-center mb-4">
-            <img 
-              src={logo}
-              alt="Singaji Educational Society Logo" 
-              className="h-20 w-20 md:h-24 md:w-24 object-contain"
-            />
-          </div>
-          <h1 className="text-2xl md:text-4xl font-bold text-gray-800 mb-2">Welcome Back</h1>
-          <p className="text-sm md:text-base text-gray-500">Sign in to continue</p>
-        </div>
-        
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => { setLoginMode('password'); setOtpSent(false); setError(''); }}
-            className={`flex-1 py-2 rounded-lg font-medium text-sm transition ${
-              loginMode === 'password' 
-                ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white' 
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Password
-          </button>
-          <button
-            onClick={() => { setLoginMode('otp'); setOtpSent(false); setError(''); }}
-            className={`flex-1 py-2 rounded-lg font-medium text-sm transition ${
-              loginMode === 'otp' 
-                ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white' 
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            OTP
-          </button>
-        </div>
-        
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 p-2.5 md:p-3 rounded-lg mb-4 text-xs md:text-sm">
-            {error}
-          </div>
-        )}
-        
-        {loginMode === 'password' ? (
-          <form onSubmit={handlePasswordLogin} className="space-y-4 md:space-y-5">
-            <div>
-              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2">Email Address</label>
-              <input
-                type="email"
-                placeholder="Enter your @ssism.org email"
-                className="w-full px-3 md:px-4 py-2.5 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-sm md:text-base"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/40 p-4 relative overflow-hidden">
+        {/* Decorative background glow */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-orange-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-10 right-10 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="bg-white/95 backdrop-blur-xl p-6 md:p-10 rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 relative z-10 fade-in">
+          <div className="text-center mb-8">
+            <div className="inline-flex p-3 bg-gradient-to-tr from-orange-500 to-amber-400 rounded-2xl shadow-lg shadow-orange-500/20 mb-4">
+              <img 
+                src={logo}
+                alt="Singaji Educational Society Logo" 
+                className="h-16 w-16 object-contain bg-white rounded-xl p-1"
               />
             </div>
-            
-            <div>
-              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2">Password</label>
-              <input
-                type="password"
-                placeholder="Enter your password"
-                className="w-full px-3 md:px-4 py-2.5 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-sm md:text-base"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
-              />
-            </div>
-            
-            <button 
-              type="submit"
-              className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2.5 md:py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition shadow-lg text-sm md:text-base"
+            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight">SSES Portal</h1>
+            <p className="text-xs md:text-sm font-semibold text-slate-500 mt-1">Task & Operations Management System</p>
+          </div>
+          
+          {/* Tab Selection */}
+          <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-6">
+            <button
+              onClick={() => { setLoginMode('password'); setOtpSent(false); setError(''); }}
+              className={`flex-1 py-2.5 rounded-xl font-bold text-xs md:text-sm transition flex items-center justify-center gap-2 ${
+                loginMode === 'password' 
+                  ? 'bg-white text-orange-600 shadow-md shadow-slate-200/80' 
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
             >
-              Sign In
+              <FiLock className="w-4 h-4" />
+              <span>Password</span>
             </button>
-          </form>
-        ) : (
-          <>
-            {!otpSent ? (
-              <form onSubmit={handleSendOTP} className="space-y-4 md:space-y-5">
-                <div>
-                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2">Email Address</label>
+            <button
+              onClick={() => { setLoginMode('otp'); setOtpSent(false); setError(''); }}
+              className={`flex-1 py-2.5 rounded-xl font-bold text-xs md:text-sm transition flex items-center justify-center gap-2 ${
+                loginMode === 'otp' 
+                  ? 'bg-white text-orange-600 shadow-md shadow-slate-200/80' 
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <FiKey className="w-4 h-4" />
+              <span>Email OTP</span>
+            </button>
+          </div>
+          
+          {error && (
+            <div className="bg-rose-50 border border-rose-200/80 text-rose-600 p-3.5 rounded-2xl mb-5 text-xs md:text-sm font-semibold flex items-center gap-2.5 animate-bounce">
+              <FiAlertCircle className="w-5 h-5 flex-shrink-0 text-rose-500" />
+              <span>{error}</span>
+            </div>
+          )}
+          
+          {loginMode === 'password' ? (
+            <form onSubmit={handlePasswordLogin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <FiMail className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
                   <input
                     type="email"
-                    placeholder="Enter your @ssism.org email"
-                    className="w-full px-3 md:px-4 py-2.5 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-sm md:text-base"
+                    placeholder="name@ssism.org"
+                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required
                   />
                 </div>
-                
-                <button 
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2.5 md:py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition shadow-lg text-sm md:text-base"
-                >
-                  Send OTP
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyOTP} className="space-y-4 md:space-y-5">
-                <div className="bg-green-50 border border-green-200 text-green-700 p-3 rounded-lg mb-4 text-xs md:text-sm">
-                  OTP sent to {formData.email}
-                </div>
-                <div>
-                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2">Enter OTP</label>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                  Password
+                </label>
+                <div className="relative">
+                  <FiLock className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
                   <input
-                    type="tel"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    placeholder="Enter 6-digit OTP"
-                    className="w-full px-3 md:px-4 py-2.5 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-sm md:text-base text-center text-2xl tracking-widest"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    type="password"
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     required
-                    maxLength="6"
-                    autoComplete="one-time-code"
                   />
                 </div>
-                
-                <button 
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2.5 md:py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition shadow-lg text-sm md:text-base"
-                >
-                  Verify OTP
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={() => setOtpSent(false)}
-                  className="w-full text-orange-600 text-sm hover:text-orange-700 font-medium"
-                >
-                  Resend OTP
-                </button>
-              </form>
-            )}
-          </>
-        )}
+              </div>
+              
+              <button 
+                type="submit"
+                className="w-full mt-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3.5 rounded-xl font-bold transition shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 text-sm md:text-base active:scale-98"
+              >
+                <span>Sign In</span>
+                <FiArrowRight className="w-5 h-5" />
+              </button>
+            </form>
+          ) : (
+            <>
+              {!otpSent ? (
+                <form onSubmit={handleSendOTP} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <FiMail className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
+                      <input
+                        type="email"
+                        placeholder="name@ssism.org"
+                        className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <button 
+                    type="submit"
+                    className="w-full mt-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3.5 rounded-xl font-bold transition shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 text-sm md:text-base active:scale-98"
+                  >
+                    <FiSend className="w-4 h-4" />
+                    <span>Send Verification Code</span>
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifyOTP} className="space-y-4">
+                  <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 p-3 rounded-2xl mb-4 text-xs md:text-sm font-semibold flex items-center gap-2">
+                    <FiCheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                    <span>OTP sent to {formData.email}</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 text-center">
+                      Enter 6-Digit OTP Code
+                    </label>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      placeholder="123456"
+                      className="w-full px-4 py-3.5 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-orange-400 text-slate-800 font-extrabold text-center text-2xl tracking-[0.3em] transition"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      required
+                      maxLength="6"
+                    />
+                  </div>
+                  
+                  <button 
+                    type="submit"
+                    className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3.5 rounded-xl font-bold transition shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 text-sm md:text-base active:scale-98"
+                  >
+                    <FiShield className="w-5 h-5" />
+                    <span>Verify & Login</span>
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => setOtpSent(false)}
+                    className="w-full text-orange-600 text-xs font-bold hover:underline flex items-center justify-center gap-1 mt-2"
+                  >
+                    <FiRefreshCw className="w-3.5 h-3.5" />
+                    <span>Resend OTP Code</span>
+                  </button>
+                </form>
+              )}
+            </>
+          )}
+
+          <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+            <p className="text-xs text-slate-400 font-semibold flex items-center justify-center gap-1">
+              <FiShield className="w-3.5 h-3.5 text-slate-400" />
+              <span>Protected by SSES Security Protocol</span>
+            </p>
+          </div>
+        </div>
       </div>
-    </div>
     </>
   );
 };

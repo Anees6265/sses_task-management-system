@@ -15,7 +15,7 @@ const autoSeedDepartments = async () => {
       for (const deptName of allDeptNames) {
         const cleanName = deptName.trim();
         if (!cleanName) continue;
-        
+
         // Generate a simple unique code
         let baseCode = cleanName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 4).toUpperCase() || 'DEPT';
         let code = baseCode;
