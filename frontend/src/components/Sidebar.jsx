@@ -22,13 +22,18 @@ const Sidebar = ({ activeView, setActiveView, userRole, isMobileOpen, setIsMobil
 
   const adminMenuItems = [
     { id: 'dashboard', icon: '📊', label: 'Dashboard' },
-    { id: 'board', icon: '📋', label: userRole === 'hod' ? 'My Department' : 'All Tasks' },
+    { id: 'board', icon: '📋', label: 'All Tasks' },
+    { id: 'departments', icon: '🏛️', label: 'Department Management' },
+    { id: 'all-hods', icon: '👨‍💼', label: 'All HODs' },
     { id: 'chats', icon: '💬', label: 'Chats' },
-    ...(userRole === 'admin' ? departments.map(dept => ({
-      id: dept,
-      icon: '🏛️',
-      label: dept
-    })) : [])
+    ...(userRole === 'admin' ? departments.map(dept => {
+      const deptName = typeof dept === 'object' ? (dept.name || '') : String(dept || '');
+      return {
+        id: deptName,
+        icon: '📁',
+        label: deptName
+      };
+    }) : [])
   ];
 
   const hodMenuItems = [

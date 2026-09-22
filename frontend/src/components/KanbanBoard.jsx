@@ -6,6 +6,8 @@ import { useLanguage } from '../context/LanguageContext.jsx';
 import Navbar from './Navbar.jsx';
 import Sidebar from './Sidebar.jsx';
 import Dashboard from './Dashboard.jsx';
+import DepartmentManagement from './DepartmentManagement.jsx';
+import AllHODs from './AllHODs.jsx';
 import Chat from './Chat.jsx';
 import Loader from './Loader.jsx';
 import { toast, ToastContainer } from 'react-toastify';
@@ -413,7 +415,15 @@ const KanbanBoard = () => {
             <Dashboard onFacultyClick={handleFacultyClick} />
           )}
 
-          {activeView !== 'dashboard' && activeView !== 'chats' && activeView !== 'analytics' && activeView !== 'settings' && (
+          {activeView === 'departments' && user?.role === 'admin' && (
+            <DepartmentManagement />
+          )}
+
+          {activeView === 'all-hods' && user?.role === 'admin' && (
+            <AllHODs />
+          )}
+
+          {activeView !== 'dashboard' && activeView !== 'chats' && activeView !== 'analytics' && activeView !== 'settings' && activeView !== 'departments' && activeView !== 'all-hods' && (
             <>
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 md:mb-6 gap-2 md:gap-3">
                 <div className="flex items-center gap-3">
@@ -600,9 +610,10 @@ const KanbanBoard = () => {
                       required={user?.role === 'admin'}
                     >
                       <option value="">{t('selectDepartment')}</option>
-                      {departments.map(dept => (
-                        <option key={dept} value={dept}>{dept}</option>
-                      ))}
+                      {departments.map(dept => {
+                        const deptName = typeof dept === 'object' ? (dept.name || '') : String(dept || '');
+                        return <option key={deptName} value={deptName}>{deptName}</option>;
+                      })}
                     </select>
                   </div>
                 )}

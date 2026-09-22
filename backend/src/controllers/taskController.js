@@ -1,4 +1,5 @@
 const Task = require('../models/Task');
+const Department = require('../models/Department');
 const { sendTaskAssignmentEmail } = require('../services/emailService');
 const { sendPushNotification } = require('./notificationController');
 const User = require('../models/User');
@@ -228,8 +229,8 @@ exports.getDashboardStats = async (req, res) => {
       matchFilter = { department: req.user.department, createdBy: { $in: adminAndHodUsers.map(u => u._id) } };
     }
     
-    const departmentStats = await Task.aggregate([
-      { $match: matchFilter },
+    const aggregatedDepts = await Task.aggregate([
+      { $match: { ...matchFilter, department: { $ne: null, $ne: '' } } },
       {
         $group: {
           _id: '$department',
@@ -240,6 +241,32 @@ exports.getDashboardStats = async (req, res) => {
         }
       }
     ]);
+
+    let departmentStats = [];
+    if (req.user.role === 'admin') {
+      const activeDepts = await Department.find({ status: 'active' }).select('name code');
+      const statsMap = new Map();
+      aggregatedDepts.forEach(d => {
+        if (d._id) statsMap.set(d._id.toString(), d);
+      });
+
+      if (activeDepts.length > 0) {
+        departmentStats = activeDepts.map(d => {
+          const matched = statsMap.get(d.name) || statsMap.get(d.code) || { total: 0, todo: 0, inprogress: 0, completed: 0 };
+          return {
+            _id: d.name,
+            total: matched.total || 0,
+            todo: matched.todo || 0,
+            inprogress: matched.inprogress || 0,
+            completed: matched.completed || 0
+          };
+        });
+      } else {
+        departmentStats = aggregatedDepts.filter(d => d._id);
+      }
+    } else {
+      departmentStats = aggregatedDepts.filter(d => d._id);
+    }
 
     // Faculty-wise stats for HOD
     let facultyStats = [];

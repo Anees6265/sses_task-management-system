@@ -193,7 +193,18 @@ export const userAPI = {
 };
 
 export const departmentAPI = {
-  getAllDepartments: () => api.get('/departments')
+  getAllDepartments: (params) => api.get('/departments', { params }),
+  getAdminDepartments: (params) => api.get('/departments/admin/all', { params }),
+  createDepartment: (data) => api.post('/departments', data),
+  getDepartmentById: (id) => api.get(`/departments/${id}`),
+  updateDepartment: (id, data) => api.put(`/departments/${id}`, data),
+  toggleDepartmentStatus: (id, status) => api.patch(`/departments/${id}/status`, { status }),
+  assignHOD: (id, hodId) => api.post(`/departments/${id}/assign-hod`, { hodId }),
+  changeHOD: (id, newHodId) => api.post(`/departments/${id}/change-hod`, { newHodId }),
+  getDepartmentFaculty: (id) => api.get(`/departments/${id}/faculty`),
+  getDepartmentTaskStats: (id) => api.get(`/departments/${id}/tasks/stats`),
+  getAllHODs: (params) => api.get('/departments/hods/all', { params }),
+  getActivityLogs: () => api.get('/departments/activity-logs')
 };
 
 export const chatAPI = {
