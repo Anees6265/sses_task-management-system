@@ -377,14 +377,22 @@ const KanbanBoard = () => {
                         )}
 
                         <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                          <span className={`px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] flex items-center gap-1 ${task.priority === 'high' ? 'bg-rose-100 text-rose-700 border border-rose-200' :
-                              task.priority === 'medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                                'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                            }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${task.priority === 'high' ? 'bg-rose-500' : task.priority === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'
-                              }`} />
-                            <span>{task.priority}</span>
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] flex items-center gap-1 ${task.priority === 'high' ? 'bg-rose-100 text-rose-700 border border-rose-200' :
+                                task.priority === 'medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                  'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                              }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${task.priority === 'high' ? 'bg-rose-500' : task.priority === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'
+                                }`} />
+                              <span>{task.priority}</span>
+                            </span>
+
+                            {task.isPersonal && (
+                              <span className="px-2 py-0.5 rounded-full font-extrabold text-[10px] bg-purple-100 text-purple-700 border border-purple-200 uppercase tracking-wider">
+                                Personal
+                              </span>
+                            )}
+                          </div>
 
                           <span className="text-[11px] text-slate-400 font-semibold">
                             {new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}

@@ -13,7 +13,11 @@ import {
   FiUserCheck, 
   FiShield, 
   FiMail,
-  FiChevronRight
+  FiChevronRight,
+  FiUserPlus,
+  FiLock,
+  FiPhone,
+  FiUser
 } from 'react-icons/fi';
 
 const UserManagementPage = ({ onOpenFacultyProfile }) => {
@@ -31,6 +35,20 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
   const [isCustomDept, setIsCustomDept] = useState(false);
   const [customDeptName, setCustomDeptName] = useState('');
   const [updating, setUpdating] = useState(false);
+
+  // Modal for creating new user (Admin only)
+  const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
+  const [createUserForm, setCreateUserForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'user',
+    department: 'Computer Science',
+    phoneNumber: ''
+  });
+  const [isCustomCreateDept, setIsCustomCreateDept] = useState(false);
+  const [customCreateDeptName, setCustomCreateDeptName] = useState('');
+  const [creatingUser, setCreatingUser] = useState(false);
 
   useEffect(() => {
     fetchUsersData();
@@ -54,7 +72,8 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
     try {
       const { data } = await departmentAPI.getAllDepartments();
       if (data && data.length > 0) {
-        setDepartments(Array.from(new Set([...departments, ...data])));
+        const fetchedDepts = data.map(d => typeof d === 'object' ? (d.name || d.code) : String(d));
+        setDepartments(Array.from(new Set([...departments, ...fetchedDepts])));
       }
     } catch (error) {
       console.error('Error fetching departments:', error);
@@ -98,6 +117,73 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
       toast.error(error.response?.data?.message || 'Failed to update department');
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleCreateUserSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!createUserForm.name.trim()) {
+      toast.error('Please enter a user name');
+      return;
+    }
+    const emailVal = createUserForm.email.toLowerCase().trim();
+    if (!emailVal.endsWith('@ssism.org')) {
+      toast.error('Only @ssism.org email domain is allowed');
+      return;
+    }
+    if (!createUserForm.password || createUserForm.password.length < 6) {
+      toast.error('Password must be at least 6 characters long');
+      return;
+    }
+
+    const finalDept = isCustomCreateDept ? customCreateDeptName.trim() : createUserForm.department;
+    if (createUserForm.role !== 'admin' && !finalDept) {
+      toast.error('Please select or specify a department for this user');
+      return;
+    }
+
+    setCreatingUser(true);
+    try {
+      const payload = {
+        name: createUserForm.name.trim(),
+        email: emailVal,
+        password: createUserForm.password,
+        role: createUserForm.role,
+        phoneNumber: createUserForm.phoneNumber.trim()
+      };
+      if (createUserForm.role !== 'admin') {
+        payload.department = finalDept;
+      }
+
+      await userAPI.createUser(payload);
+      toast.success(`User "${createUserForm.name}" created successfully!`);
+
+      // Update departments list if custom
+      if (isCustomCreateDept && finalDept && !departments.includes(finalDept)) {
+        setDepartments(prev => [...prev, finalDept]);
+      }
+
+      // Close modal & reset form
+      setIsCreateUserModalOpen(false);
+      setCreateUserForm({
+        name: '',
+        email: '',
+        password: '',
+        role: 'user',
+        department: departments[0] || 'Computer Science',
+        phoneNumber: ''
+      });
+      setIsCustomCreateDept(false);
+      setCustomCreateDeptName('');
+
+      // Auto refresh User Directory
+      await fetchUsersData();
+    } catch (error) {
+      console.error('Error creating user:', error);
+      toast.error(error.response?.data?.message || 'Failed to create user');
+    } finally {
+      setCreatingUser(false);
     }
   };
 
@@ -158,10 +244,23 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
           </h2>
           <p className="text-xs md:text-sm text-slate-300">
             {isAdmin 
-              ? 'View all institution faculties & staff across departments. Reassign departments with full admin privileges.' 
+              ? 'View all institution faculties & staff across departments. Reassign departments or create new user accounts with full admin privileges.' 
               : `View faculties and colleagues in ${user?.department} department.`}
           </p>
         </div>
+
+        {/* Create User Button (Admin Only) */}
+        {isAdmin && (
+          <div className="relative z-10">
+            <button
+              onClick={() => setIsCreateUserModalOpen(true)}
+              className="px-5 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold rounded-2xl transition shadow-lg shadow-orange-500/30 flex items-center gap-2 text-xs md:text-sm active:scale-95"
+            >
+              <FiUserPlus className="w-4 h-4" />
+              <span>+ Create User</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Directory Stats Metrics */}
@@ -448,8 +547,172 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
           </div>
         </div>
       )}
+
+      {/* Create User Modal (Admin Only) */}
+      {isCreateUserModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 fade-in max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-orange-100 text-orange-600 rounded-2xl">
+                  <FiUserPlus className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg md:text-xl font-extrabold text-slate-800">Create User Account</h3>
+                  <p className="text-xs text-slate-500 font-semibold">Add a new Faculty, HOD, or Admin to SSES</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsCreateUserModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateUserSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Full Name *</label>
+                <div className="relative">
+                  <FiUser className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Prof. John Von Neumann"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                    value={createUserForm.name}
+                    onChange={(e) => setCreateUserForm({ ...createUserForm, name: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Email Address *</label>
+                <div className="relative">
+                  <FiMail className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
+                  <input
+                    type="email"
+                    placeholder="user@ssism.org"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                    value={createUserForm.email}
+                    onChange={(e) => setCreateUserForm({ ...createUserForm, email: e.target.value })}
+                    required
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 font-semibold mt-1">Must be an @ssism.org email domain</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Password *</label>
+                <div className="relative">
+                  <FiLock className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
+                  <input
+                    type="password"
+                    placeholder="Minimum 6 characters"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                    value={createUserForm.password}
+                    onChange={(e) => setCreateUserForm({ ...createUserForm, password: e.target.value })}
+                    required
+                    minLength={6}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">User Role *</label>
+                <select
+                  value={createUserForm.role}
+                  onChange={(e) => setCreateUserForm({ ...createUserForm, role: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-bold text-slate-800 bg-white"
+                >
+                  <option value="user">Faculty (user)</option>
+                  <option value="hod">Head of Department (hod)</option>
+                  <option value="admin">System Administrator (admin)</option>
+                </select>
+              </div>
+
+              {createUserForm.role !== 'admin' && (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Department *</label>
+                  {!isCustomCreateDept ? (
+                    <div className="space-y-2">
+                      <select
+                        value={createUserForm.department}
+                        onChange={(e) => setCreateUserForm({ ...createUserForm, department: e.target.value })}
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-bold text-slate-800 bg-white"
+                      >
+                        {departments.map((dept) => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomCreateDept(true)}
+                        className="text-xs text-orange-600 font-extrabold hover:underline block"
+                      >
+                        + Add Custom Department Name
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        placeholder="Enter custom department name"
+                        value={customCreateDeptName}
+                        onChange={(e) => setCustomCreateDeptName(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomCreateDept(false)}
+                        className="text-xs text-slate-500 font-bold hover:underline block"
+                      >
+                        ← Select from existing department list
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Phone Number (Optional)</label>
+                <div className="relative">
+                  <FiPhone className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
+                  <input
+                    type="tel"
+                    placeholder="+91 9876543210"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                    value={createUserForm.phoneNumber}
+                    onChange={(e) => setCreateUserForm({ ...createUserForm, phoneNumber: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="submit"
+                  disabled={creatingUser}
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <FiCheckCircle className="w-4 h-4" />
+                  <span>{creatingUser ? 'Creating User...' : 'Create User Account'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateUserModalOpen(false)}
+                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default UserManagementPage;
+

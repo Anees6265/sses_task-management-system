@@ -199,7 +199,13 @@ export const leaveAPI = {
 
 export const userAPI = {
   getAllUsers: () => api.get('/users'),
-  updateUserDepartment: (id, department) => api.put(`/users/${id}/department`, { department })
+  createUser: (data) => api.post('/users', data),
+  updateUserDepartment: (id, department) => api.put(`/users/${id}/department`, { department }),
+  updateUser: (id, data) => api.put(`/users/${id}`, data),
+  toggleUserStatus: (id, status) => api.patch(`/users/${id}/status`, { status }),
+  getFacultyWorkload: (params) => api.get('/users/workload', { params }),
+  getFacultyPerformance: (params) => api.get('/users/performance', { params }),
+  getFacultyTaskHistory: (id) => api.get(`/users/${id}/history`)
 };
 
 export const departmentAPI = {

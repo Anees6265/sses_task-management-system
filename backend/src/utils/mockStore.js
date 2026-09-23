@@ -106,6 +106,19 @@ const demoTasks = [
     assignedTo: [{ _id: '64e000000000000000000005', name: 'Prof. Ada Lovelace', email: 'faculty.it@ssism.org' }],
     createdBy: { _id: '64e000000000000000000003', name: 'Dr. Grace Hopper (HOD IT)', email: 'hod.it@ssism.org' },
     createdAt: new Date()
+  },
+  {
+    _id: '64f000000000000000000003',
+    title: 'Neural Networks Research Paper Draft',
+    description: 'Faculty personal research task for upcoming journal submission',
+    priority: 'high',
+    status: 'inprogress',
+    department: 'Computer Science',
+    isPersonal: true,
+    dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+    assignedTo: [{ _id: '64e000000000000000000004', name: 'Prof. John Von Neumann', email: 'faculty.cs@ssism.org' }],
+    createdBy: { _id: '64e000000000000000000004', name: 'Prof. John Von Neumann', email: 'faculty.cs@ssism.org' },
+    createdAt: new Date()
   }
 ];
 

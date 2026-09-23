@@ -246,23 +246,27 @@ const Sidebar = ({
                 {!isCollapsed && <span className="truncate">Chats</span>}
               </button>
 
-              {userRole === 'admin' && departments.map(dept => (
-                <button
-                  key={dept}
-                  onClick={() => {
-                    setActiveView(dept);
-                    setIsMobileOpen(false);
-                  }}
-                  title={isCollapsed ? dept : undefined}
-                  className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-semibold text-xs md:text-sm ${activeView === dept
-                      ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
-                >
-                  <FiBriefcase className={`w-5 h-5 ${activeView === dept ? 'text-white' : 'text-slate-500'}`} />
-                  {!isCollapsed && <span className="truncate">{dept}</span>}
-                </button>
-              ))}
+              {userRole === 'admin' && departments.map(dept => {
+                const deptName = typeof dept === 'object' ? (dept.name || '') : String(dept || '');
+                if (!deptName) return null;
+                return (
+                  <button
+                    key={deptName}
+                    onClick={() => {
+                      setActiveView(deptName);
+                      setIsMobileOpen(false);
+                    }}
+                    title={isCollapsed ? deptName : undefined}
+                    className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-semibold text-xs md:text-sm ${activeView === deptName
+                        ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
+                  >
+                    <FiBriefcase className={`w-5 h-5 ${activeView === deptName ? 'text-white' : 'text-slate-500'}`} />
+                    {!isCollapsed && <span className="truncate">{deptName}</span>}
+                  </button>
+                );
+              })}
             </nav>
           </div>
 

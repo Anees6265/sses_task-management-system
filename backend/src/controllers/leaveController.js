@@ -236,7 +236,12 @@ exports.getDailyAttendance = async (req, res) => {
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
 
     if (mongoose.connection.readyState === 1) {
-      const users = await User.find({ role: { $ne: 'admin' } }).select('name email department role');
+      let userQuery = { role: { $ne: 'admin' } };
+      if (req.user.role !== 'admin' && req.user.department) {
+        userQuery.department = req.user.department;
+      }
+
+      const users = await User.find(userQuery).select('name email department role');
       const activeLeavesToday = await Leave.find({
         status: 'approved',
         startDate: { $lte: endOfToday },
@@ -309,12 +314,22 @@ exports.getDailyAttendance = async (req, res) => {
         }
       });
 
-      return res.json(Object.values(departmentMap));
+      let results = Object.values(departmentMap);
+      if (req.user.role !== 'admin' && req.user.department) {
+        results = results.filter(d => d.department.toLowerCase() === req.user.department.toLowerCase());
+      }
+
+      return res.json(results);
     } else {
       // Mock code mode
       const departmentMap = {};
 
-      demoUsers.filter(u => u.role !== 'admin').forEach(u => {
+      let filteredDemoUsers = demoUsers.filter(u => u.role !== 'admin');
+      if (req.user.role !== 'admin' && req.user.department) {
+        filteredDemoUsers = filteredDemoUsers.filter(u => u.department === req.user.department);
+      }
+
+      filteredDemoUsers.forEach(u => {
         const dept = u.department || 'General';
         if (!departmentMap[dept]) {
           departmentMap[dept] = {
@@ -374,7 +389,12 @@ exports.getDailyAttendance = async (req, res) => {
         }
       });
 
-      return res.json(Object.values(departmentMap));
+      let results = Object.values(departmentMap);
+      if (req.user.role !== 'admin' && req.user.department) {
+        results = results.filter(d => d.department.toLowerCase() === req.user.department.toLowerCase());
+      }
+
+      return res.json(results);
     }
   } catch (error) {
     res.status(500).json({ message: error.message });

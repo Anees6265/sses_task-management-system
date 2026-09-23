@@ -58,12 +58,7 @@ exports.getTasks = async (req, res) => {
     let filter = {};
     
     if (req.user.role === 'admin') {
-      const adminAndHodUsers = await User.find({ role: { $in: ['admin', 'hod'] } }).select('_id');
-      const adminAndHodIds = adminAndHodUsers.map(u => u._id);
-      
-      filter = {
-        createdBy: { $in: adminAndHodIds }
-      };
+      filter = {};
     } else if (req.user.role === 'hod') {
       const adminAndHodUsers = await User.find({ 
         role: { $in: ['admin', 'hod'] },
@@ -113,24 +108,26 @@ exports.getTasksByFaculty = async (req, res) => {
 
     if (mongoose.connection.readyState !== 1) {
       console.log('⚡ Serving faculty tasks from Mock Store');
-      const tasks = demoTasks.filter(t => 
+      let tasks = demoTasks.filter(t => 
         t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(facultyId))
       );
+      if (req.user.role === 'hod') {
+        tasks = tasks.filter(t => !t.isPersonal);
+      }
       return res.json(tasks);
     }
     
-    // Get Admin and HOD users
-    const adminAndHodUsers = await User.find({ role: { $in: ['admin', 'hod'] } }).select('_id');
-    const adminAndHodIds = adminAndHodUsers.map(u => u._id);
+    let filter = { assignedTo: facultyId };
     
-    let filter = { 
-      assignedTo: facultyId,
-      createdBy: { $in: adminAndHodIds }
-    };
-    
-    // HOD can only see faculty in their department
+    // HOD can only see faculty in their department and excluding faculty personal tasks
     if (req.user.role === 'hod') {
-      filter.department = req.user.department;
+      const adminAndHodUsers = await User.find({ role: { $in: ['admin', 'hod'] } }).select('_id');
+      const adminAndHodIds = adminAndHodUsers.map(u => u._id);
+      filter = { 
+        assignedTo: facultyId,
+        department: req.user.department,
+        createdBy: { $in: adminAndHodIds }
+      };
     }
     
     const tasks = await Task.find(filter)
@@ -311,9 +308,7 @@ exports.getDashboardStats = async (req, res) => {
     let filter = {};
     
     if (req.user.role === 'admin') {
-      const adminAndHodUsers = await User.find({ role: { $in: ['admin', 'hod'] } }).select('_id');
-      const adminAndHodIds = adminAndHodUsers.map(u => u._id);
-      filter = { createdBy: { $in: adminAndHodIds } };
+      filter = {};
     } else if (req.user.role === 'hod') {
       const adminAndHodUsers = await User.find({ 
         role: { $in: ['admin', 'hod'] },
@@ -339,8 +334,7 @@ exports.getDashboardStats = async (req, res) => {
     
     let matchFilter = filter;
     if (req.user.role === 'admin') {
-      const adminAndHodUsers = await User.find({ role: { $in: ['admin', 'hod'] } }).select('_id');
-      matchFilter = { createdBy: { $in: adminAndHodUsers.map(u => u._id) } };
+      matchFilter = {};
     } else if (req.user.role === 'hod') {
       const adminAndHodUsers = await User.find({ 
         role: { $in: ['admin', 'hod'] },
