@@ -199,7 +199,8 @@ export const leaveAPI = {
 
 export const userAPI = {
   getAllUsers: () => api.get('/users'),
-  updateUserDepartment: (id, department) => api.put(`/users/${id}/department`, { department })
+  updateUserDepartment: (id, department) => api.put(`/users/${id}/department`, { department }),
+  updateProfile: (data) => api.put('/users/profile', data)
 };
 
 export const departmentAPI = {

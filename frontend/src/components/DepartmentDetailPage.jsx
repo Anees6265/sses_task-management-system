@@ -20,7 +20,8 @@ import {
   FiCheck, 
   FiX,
   FiTrendingUp,
-  FiAlertCircle
+  FiAlertCircle,
+  FiPhone
 } from 'react-icons/fi';
 
 const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) => {
@@ -263,6 +264,12 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
                     <div>
                       <h4 className="font-extrabold text-slate-900 text-sm">{leave.applicant?.name || 'Faculty Member'}</h4>
                       <p className="text-xs text-slate-500">{leave.applicant?.email}</p>
+                      {leave.applicant?.phoneNumber && (
+                        <p className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
+                          <FiPhone className="w-3 h-3" />
+                          <span>{leave.applicant.phoneNumber}</span>
+                        </p>
+                      )}
                       <div className="flex items-center gap-2 mt-2">
                         {getLeaveTypeBadge(leave.leaveType)}
                         <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
@@ -348,6 +355,10 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
                         <div>
                           <p className="font-extrabold text-slate-800 leading-tight group-hover:text-orange-600">{faculty.name}</p>
                           <p className="text-[11px] text-slate-400">{faculty.email}</p>
+                          <p className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
+                            <FiPhone className="w-3 h-3 text-emerald-500" />
+                            <span>{faculty.phoneNumber || 'No phone set'}</span>
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -419,6 +430,10 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
                         <div>
                           <p className="font-extrabold text-slate-800 leading-tight">{faculty.name}</p>
                           <p className="text-[11px] text-slate-400">{faculty.email}</p>
+                          <p className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
+                            <FiPhone className="w-3 h-3 text-emerald-500" />
+                            <span>{faculty.phoneNumber || 'No phone set'}</span>
+                          </p>
                         </div>
                       </div>
                     </td>

@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Leave = require('../models/Leave');
 const User = require('../models/User');
 const { demoLeaves, demoUsers } = require('../utils/mockStore');
+const { sendLeaveNotificationToReviewer, sendLeaveStatusNotificationToApplicant } = require('../services/whatsappService');
 
 exports.applyLeave = async (req, res) => {
   try {
@@ -20,6 +21,8 @@ exports.applyLeave = async (req, res) => {
       return res.status(400).json({ message: 'End date cannot be earlier than start date' });
     }
 
+    let resultLeave = null;
+
     if (mongoose.connection.readyState === 1) {
       const leave = await Leave.create({
         applicant: req.user._id,
@@ -32,10 +35,8 @@ exports.applyLeave = async (req, res) => {
         status: 'pending'
       });
 
-      const populatedLeave = await Leave.findById(leave._id)
-        .populate('applicant', 'name email department role');
-
-      return res.status(201).json(populatedLeave);
+      resultLeave = await Leave.findById(leave._id)
+        .populate('applicant', 'name email department role phoneNumber');
     } else {
       const newLeave = {
         _id: '64l' + Date.now().toString(16),
@@ -44,7 +45,8 @@ exports.applyLeave = async (req, res) => {
           name: req.user.name,
           email: req.user.email,
           department: req.user.department || 'General',
-          role: req.user.role
+          role: req.user.role,
+          phoneNumber: req.user.phoneNumber
         },
         leaveType: leaveType || 'casual',
         startDate: start,
@@ -57,8 +59,51 @@ exports.applyLeave = async (req, res) => {
       };
 
       demoLeaves.unshift(newLeave);
-      return res.status(201).json(newLeave);
+      resultLeave = newLeave;
     }
+
+    // Trigger WhatsApp notification asynchronously (Faculty -> HOD, HOD -> Admin)
+    (async () => {
+      try {
+        let reviewer = null;
+        if (req.user.role === 'user') {
+          // Faculty applied -> notify HOD of faculty's department
+          if (mongoose.connection.readyState === 1) {
+            reviewer = await User.findOne({ role: 'hod', department: req.user.department });
+          } else {
+            reviewer = demoUsers.find(u => u.role === 'hod' && u.department === req.user.department);
+          }
+        } else if (req.user.role === 'hod') {
+          // HOD applied -> notify Admin
+          if (mongoose.connection.readyState === 1) {
+            reviewer = await User.findOne({ role: 'admin' });
+          } else {
+            reviewer = demoUsers.find(u => u.role === 'admin');
+          }
+        }
+
+        if (reviewer && reviewer.phoneNumber) {
+          await sendLeaveNotificationToReviewer({
+            reviewerPhone: reviewer.phoneNumber,
+            reviewerName: reviewer.name,
+            applicantName: req.user.name,
+            applicantRole: req.user.role,
+            department: req.user.department || 'General',
+            leaveType: leaveType || 'casual',
+            startDate: start,
+            endDate: end,
+            totalDays,
+            reason
+          });
+        } else {
+          console.log(`ℹ️ WhatsApp notification skipped: Reviewer (${reviewer ? reviewer.name : 'HOD/Admin'}) does not have a phone number.`);
+        }
+      } catch (wErr) {
+        console.error('⚠️ Error processing WhatsApp leave application notification:', wErr.message);
+      }
+    })();
+
+    return res.status(201).json(resultLeave);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -78,8 +123,8 @@ exports.getLeaves = async (req, res) => {
       }
 
       mongoLeaves = await Leave.find(filter)
-        .populate('applicant', 'name email department role')
-        .populate('reviewedBy', 'name email')
+        .populate('applicant', 'name email department role phoneNumber')
+        .populate('reviewedBy', 'name email phoneNumber')
         .sort({ createdAt: -1 });
     }
 
@@ -151,6 +196,8 @@ exports.updateLeaveStatus = async (req, res) => {
       }
     }
 
+    let updatedResult = null;
+
     if (isMongoDoc) {
       leave.status = status;
       leave.reviewComment = reviewComment || (status === 'approved' ? 'Approved' : 'Rejected');
@@ -158,19 +205,54 @@ exports.updateLeaveStatus = async (req, res) => {
       leave.reviewedAt = new Date();
 
       await leave.save();
-      const updated = await Leave.findById(id)
-        .populate('applicant', 'name email department role')
-        .populate('reviewedBy', 'name email');
-
-      return res.json(updated);
+      updatedResult = await Leave.findById(id)
+        .populate('applicant', 'name email department role phoneNumber')
+        .populate('reviewedBy', 'name email phoneNumber');
     } else {
       leave.status = status;
       leave.reviewComment = reviewComment || (status === 'approved' ? 'Approved' : 'Rejected');
       leave.reviewedBy = { _id: req.user._id, name: req.user.name, email: req.user.email };
       leave.reviewedAt = new Date();
-
-      return res.json(leave);
+      updatedResult = leave;
     }
+
+    // Trigger WhatsApp notification asynchronously to the Applicant (Faculty / HOD)
+    (async () => {
+      try {
+        let applicantUser = null;
+        if (mongoose.connection.readyState === 1 && applicantId) {
+          applicantUser = await User.findById(applicantId);
+        }
+        
+        if (!applicantUser) {
+          applicantUser = demoUsers.find(u => String(u._id) === String(applicantId) || (applicantEmail && u.email === applicantEmail));
+        }
+
+        if (!applicantUser && typeof leave.applicant === 'object') {
+          applicantUser = leave.applicant;
+        }
+
+        if (applicantUser && applicantUser.phoneNumber) {
+          await sendLeaveStatusNotificationToApplicant({
+            applicantPhone: applicantUser.phoneNumber,
+            applicantName: applicantUser.name,
+            status,
+            reviewerName: req.user.name,
+            leaveType: leave.leaveType,
+            startDate: leave.startDate,
+            endDate: leave.endDate,
+            totalDays: leave.totalDays,
+            reviewComment: leave.reviewComment
+          });
+        } else {
+          console.log(`ℹ️ WhatsApp status notification skipped: Applicant (${applicantUser?.name || 'User'}) does not have a phone number.`);
+        }
+      } catch (wErr) {
+        console.error('⚠️ Error processing WhatsApp status update notification:', wErr.message);
+      }
+    })();
+
+    return res.json(updatedResult);
   } catch (error) {
     console.error('Error in updateLeaveStatus:', error);
     res.status(500).json({ message: error.message });
@@ -236,12 +318,12 @@ exports.getDailyAttendance = async (req, res) => {
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
 
     if (mongoose.connection.readyState === 1) {
-      const users = await User.find({ role: { $ne: 'admin' } }).select('name email department role');
+      const users = await User.find({ role: { $ne: 'admin' } }).select('name email department role phoneNumber');
       const activeLeavesToday = await Leave.find({
         status: 'approved',
         startDate: { $lte: endOfToday },
         endDate: { $gte: startOfToday }
-      }).populate('applicant', '_id name email department');
+      }).populate('applicant', '_id name email department phoneNumber');
 
       const monthLeaves = await Leave.find({
         status: 'approved',
@@ -249,7 +331,7 @@ exports.getDailyAttendance = async (req, res) => {
         endDate: { $lte: endOfMonth }
       });
 
-      const allLeaves = await Leave.find().populate('applicant', 'name email department role');
+      const allLeaves = await Leave.find().populate('applicant', 'name email department role phoneNumber');
 
       const activeUserIdsToday = new Set(activeLeavesToday.map(l => l.applicant._id.toString()));
       const departmentMap = {};
@@ -280,6 +362,7 @@ exports.getDailyAttendance = async (req, res) => {
           name: u.name,
           email: u.email,
           role: u.role,
+          phoneNumber: u.phoneNumber,
           isPresentToday: !isAbsentToday,
           activeLeaveToday: isAbsentToday ? {
             leaveType: activeLeave?.leaveType,
@@ -345,6 +428,7 @@ exports.getDailyAttendance = async (req, res) => {
           name: u.name,
           email: u.email,
           role: u.role,
+          phoneNumber: u.phoneNumber,
           isPresentToday: !isAbsentToday,
           activeLeaveToday: activeLeave ? {
             leaveType: activeLeave.leaveType,

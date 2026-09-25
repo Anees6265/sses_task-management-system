@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { leaveAPI, taskAPI } from '../services/api.jsx';
+import { leaveAPI, taskAPI, userAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { toast } from 'react-toastify';
@@ -19,11 +19,13 @@ import {
   FiAward,
   FiChevronLeft,
   FiTrendingUp,
-  FiEye
+  FiEye,
+  FiPhone,
+  FiEdit2
 } from 'react-icons/fi';
 
 const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
-  const { user: currentUser } = useContext(AuthContext);
+  const { user: currentUser, updateUser } = useContext(AuthContext);
   const { t } = useLanguage();
 
   const [loading, setLoading] = useState(true);
@@ -35,6 +37,11 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
   const [reviewModal, setReviewModal] = useState(null); // { leave, action: 'approved' | 'rejected' }
   const [reviewComment, setReviewComment] = useState('');
   const [selectedMonthDetailsModal, setSelectedMonthDetailsModal] = useState(null);
+
+  // Profile Edit Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({ name: '', phoneNumber: '' });
+  const [savingProfile, setSavingProfile] = useState(false);
 
   // Month navigation state for day-by-day 1 to 30/31 breakdown
   const [selectedMonthOffset, setSelectedMonthOffset] = useState(0);
@@ -214,6 +221,7 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
         email: activeFacultyItem?.email || targetEmail,
         department: targetDept,
         role: targetRole,
+        phoneNumber: activeFacultyItem?.phoneNumber || faculty?.phoneNumber || (targetId === currentUser?._id ? currentUser?.phoneNumber : ''),
         isPresentToday: activeFacultyItem ? activeFacultyItem.isPresentToday : true,
         activeLeaveToday: activeFacultyItem?.activeLeaveToday || null,
         monthlyLeavesTaken: currentMonthDays,
@@ -230,6 +238,31 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
       toast.error('Failed to load faculty profile');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    try {
+      const res = await userAPI.updateProfile(editFormData);
+      toast.success('Profile updated successfully!', { position: 'top-center' });
+      
+      setProfileData(prev => prev ? ({
+        ...prev,
+        name: res.data.name || prev.name,
+        phoneNumber: res.data.phoneNumber
+      }) : prev);
+
+      if (updateUser) {
+        updateUser(res.data);
+      }
+      setShowEditModal(false);
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update profile', { position: 'top-center' });
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -349,6 +382,11 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
     }
   };
 
+  const isSelf = Boolean(
+    (profileData?._id && currentUser?._id && String(profileData._id) === String(currentUser._id)) ||
+    (profileData?.email && currentUser?.email && profileData.email.toLowerCase() === currentUser.email.toLowerCase())
+  );
+
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
       <div className="bg-white rounded-3xl w-full max-w-4xl shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto fade-in space-y-6">
@@ -363,24 +401,48 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
           </button>
 
           <div className="flex items-center gap-5 relative z-10">
-            <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-400 text-white font-black text-2xl md:text-3xl flex items-center justify-center shadow-xl shadow-orange-500/20 border-2 border-white/20">
+            <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-400 text-white font-black text-2xl md:text-3xl flex items-center justify-center shadow-xl shadow-orange-500/20 border-2 border-white/20 flex-shrink-0">
               {profileData?.name?.charAt(0).toUpperCase() || 'F'}
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-xl md:text-2xl font-black text-white">{profileData?.name}</h2>
                 <span className="px-3 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-extrabold rounded-full border border-orange-500/30 uppercase tracking-wider">
-                  {profileData?.role === 'hod' ? 'HOD' : 'Faculty Member'}
+                  {profileData?.role === 'hod' ? 'HOD' : profileData?.role === 'admin' ? 'Admin' : 'Faculty Member'}
+                </span>
+                {isSelf && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditFormData({
+                        name: profileData?.name || '',
+                        phoneNumber: profileData?.phoneNumber || ''
+                      });
+                      setShowEditModal(true);
+                    }}
+                    className="px-3 py-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-md shadow-orange-500/20 transition active:scale-95"
+                  >
+                    <FiEdit2 className="w-3.5 h-3.5" />
+                    <span>Edit Profile & Phone</span>
+                  </button>
+                )}
+              </div>
+              <div className="text-xs md:text-sm text-slate-300 flex items-center gap-2 flex-wrap pt-0.5">
+                <span className="flex items-center gap-1.5">
+                  <FiMail className="w-4 h-4 text-orange-400" />
+                  <span>{profileData?.email}</span>
+                </span>
+                <span className="text-slate-500">•</span>
+                <span className="flex items-center gap-1.5">
+                  <FiBriefcase className="w-4 h-4 text-amber-400" />
+                  <span>{profileData?.department} Dept</span>
+                </span>
+                <span className="text-slate-500">•</span>
+                <span className="flex items-center gap-1.5 font-semibold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-lg border border-emerald-500/30">
+                  <FiPhone className="w-3.5 h-3.5" />
+                  <span>{profileData?.phoneNumber || 'No phone set'}</span>
                 </span>
               </div>
-              <p className="text-xs md:text-sm text-slate-300 flex items-center gap-2">
-                <FiMail className="w-4 h-4 text-orange-400" />
-                <span>{profileData?.email}</span>
-              </p>
-              <p className="text-xs text-slate-300 flex items-center gap-2">
-                <FiBriefcase className="w-4 h-4 text-amber-400" />
-                <span>{profileData?.department} Department</span>
-              </p>
             </div>
           </div>
 
@@ -1144,6 +1206,88 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
                 Close Breakdown
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT PROFILE MODAL */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[110] fade-in">
+          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl border border-slate-100 relative space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center font-bold">
+                  <FiEdit2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-800 text-lg">Edit Profile & Phone</h3>
+                  <p className="text-xs text-slate-500 font-semibold">Update your name & WhatsApp number</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProfile} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  Full Name *
+                </label>
+                <div className="relative">
+                  <FiUser className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  WhatsApp Phone Number *
+                </label>
+                <div className="relative">
+                  <FiPhone className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
+                  <input
+                    type="tel"
+                    placeholder="+91 9876543210"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                    value={editFormData.phoneNumber}
+                    onChange={(e) => setEditFormData({ ...editFormData, phoneNumber: e.target.value })}
+                    required
+                  />
+                </div>
+                <p className="text-[11px] text-emerald-600 font-semibold mt-1.5 flex items-center gap-1">
+                  💬 WhatsApp leave notifications & status updates will be sent to this number.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-sm transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="w-1/2 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl font-bold text-sm transition shadow-lg shadow-orange-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <FiCheck className="w-4 h-4" />
+                  <span>{savingProfile ? 'Saving...' : 'Save Changes'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

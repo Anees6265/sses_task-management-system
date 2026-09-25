@@ -13,7 +13,8 @@ import {
   FiUserCheck, 
   FiShield, 
   FiMail,
-  FiChevronRight
+  FiChevronRight,
+  FiPhone
 } from 'react-icons/fi';
 
 const UserManagementPage = ({ onOpenFacultyProfile }) => {
@@ -107,7 +108,8 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
   // Filtered Users List
   const filteredUsers = users.filter(u => {
     const matchesSearch = u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          u.email?.toLowerCase().includes(searchQuery.toLowerCase());
+                          u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (u.phoneNumber && u.phoneNumber.includes(searchQuery));
     const matchesDept = deptFilter === 'all' || u.department === deptFilter;
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
 
@@ -279,6 +281,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                 <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
                   <th className="p-3.5 rounded-l-2xl">User / Faculty</th>
                   <th className="p-3.5">Email</th>
+                  <th className="p-3.5">Contact Number</th>
                   <th className="p-3.5">Role</th>
                   <th className="p-3.5">Department</th>
                   <th className="p-3.5 text-right rounded-r-2xl">Actions</th>
@@ -304,9 +307,17 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                         </div>
                       </div>
                     </td>
-                    <td className="p-3.5 text-xs text-slate-600 font-semibold flex items-center gap-1.5 pt-5">
-                      <FiMail className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{u.email}</span>
+                    <td className="p-3.5 text-xs text-slate-600 font-semibold">
+                      <span className="flex items-center gap-1.5">
+                        <FiMail className="w-3.5 h-3.5 text-slate-400" />
+                        {u.email}
+                      </span>
+                    </td>
+                    <td className="p-3.5 text-xs font-semibold">
+                      <span className="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                        <FiPhone className="w-3.5 h-3.5 text-emerald-600" />
+                        {u.phoneNumber || 'Not provided'}
+                      </span>
                     </td>
                     <td className="p-3.5">{getRoleBadge(u.role)}</td>
                     <td className="p-3.5">

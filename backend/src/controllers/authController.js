@@ -18,7 +18,7 @@ const generateOTP = () => {
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, department, role } = req.body;
+    const { name, email, password, department, role, phoneNumber } = req.body;
 
     if (!email.endsWith('@ssism.org')) {
       return res.status(400).json({ message: 'Only @ssism.org email addresses are allowed' });
@@ -30,7 +30,7 @@ exports.register = async (req, res) => {
         return res.status(400).json({ message: 'User already exists' });
       }
 
-      const userData = { name, email, password, role: role || 'user' };
+      const userData = { name, email, password, role: role || 'user', phoneNumber };
       if (role !== 'admin') {
         userData.department = department;
       }

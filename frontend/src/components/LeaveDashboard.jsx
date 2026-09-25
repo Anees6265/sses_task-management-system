@@ -19,7 +19,8 @@ import {
   FiX, 
   FiCheck, 
   FiMessageSquare,
-  FiActivity
+  FiActivity,
+  FiPhone
 } from 'react-icons/fi';
 
 const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
@@ -443,6 +444,12 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
                         <div>
                           <p className="font-bold text-slate-800 leading-tight group-hover:text-orange-600 transition">{leave.applicant?.name || 'N/A'}</p>
                           <p className="text-[11px] text-slate-400">{leave.department}</p>
+                          {leave.applicant?.phoneNumber && (
+                            <p className="text-[10px] font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
+                              <FiPhone className="w-2.5 h-2.5 text-emerald-500" />
+                              <span>{leave.applicant.phoneNumber}</span>
+                            </p>
+                          )}
                         </div>
                       </div>
                     </td>

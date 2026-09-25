@@ -6,6 +6,7 @@ const demoUsers = [
     email: 'admin@ssism.org',
     role: 'admin',
     department: 'Management',
+    phoneNumber: '+919876543210',
     leaveBalance: { casual: 12, sick: 10, earned: 15 }
   },
 
@@ -16,6 +17,7 @@ const demoUsers = [
     email: 'hod.cs@ssism.org',
     role: 'hod',
     department: 'Computer Science',
+    phoneNumber: '+919876543211',
     leaveBalance: { casual: 10, sick: 8, earned: 14 }
   },
   {
@@ -24,6 +26,7 @@ const demoUsers = [
     email: 'faculty.cs@ssism.org',
     role: 'user',
     department: 'Computer Science',
+    phoneNumber: '+919876543212',
     leaveBalance: { casual: 8, sick: 9, earned: 13 }
   },
   {
@@ -32,6 +35,7 @@ const demoUsers = [
     email: 'shannon.cs@ssism.org',
     role: 'user',
     department: 'Computer Science',
+    phoneNumber: '+919876543213',
     leaveBalance: { casual: 12, sick: 10, earned: 15 }
   },
   {
@@ -40,6 +44,7 @@ const demoUsers = [
     email: 'knuth.cs@ssism.org',
     role: 'user',
     department: 'Computer Science',
+    phoneNumber: '+919876543214',
     leaveBalance: { casual: 10, sick: 10, earned: 12 }
   },
 
@@ -50,6 +55,7 @@ const demoUsers = [
     email: 'hod.it@ssism.org',
     role: 'hod',
     department: 'Information Technology',
+    phoneNumber: '+919876543215',
     leaveBalance: { casual: 11, sick: 9, earned: 12 }
   },
   {
@@ -58,6 +64,7 @@ const demoUsers = [
     email: 'faculty.it@ssism.org',
     role: 'user',
     department: 'Information Technology',
+    phoneNumber: '+919876543216',
     leaveBalance: { casual: 9, sick: 10, earned: 15 }
   },
   {
@@ -66,6 +73,7 @@ const demoUsers = [
     email: 'bernerslee.it@ssism.org',
     role: 'user',
     department: 'Information Technology',
+    phoneNumber: '+919876543217',
     leaveBalance: { casual: 10, sick: 10, earned: 12 }
   },
   {
@@ -74,6 +82,7 @@ const demoUsers = [
     email: 'torvalds.it@ssism.org',
     role: 'user',
     department: 'Information Technology',
+    phoneNumber: '+919876543218',
     leaveBalance: { casual: 11, sick: 8, earned: 14 }
   },
 
@@ -84,6 +93,7 @@ const demoUsers = [
     email: 'feynman@ssism.org',
     role: 'hod',
     department: 'Electronics & Comm.',
+    phoneNumber: '+919876543219',
     leaveBalance: { casual: 12, sick: 10, earned: 15 }
   },
   {
@@ -92,6 +102,7 @@ const demoUsers = [
     email: 'noyce.ece@ssism.org',
     role: 'user',
     department: 'Electronics & Comm.',
+    phoneNumber: '+919876543220',
     leaveBalance: { casual: 7, sick: 9, earned: 10 }
   },
   {
@@ -100,6 +111,7 @@ const demoUsers = [
     email: 'tesla.ece@ssism.org',
     role: 'user',
     department: 'Electronics & Comm.',
+    phoneNumber: '+919876543221',
     leaveBalance: { casual: 10, sick: 12, earned: 10 }
   },
   {
@@ -108,6 +120,7 @@ const demoUsers = [
     email: 'maxwell.ece@ssism.org',
     role: 'user',
     department: 'Electronics & Comm.',
+    phoneNumber: '+919876543222',
     leaveBalance: { casual: 9, sick: 11, earned: 13 }
   },
 
@@ -118,6 +131,7 @@ const demoUsers = [
     email: 'hod.mgmt@ssism.org',
     role: 'hod',
     department: 'Management',
+    phoneNumber: '+919876543223',
     leaveBalance: { casual: 12, sick: 10, earned: 15 }
   },
   {
@@ -126,6 +140,7 @@ const demoUsers = [
     email: 'drucker.mgmt@ssism.org',
     role: 'user',
     department: 'Management',
+    phoneNumber: '+919876543224',
     leaveBalance: { casual: 10, sick: 10, earned: 14 }
   },
   {
@@ -134,6 +149,7 @@ const demoUsers = [
     email: 'porter.mgmt@ssism.org',
     role: 'user',
     department: 'Management',
+    phoneNumber: '+919876543225',
     leaveBalance: { casual: 11, sick: 9, earned: 12 }
   },
   {
@@ -142,6 +158,7 @@ const demoUsers = [
     email: 'kotler.mgmt@ssism.org',
     role: 'user',
     department: 'Management',
+    phoneNumber: '+919876543226',
     leaveBalance: { casual: 8, sick: 10, earned: 15 }
   }
 ];
