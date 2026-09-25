@@ -37,7 +37,8 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
   const [reviewComment, setReviewComment] = useState('');
   const [selectedFacultyProfile, setSelectedFacultyProfile] = useState(null);
 
-  const activeDeptName = (user?.role === 'user' && user?.department) ? user.department : departmentName;
+  const isAdmin = user?.role === 'admin';
+  const activeDeptName = (!isAdmin && user?.department) ? user.department : departmentName;
 
   useEffect(() => {
     fetchDepartmentDetail();
@@ -139,14 +140,7 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-bold text-sm">Loading Department Details...</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -585,7 +579,7 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
 
       {/* Review Modal (HOD / Admin Approval Dialog) */}
       {reviewModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 text-center fade-in">
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
               reviewModal.action === 'approved' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'

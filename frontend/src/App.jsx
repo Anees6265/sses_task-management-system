@@ -8,6 +8,8 @@ import Login from './components/Login.jsx';
 import KanbanBoard from './components/KanbanBoard.jsx';
 import TokenExpiryWarning from './components/TokenExpiryWarning.jsx';
 
+import Loader from './components/Loader.jsx';
+
 const AppContent = () => {
   const { user, loading } = useContext(AuthContext);
 
@@ -21,11 +23,7 @@ const AppContent = () => {
   }, [user]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-2xl font-semibold text-gray-600">Loading...</div>
-      </div>
-    );
+    return <Loader />;
   }
 
   if (!user) {

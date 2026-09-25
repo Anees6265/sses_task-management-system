@@ -32,9 +32,9 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
 
   return (
     <>
-      <div className="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-md z-50" style={{ height: 'env(safe-area-inset-top, 0px)' }} />
+      <div className="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-md z-30" style={{ height: 'env(safe-area-inset-top, 0px)' }} />
       
-      <nav className="glass-panel border-b border-slate-200/80 px-3 md:px-6 shadow-sm fixed left-0 right-0 z-50 min-h-[60px] md:h-[68px] flex items-center" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
+      <nav className="glass-panel border-b border-slate-200/80 px-3 md:px-6 shadow-sm fixed left-0 right-0 z-30 min-h-[60px] md:h-[68px] flex items-center" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center space-x-2 md:space-x-4">
             <button
@@ -46,11 +46,11 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
             </button>
             
             <h1 className="text-lg md:text-xl font-bold text-slate-800 flex items-center space-x-2.5">
-              <div className="p-1 bg-gradient-to-tr from-orange-500 to-amber-400 rounded-xl shadow-md flex items-center justify-center">
+              <div className="p-1 bg-white border border-slate-200/80 rounded-xl shadow-xs flex items-center justify-center">
                 <img 
                   src={logo}
                   alt="SSISM Logo" 
-                  className="h-7 w-7 md:h-8 md:w-8 object-contain bg-white rounded-lg p-0.5"
+                  className="h-7 w-7 md:h-8 md:w-8 object-contain rounded-lg"
                 />
               </div>
               <div className="flex flex-col">
@@ -117,7 +117,7 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
               {showUserMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                  <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden fade-in">
+                  <div className="absolute right-0 mt-3 w-64 max-w-[85vw] bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden fade-in">
                     <div className="p-4 bg-gradient-to-br from-orange-50/80 via-amber-50/50 to-white border-b border-slate-100">
                       <div className="flex flex-col items-center">
                         <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center text-white font-extrabold text-2xl mb-2.5 shadow-md shadow-orange-500/20">
@@ -200,7 +200,7 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
 
       {/* Create HOD Modal */}
       {showCreateHODModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto relative border border-slate-100 fade-in">
             <button
               onClick={() => setShowCreateHODModal(false)}
@@ -217,7 +217,7 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
 
       {/* Create Faculty Modal */}
       {showCreateFacultyModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto relative border border-slate-100 fade-in">
             <button
               onClick={() => setShowCreateFacultyModal(false)}
@@ -237,7 +237,7 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
 
       {/* Profile Settings Modal */}
       {showSettingsModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
           <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 fade-in">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg md:text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -297,7 +297,7 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
 
       {/* Logout Confirmation */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
           <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 text-center fade-in">
             <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <FiLogOut className="w-6 h-6" />

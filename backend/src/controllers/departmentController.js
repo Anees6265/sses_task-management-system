@@ -7,7 +7,7 @@ exports.getAllDepartments = async (req, res) => {
       const departments = await User.distinct('department', { department: { $ne: null } });
       return res.json(departments.sort());
     } else {
-      return res.json(['Computer Science', 'Information Technology', 'Management']);
+      return res.json(['Computer Science', 'Information Technology', 'Electronics & Comm.', 'Management']);
     }
   } catch (error) {
     res.status(500).json({ message: error.message });

@@ -62,7 +62,7 @@ exports.register = async (req, res) => {
         department,
         role: role || 'user'
       };
-      demoUsers.push({ ...newUser, passwordRaw: password });
+      demoUsers.push({ ...newUser });
       const accessToken = generateAccessToken(newUser._id);
       const refreshToken = generateRefreshToken(newUser._id);
       return res.status(201).json({ ...newUser, accessToken, refreshToken });
@@ -103,7 +103,13 @@ exports.login = async (req, res) => {
       console.log('⚡ Handling login via Code Mock Fallback for:', email);
       const demoUser = demoUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
 
-      if (!demoUser || (password && demoUser.passwordRaw !== password)) {
+      const validPasswords = [
+        process.env.SEED_ADMIN_PASSWORD || 'AdminPassword123!',
+        process.env.SEED_HOD_PASSWORD || 'HodPassword123!',
+        process.env.SEED_FACULTY_PASSWORD || 'FacultyPassword123!'
+      ];
+
+      if (!demoUser || !password || !validPasswords.includes(password)) {
         return res.status(401).json({ message: 'Invalid email or password' });
       }
 

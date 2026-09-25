@@ -132,14 +132,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-bold text-sm">Loading User Directory...</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -249,7 +242,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
               <select
                 value={deptFilter}
                 onChange={(e) => setDeptFilter(e.target.value)}
-                className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-orange-400 bg-white"
+                className="w-full sm:w-auto px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-orange-400 bg-white"
               >
                 <option value="all">All Departments</option>
                 {departments.map(d => (
@@ -262,7 +255,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-orange-400 bg-white"
+              className="w-full sm:w-auto px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-orange-400 bg-white"
             >
               <option value="all">All Roles</option>
               <option value="user">Faculty Only</option>
@@ -355,7 +348,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
 
       {/* Change Department Modal (Admin Only) */}
       {selectedUserForDeptChange && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 fade-in">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
               <div className="flex items-center gap-2.5">

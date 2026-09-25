@@ -178,11 +178,13 @@ const KanbanBoard = () => {
     
     if (!taskData.dueDate) delete taskData.dueDate;
     
-    if (user?.role === 'admin' || user?.role === 'hod') {
+    if (user?.role === 'admin') {
       if (!taskData.department) {
         toast.error('Please select a department', { position: 'top-center', autoClose: 2000 });
         return;
       }
+    } else if (user?.role === 'hod') {
+      taskData.department = user.department;
     } else {
       delete taskData.department;
     }
@@ -569,7 +571,7 @@ const KanbanBoard = () => {
         {/* Create / Edit Task Modal */}
         {showModal && (
           <div 
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" 
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4" 
             onClick={() => setShowModal(false)}
           >
             <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100 fade-in" onClick={(e) => e.stopPropagation()}>
@@ -636,20 +638,32 @@ const KanbanBoard = () => {
                   </div>
                 </div>
                 
-                {(user?.role === 'admin' || user?.role === 'hod') && (
+                {user?.role === 'admin' && (
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{t('selectDepartment')} *</label>
                     <select
                       className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition"
                       value={newTask.department}
                       onChange={(e) => setNewTask({ ...newTask, department: e.target.value })}
-                      required={user?.role === 'admin'}
+                      required
                     >
                       <option value="">{t('selectDepartment')}</option>
                       {departments.map(dept => (
                         <option key={dept} value={dept}>{dept}</option>
                       ))}
                     </select>
+                  </div>
+                )}
+
+                {user?.role === 'hod' && (
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Department</label>
+                    <input
+                      type="text"
+                      disabled
+                      value={`${user?.department || 'Department'}`}
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-100 text-sm font-bold text-slate-700 cursor-not-allowed"
+                    />
                   </div>
                 )}
                 
@@ -689,9 +703,11 @@ const KanbanBoard = () => {
                         onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
                       >
                         <option value="">{t('unassigned')}</option>
-                        {users.map(u => (
-                          <option key={u._id} value={u._id}>{u.name} ({u.email})</option>
-                        ))}
+                        {users
+                          .filter(u => user?.role === 'admin' ? true : u.department === user?.department)
+                          .map(u => (
+                            <option key={u._id} value={u._id}>{u.name} ({u.email})</option>
+                          ))}
                       </select>
                     )}
                     
@@ -715,26 +731,29 @@ const KanbanBoard = () => {
                         )}
                         
                         <div className="p-3 max-h-40 overflow-y-auto space-y-1">
-                          {users.filter(u => 
-                            u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-                            u.email.toLowerCase().includes(userSearchQuery.toLowerCase())
-                          ).map(u => (
-                            <label key={u._id} className="flex items-center gap-2.5 p-2 hover:bg-slate-50 rounded-xl cursor-pointer text-xs font-semibold text-slate-700">
-                              <input
-                                type="checkbox"
-                                checked={newTask.assignedUsers.includes(u._id)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setNewTask({ ...newTask, assignedUsers: [...newTask.assignedUsers, u._id] });
-                                  } else {
-                                    setNewTask({ ...newTask, assignedUsers: newTask.assignedUsers.filter(id => id !== u._id) });
-                                  }
-                                }}
-                                className="rounded text-orange-500"
-                              />
-                              <span>{u.name} ({u.email})</span>
-                            </label>
-                          ))}
+                          {users
+                            .filter(u => user?.role === 'admin' ? true : u.department === user?.department)
+                            .filter(u => 
+                              u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                              u.email.toLowerCase().includes(userSearchQuery.toLowerCase())
+                            )
+                            .map(u => (
+                              <label key={u._id} className="flex items-center gap-2.5 p-2 hover:bg-slate-50 rounded-xl cursor-pointer text-xs font-semibold text-slate-700">
+                                <input
+                                  type="checkbox"
+                                  checked={newTask.assignedUsers.includes(u._id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setNewTask({ ...newTask, assignedUsers: [...newTask.assignedUsers, u._id] });
+                                    } else {
+                                      setNewTask({ ...newTask, assignedUsers: newTask.assignedUsers.filter(id => id !== u._id) });
+                                    }
+                                  }}
+                                  className="rounded text-orange-500"
+                                />
+                                <span>{u.name} ({u.email})</span>
+                              </label>
+                            ))}
                         </div>
                       </div>
                     )}
@@ -765,7 +784,7 @@ const KanbanBoard = () => {
 
         {/* Delete Confirmation Modal */}
         {deleteConfirm && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
             <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 text-center fade-in">
               <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <FiTrash2 className="w-6 h-6" />

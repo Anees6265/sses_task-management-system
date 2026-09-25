@@ -126,6 +126,8 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
     return false;
   };
 
+  const isAdmin = user?.role === 'admin';
+  const isHOD = user?.role === 'hod';
   const isFaculty = user?.role === 'user';
   const userDept = user?.department;
 
@@ -138,18 +140,30 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
                           dept.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           leave.reason.toLowerCase().includes(searchQuery.toLowerCase());
 
-    if (isFaculty) {
-      const isMyLeave = leave.applicant?._id === user?._id || leave.applicant === user?._id;
-      const isMyDept = (userDept && (leave.department === userDept || leave.applicant?.department === userDept));
-      return matchesStatus && matchesSearch && (isMyLeave || isMyDept);
+    if (isAdmin) {
+      return matchesStatus && matchesDept && matchesSearch;
     }
 
-    return matchesStatus && matchesDept && matchesSearch;
+    const leaveDept = leave.department || leave.applicant?.department;
+    const isSameDept = userDept && leaveDept && leaveDept.toLowerCase() === userDept.toLowerCase();
+
+    if (isFaculty) {
+      const isMyLeave = (leave.applicant?._id && String(leave.applicant._id) === String(user?._id)) || 
+                        (leave.applicant === user?._id) || 
+                        (leave.applicant?.email && leave.applicant.email.toLowerCase() === user?.email?.toLowerCase());
+      return matchesStatus && matchesSearch && (isMyLeave || isSameDept);
+    }
+
+    if (isHOD) {
+      return matchesStatus && matchesSearch && isSameDept;
+    }
+
+    return matchesStatus && matchesSearch && isSameDept;
   });
 
-  const displayAttendanceData = (isFaculty && userDept) 
-    ? attendanceData.filter(d => d.department.toLowerCase() === userDept.toLowerCase()) 
-    : attendanceData;
+  const displayAttendanceData = isAdmin 
+    ? attendanceData 
+    : (userDept ? attendanceData.filter(d => d.department.toLowerCase() === userDept.toLowerCase()) : attendanceData);
 
   const getLeaveTypeBadge = (type) => {
     switch (type) {
@@ -172,14 +186,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-bold text-sm">Loading Leave Dashboard...</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -494,7 +501,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
 
       {/* Apply Leave Modal */}
       {showApplyModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 fade-in">
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
               <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
@@ -587,7 +594,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
 
       {/* FULL DEPARTMENT DETAIL MODAL */}
       {selectedDeptDetailModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-3xl p-6 md:p-8 w-full max-w-3xl shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto fade-in space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div>
@@ -785,7 +792,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
 
       {/* Review Modal Dialog for HOD / Admin */}
       {reviewModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 text-center fade-in">
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
               reviewModal.action === 'approved' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'

@@ -56,14 +56,7 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-bold text-sm">{t('loadingDashboard')}</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   const calculateProgress = (completed, total) => {
@@ -86,9 +79,11 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
           </div>
           <h2 className="text-2xl md:text-3xl font-extrabold flex items-center gap-3 tracking-tight">
             <FiPieChart className="text-orange-400 w-8 h-8" />
-            <span>{t('adminDashboard')}</span>
+            <span>{user?.role === 'hod' ? `${user?.department} HOD Dashboard` : t('adminDashboard')}</span>
           </h2>
-          <p className="text-xs md:text-sm text-slate-300 mt-1">{t('overviewDepartments')}</p>
+          <p className="text-xs md:text-sm text-slate-300 mt-1">
+            {user?.role === 'hod' ? `Overview of ${user?.department} department faculty performance & tasks` : t('overviewDepartments')}
+          </p>
         </div>
         <div className="bg-white/10 backdrop-blur-md px-6 py-3.5 rounded-2xl border border-white/10 flex items-center gap-4 relative z-10">
           <div>
@@ -281,7 +276,7 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
 
       {/* 3. DEPARTMENT CLICK MODAL: LEAVE REQUEST FACULTIES & DEPARTMENT LEAVES */}
       {selectedDeptAttendance && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-3xl p-6 md:p-8 w-full max-w-3xl shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto fade-in space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div>

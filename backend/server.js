@@ -16,6 +16,10 @@ const Message = require('./src/models/Message');
 const jwt = require('jsonwebtoken');
 const { encrypt, decrypt } = require('./src/utils/encryption');
 
+const helmet = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
+const { inputSecuritySanitizer } = require('./src/middleware/security');
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -26,6 +30,12 @@ const io = new Server(server, {
 });
 
 connectDB();
+
+// 1. Helmet Security Headers (Hardens HTTP headers against XSS, clickjacking, MIME sniffing, etc.)
+app.use(helmet({
+  contentSecurityPolicy: false, // Allows cross-origin API and socket requests flexibility
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
 
 app.use(cors({
   origin: '*',
@@ -50,6 +60,16 @@ app.use((req, res, next) => {
   next();
 });
 
+// JSON & URL-encoded parser limits to prevent DoS payload attacks
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// 2. MongoDB NoSQL Injection Sanitization (Strips $ and . keys from req.body, req.query, req.params)
+app.use(mongoSanitize({ replaceWith: '_' }));
+
+// 3. Universal Field Input Security Sanitizer (Sanitizes SQL injection patterns & scripts on all fields)
+app.use(inputSecuritySanitizer);
+
 // Request logging middleware
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
@@ -61,8 +81,6 @@ app.use((req, res, next) => {
   }
   next();
 });
-
-app.use(express.json());
 
 const leaveRoutes = require('./src/routes/leaveRoutes');
 

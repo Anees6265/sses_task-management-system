@@ -44,10 +44,12 @@ const DepartmentDashboard = ({ onSelectDepartment }) => {
     }
   };
 
+  const isAdmin = user?.role === 'admin';
   const isFaculty = user?.role === 'user';
+  const isHOD = user?.role === 'hod';
   const userDepartment = user?.department;
 
-  const roleFilteredAttendanceData = isFaculty && userDepartment
+  const roleFilteredAttendanceData = (!isAdmin && userDepartment)
     ? attendanceData.filter(dept => dept.department.toLowerCase() === userDepartment.toLowerCase())
     : attendanceData;
 
@@ -56,14 +58,7 @@ const DepartmentDashboard = ({ onSelectDepartment }) => {
   );
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-bold text-sm">Loading Department Dashboard...</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   const totalFacultyCount = roleFilteredAttendanceData.reduce((acc, d) => acc + d.totalFaculty, 0);
@@ -78,15 +73,15 @@ const DepartmentDashboard = ({ onSelectDepartment }) => {
           <div className="flex items-center space-x-2 mb-1">
             <span className="px-3 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-bold rounded-full uppercase tracking-wider border border-orange-500/30 flex items-center gap-1.5">
               <FiBriefcase className="w-3.5 h-3.5" />
-              {isFaculty ? `${userDepartment} Portal` : 'Department Directory'}
+              {isAdmin ? 'Department Directory' : `${userDepartment} Department Portal`}
             </span>
           </div>
           <h2 className="text-2xl md:text-3xl font-extrabold flex items-center gap-3 tracking-tight">
-            <span>{isFaculty ? `${userDepartment || 'My'} Department Dashboard` : 'Department Dashboard'}</span>
+            <span>{isAdmin ? 'Department Dashboard' : `${userDepartment} Department Dashboard`}</span>
           </h2>
           <p className="text-xs md:text-sm text-slate-300 mt-1">
-            {isFaculty 
-              ? `Overview of your department (${userDepartment}), faculty attendance & leave status` 
+            {!isAdmin 
+              ? `Overview of ${userDepartment} department, faculty attendance & leave status` 
               : 'Overview of all departments, daily faculty attendance ratios & leave request counts'}
           </p>
         </div>
