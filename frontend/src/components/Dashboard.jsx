@@ -3,6 +3,7 @@ import { taskAPI, leaveAPI } from '../services/api.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import FacultyProfileModal from './FacultyProfileModal.jsx';
+import Modal from './Modal.jsx';
 import { 
   FiPieChart, 
   FiCheckCircle, 
@@ -275,8 +276,8 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
       </div>
 
       {/* 3. DEPARTMENT CLICK MODAL: LEAVE REQUEST FACULTIES & DEPARTMENT LEAVES */}
-      {selectedDeptAttendance && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+      <Modal isOpen={!!selectedDeptAttendance} onClose={() => setSelectedDeptAttendance(null)}>
+        {selectedDeptAttendance && (
           <div className="bg-white rounded-3xl p-6 md:p-8 w-full max-w-3xl shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto fade-in space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div>
@@ -411,8 +412,8 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* Faculty Profile Modal */}
       {selectedFacultyProfile && (

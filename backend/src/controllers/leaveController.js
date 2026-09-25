@@ -1,8 +1,14 @@
 const mongoose = require('mongoose');
 const Leave = require('../models/Leave');
 const User = require('../models/User');
-const { demoLeaves, demoUsers } = require('../utils/mockStore');
-const { sendLeaveNotificationToReviewer, sendLeaveStatusNotificationToApplicant } = require('../services/whatsappService');
+const Holiday = require('../models/Holiday');
+const SundayAttendance = require('../models/SundayAttendance');
+const { demoLeaves, demoUsers, demoSundayAttendance, demoHolidays } = require('../utils/mockStore');
+const { 
+  sendLeaveNotificationToReviewer, 
+  sendLeaveStatusNotificationToApplicant, 
+  sendHolidayAnnouncementToFaculty 
+} = require('../services/whatsappService');
 
 exports.applyLeave = async (req, res) => {
   try {
@@ -62,41 +68,51 @@ exports.applyLeave = async (req, res) => {
       resultLeave = newLeave;
     }
 
-    // Trigger WhatsApp notification asynchronously (Faculty -> HOD, HOD -> Admin)
+    // Trigger WhatsApp notification asynchronously (Faculty -> HOD & Admin, HOD -> Admin)
     (async () => {
       try {
-        let reviewer = null;
+        const reviewers = [];
         if (req.user.role === 'user') {
-          // Faculty applied -> notify HOD of faculty's department
+          // Faculty applied -> notify HOD of faculty's department & Admin
+          let hod = null;
+          let admin = null;
           if (mongoose.connection.readyState === 1) {
-            reviewer = await User.findOne({ role: 'hod', department: req.user.department });
+            hod = await User.findOne({ role: 'hod', department: req.user.department });
+            admin = await User.findOne({ role: 'admin' });
           } else {
-            reviewer = demoUsers.find(u => u.role === 'hod' && u.department === req.user.department);
+            hod = demoUsers.find(u => u.role === 'hod' && u.department === req.user.department);
+            admin = demoUsers.find(u => u.role === 'admin');
           }
+          if (hod) reviewers.push(hod);
+          if (admin && (!hod || String(admin._id) !== String(hod._id))) reviewers.push(admin);
         } else if (req.user.role === 'hod') {
           // HOD applied -> notify Admin
+          let admin = null;
           if (mongoose.connection.readyState === 1) {
-            reviewer = await User.findOne({ role: 'admin' });
+            admin = await User.findOne({ role: 'admin' });
           } else {
-            reviewer = demoUsers.find(u => u.role === 'admin');
+            admin = demoUsers.find(u => u.role === 'admin');
           }
+          if (admin) reviewers.push(admin);
         }
 
-        if (reviewer && reviewer.phoneNumber) {
-          await sendLeaveNotificationToReviewer({
-            reviewerPhone: reviewer.phoneNumber,
-            reviewerName: reviewer.name,
-            applicantName: req.user.name,
-            applicantRole: req.user.role,
-            department: req.user.department || 'General',
-            leaveType: leaveType || 'casual',
-            startDate: start,
-            endDate: end,
-            totalDays,
-            reason
-          });
-        } else {
-          console.log(`ℹ️ WhatsApp notification skipped: Reviewer (${reviewer ? reviewer.name : 'HOD/Admin'}) does not have a phone number.`);
+        for (const reviewer of reviewers) {
+          if (reviewer && reviewer.phoneNumber) {
+            await sendLeaveNotificationToReviewer({
+              reviewerPhone: reviewer.phoneNumber,
+              reviewerName: reviewer.name,
+              applicantName: req.user.name,
+              applicantRole: req.user.role,
+              department: req.user.department || 'General',
+              leaveType: leaveType || 'casual',
+              startDate: start,
+              endDate: end,
+              totalDays,
+              reason
+            });
+          } else {
+            console.log(`ℹ️ WhatsApp notification skipped: Reviewer (${reviewer ? reviewer.name : 'HOD/Admin'}) does not have a phone number.`);
+          }
         }
       } catch (wErr) {
         console.error('⚠️ Error processing WhatsApp leave application notification:', wErr.message);
@@ -500,6 +516,223 @@ exports.cancelLeave = async (req, res) => {
 
       return res.status(404).json({ message: 'Active or pending leave request not found to cancel' });
     }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get Sunday Attendance Records
+exports.getSundayAttendance = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    let query = {};
+    if (userId) {
+      query.user = userId;
+    }
+
+    if (mongoose.connection.readyState === 1) {
+      const records = await SundayAttendance.find(query).lean();
+      return res.json(records);
+    } else {
+      let filtered = demoSundayAttendance;
+      if (userId) {
+        filtered = demoSundayAttendance.filter(r => String(r.user) === String(userId));
+      }
+      return res.json(filtered);
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Toggle Sunday Attendance Status (Present / Weekend Default)
+exports.toggleSundayAttendance = async (req, res) => {
+  try {
+    const { date, userId } = req.body;
+    if (!date) {
+      return res.status(400).json({ message: 'Date string (YYYY-MM-DD) is required' });
+    }
+
+    const targetUserId = userId || req.user._id;
+
+    if (mongoose.connection.readyState === 1) {
+      const existing = await SundayAttendance.findOne({ user: targetUserId, date });
+      if (existing) {
+        existing.isPresent = !existing.isPresent;
+        await existing.save();
+        return res.json({
+          success: true,
+          isPresent: existing.isPresent,
+          date,
+          message: existing.isPresent ? 'Sunday attendance marked as Present' : 'Sunday attendance reset to Weekend'
+        });
+      } else {
+        await SundayAttendance.create({
+          user: targetUserId,
+          date,
+          isPresent: true,
+          markedBy: req.user._id,
+          note: 'Sunday Duty'
+        });
+        return res.json({
+          success: true,
+          isPresent: true,
+          date,
+          message: 'Sunday attendance marked as Present'
+        });
+      }
+    } else {
+      const index = demoSundayAttendance.findIndex(r => String(r.user) === String(targetUserId) && r.date === date);
+      if (index !== -1) {
+        demoSundayAttendance[index].isPresent = !demoSundayAttendance[index].isPresent;
+        const status = demoSundayAttendance[index].isPresent;
+        return res.json({
+          success: true,
+          isPresent: status,
+          date,
+          message: status ? 'Sunday attendance marked as Present' : 'Sunday attendance reset to Weekend'
+        });
+      } else {
+        const newRecord = {
+          _id: 'sa_' + Date.now(),
+          user: targetUserId,
+          date,
+          isPresent: true,
+          markedBy: req.user._id,
+          note: 'Sunday Duty'
+        };
+        demoSundayAttendance.push(newRecord);
+        return res.json({
+          success: true,
+          isPresent: true,
+          date,
+          message: 'Sunday attendance marked as Present'
+        });
+      }
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get All Official Announced Holidays
+exports.getHolidays = async (req, res) => {
+  try {
+    if (mongoose.connection.readyState === 1) {
+      const holidays = await Holiday.find().sort({ startDate: 1 }).lean();
+      return res.json(holidays);
+    } else {
+      return res.json(demoHolidays);
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Announce Official Holiday & Broadcast WhatsApp Notifications (Admin Only)
+exports.announceHoliday = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only Admin can announce official holidays' });
+    }
+
+    const { title, startDate, endDate, description } = req.body;
+
+    if (!title || !startDate || !endDate) {
+      return res.status(400).json({ message: 'Title, start date, and end date are required for holiday announcement' });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (end < start) {
+      return res.status(400).json({ message: 'End date cannot be earlier than start date' });
+    }
+
+    const timeDiff = Math.abs(end.getTime() - start.getTime());
+    const totalDays = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+
+    let createdHoliday = null;
+
+    if (mongoose.connection.readyState === 1) {
+      createdHoliday = await Holiday.create({
+        title,
+        startDate: start,
+        endDate: end,
+        totalDays,
+        description,
+        createdBy: req.user._id
+      });
+    } else {
+      createdHoliday = {
+        _id: 'hol_' + Date.now().toString(16),
+        title,
+        startDate: start,
+        endDate: end,
+        totalDays,
+        description,
+        createdBy: req.user._id,
+        createdAt: new Date()
+      };
+      demoHolidays.unshift(createdHoliday);
+    }
+
+    // Broadcast WhatsApp Message asynchronously to all faculty/users with phone numbers
+    (async () => {
+      try {
+        let allUsers = [];
+        if (mongoose.connection.readyState === 1) {
+          allUsers = await User.find({ phoneNumber: { $exists: true, $ne: '' } }).select('name phoneNumber role department');
+        } else {
+          allUsers = demoUsers.filter(u => u.phoneNumber);
+        }
+
+        console.log(`📢 Broadcasting WhatsApp Holiday Announcement to ${allUsers.length} faculty members...`);
+        for (const facultyMember of allUsers) {
+          if (facultyMember.phoneNumber) {
+            await sendHolidayAnnouncementToFaculty({
+              recipientPhone: facultyMember.phoneNumber,
+              recipientName: facultyMember.name,
+              title,
+              startDate: start,
+              endDate: end,
+              totalDays,
+              description
+            });
+          }
+        }
+      } catch (err) {
+        console.error('❌ Error broadcasting WhatsApp holiday announcement:', err.message);
+      }
+    })();
+
+    res.status(201).json({
+      message: 'Official holiday announced successfully & WhatsApp notifications broadcasted to all faculty members!',
+      holiday: createdHoliday
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Delete Announced Holiday (Admin Only)
+exports.deleteHoliday = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only Admin can delete official holidays' });
+    }
+
+    const { id } = req.params;
+
+    if (mongoose.connection.readyState === 1) {
+      await Holiday.findByIdAndDelete(id);
+    } else {
+      const idx = demoHolidays.findIndex(h => String(h._id) === String(id));
+      if (idx !== -1) {
+        demoHolidays.splice(idx, 1);
+      }
+    }
+
+    res.json({ message: 'Holiday deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { userAPI, departmentAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { toast } from 'react-toastify';
+import Modal from './Modal.jsx';
 import { 
   FiUsers, 
   FiSearch, 
@@ -358,8 +359,8 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
       </div>
 
       {/* Change Department Modal (Admin Only) */}
-      {selectedUserForDeptChange && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+      <Modal isOpen={!!selectedUserForDeptChange} onClose={() => setSelectedUserForDeptChange(null)}>
+        {selectedUserForDeptChange && (
           <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 fade-in">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
               <div className="flex items-center gap-2.5">
@@ -450,8 +451,8 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 };

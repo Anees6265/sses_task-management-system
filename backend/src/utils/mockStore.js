@@ -314,4 +314,7 @@ const demoLeaves = [
   }
 ];
 
-module.exports = { demoUsers, demoTasks, demoLeaves };
+const demoSundayAttendance = [];
+const demoHolidays = [];
+
+module.exports = { demoUsers, demoTasks, demoLeaves, demoSundayAttendance, demoHolidays };

@@ -9,6 +9,7 @@ import Dashboard from './Dashboard.jsx';
 import LeaveDashboard from './LeaveDashboard.jsx';
 import Chat from './Chat.jsx';
 import Loader from './Loader.jsx';
+import Modal from './Modal.jsx';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { 
@@ -569,12 +570,9 @@ const KanbanBoard = () => {
         </div>
 
         {/* Create / Edit Task Modal */}
-        {showModal && (
-          <div 
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4" 
-            onClick={() => setShowModal(false)}
-          >
-            <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100 fade-in" onClick={(e) => e.stopPropagation()}>
+        <Modal isOpen={showModal} onClose={() => setShowModal(false)}>
+          {showModal && (
+            <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100 fade-in">
               <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
                 <h2 className="text-lg md:text-xl font-extrabold text-slate-800 flex items-center gap-2">
                   <FiPlus className="w-5 h-5 text-orange-500" />
@@ -779,12 +777,12 @@ const KanbanBoard = () => {
                 </div>
               </form>
             </div>
-          </div>
-        )}
+          )}
+        </Modal>
 
         {/* Delete Confirmation Modal */}
-        {deleteConfirm && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
+        <Modal isOpen={!!deleteConfirm} onClose={() => setDeleteConfirm(null)}>
+          {deleteConfirm && (
             <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 text-center fade-in">
               <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <FiTrash2 className="w-6 h-6" />
@@ -806,8 +804,8 @@ const KanbanBoard = () => {
                 </button>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </Modal>
       </div>
     </>
   );

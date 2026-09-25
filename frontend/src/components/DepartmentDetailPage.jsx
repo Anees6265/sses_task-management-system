@@ -4,6 +4,7 @@ import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { toast } from 'react-toastify';
 import FacultyProfileModal from './FacultyProfileModal.jsx';
+import Modal from './Modal.jsx';
 import { 
   FiArrowLeft, 
   FiBriefcase, 
@@ -593,8 +594,8 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
       </div>
 
       {/* Review Modal (HOD / Admin Approval Dialog) */}
-      {reviewModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+      <Modal isOpen={!!reviewModal} onClose={() => setReviewModal(null)}>
+        {reviewModal && (
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 text-center fade-in">
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
               reviewModal.action === 'approved' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
@@ -634,8 +635,8 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* Faculty Profile Modal */}
       {selectedFacultyProfile && (

@@ -158,10 +158,44 @@ const sendWhatsAppMessage = async (recipientNumber, taskTitle, taskDescription, 
   return await sendWhatsAppText(recipientNumber, message);
 };
 
+/**
+ * Broadcast Holiday / Leave Announcement to all faculty members via WhatsApp
+ */
+const sendHolidayAnnouncementToFaculty = async ({
+  recipientPhone,
+  recipientName,
+  title,
+  startDate,
+  endDate,
+  totalDays,
+  description
+}) => {
+  const startStr = new Date(startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const endStr = new Date(endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const message = 
+`🎉 *Official Holiday Announcement* - SSES Task Management
+
+Hello *${recipientName || 'Faculty Member'}*,
+
+The management has announced official holidays:
+
+📌 *Occasion*: ${title}
+📅 *Dates*: ${startStr} to ${endStr} (${totalDays} Day${totalDays > 1 ? 's' : ''})
+📝 *Details*: ${description || 'College closed for official holiday break.'}
+
+Please plan your work accordingly. Have a wonderful holiday!
+
+— *Sant Singaji Educational Society (SSES)*`;
+
+  return await sendWhatsAppText(recipientPhone, message);
+};
+
 module.exports = { 
   sendWhatsAppText,
   sendLeaveNotificationToReviewer,
   sendLeaveStatusNotificationToApplicant,
+  sendHolidayAnnouncementToFaculty,
   sendWhatsAppMessage,
   formatWhatsAppNumber
 };
