@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const Task = require('../models/Task');
+const ActivityLog = require('../models/ActivityLog');
 const { demoUsers, demoTasks } = require('../utils/mockStore');
 
 exports.getAllUsers = async (req, res) => {
@@ -230,6 +231,17 @@ exports.updateUser = async (req, res) => {
       }
       await targetUser.save();
 
+      try {
+        await ActivityLog.create({
+          performedBy: req.user._id,
+          action: 'FACULTY_EDITED',
+          departmentName: targetUser.department,
+          details: { facultyId: targetUser._id, name: targetUser.name, email: targetUser.email }
+        });
+      } catch (logErr) {
+        console.warn('ActivityLog failed:', logErr.message);
+      }
+
       const demoIndex = demoUsers.findIndex(u => String(u._id) === String(id));
       if (demoIndex !== -1) {
         demoUsers[demoIndex].name = targetUser.name;
@@ -310,6 +322,17 @@ exports.toggleUserStatus = async (req, res) => {
     if (isMongoDoc) {
       targetUser.status = status;
       await targetUser.save();
+
+      try {
+        await ActivityLog.create({
+          performedBy: req.user._id,
+          action: status === 'active' ? 'FACULTY_ACTIVATED' : 'FACULTY_DEACTIVATED',
+          departmentName: targetUser.department,
+          details: { facultyId: targetUser._id, name: targetUser.name, status }
+        });
+      } catch (logErr) {
+        console.warn('ActivityLog failed:', logErr.message);
+      }
 
       const demoIndex = demoUsers.findIndex(u => String(u._id) === String(id));
       if (demoIndex !== -1) {
@@ -496,6 +519,17 @@ exports.getFacultyPerformance = async (req, res) => {
         const onTimeCompleted = userTasks.filter(t => t.status === 'completed' && (!t.dueDate || new Date(t.updatedAt || t.createdAt) <= new Date(t.dueDate))).length;
         const onTimeCompletionRate = completedTasks > 0 ? Math.round((onTimeCompleted / completedTasks) * 100) : 0;
 
+        // Calculate Average Completion Time (in Hours)
+        const completedTaskList = userTasks.filter(t => t.status === 'completed');
+        let totalHours = 0;
+        completedTaskList.forEach(t => {
+          const startTime = new Date(t.createdAt).getTime();
+          const endTime = new Date(t.completedAt || t.updatedAt || Date.now()).getTime();
+          const diffHours = Math.max(0, (endTime - startTime) / (1000 * 60 * 60));
+          totalHours += diffHours;
+        });
+        const avgCompletionTimeHours = completedTaskList.length > 0 ? Math.round((totalHours / completedTaskList.length) * 10) / 10 : 0;
+
         return {
           faculty: {
             _id: faculty._id,
@@ -509,7 +543,8 @@ exports.getFacultyPerformance = async (req, res) => {
             pendingTasks,
             overdueTasks,
             completionRate,
-            onTimeCompletionRate
+            onTimeCompletionRate,
+            avgCompletionTimeHours
           }
         };
       });
@@ -606,5 +641,149 @@ exports.getFacultyTaskHistory = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.assignFacultyDepartment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { department } = req.body;
+
+    if (req.user.role !== 'admin' && req.user.role !== 'hod') {
+      return res.status(403).json({ message: 'Only Admin or HOD can assign department to faculty' });
+    }
+
+    const targetDept = req.user.role === 'hod' ? req.user.department : (department || req.user.department);
+    if (!targetDept) {
+      return res.status(400).json({ message: 'Department is required' });
+    }
+
+    let targetUser = null;
+    let isMongoDoc = false;
+
+    if (mongoose.connection.readyState === 1) {
+      targetUser = await User.findById(id);
+      if (targetUser) isMongoDoc = true;
+    }
+
+    if (!targetUser) {
+      targetUser = demoUsers.find(u => String(u._id) === String(id));
+    }
+
+    if (!targetUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (targetUser.role !== 'user') {
+      return res.status(400).json({ message: 'Only Faculty members can be assigned to department' });
+    }
+
+    if (isMongoDoc) {
+      const prevDept = targetUser.department;
+      targetUser.department = targetDept;
+      await targetUser.save();
+
+      const demoIndex = demoUsers.findIndex(u => String(u._id) === String(id));
+      if (demoIndex !== -1) demoUsers[demoIndex].department = targetDept;
+
+      try {
+        await ActivityLog.create({
+          performedBy: req.user._id,
+          action: 'FACULTY_ASSIGNED_DEPARTMENT',
+          departmentName: targetDept,
+          details: { facultyId: targetUser._id, name: targetUser.name, previousDepartment: prevDept, newDepartment: targetDept }
+        });
+      } catch (lErr) {}
+
+      return res.json({ message: `Faculty ${targetUser.name} assigned to ${targetDept} department`, user: targetUser });
+    } else {
+      targetUser.department = targetDept;
+      return res.json({ message: `Faculty ${targetUser.name} assigned to ${targetDept} department`, user: targetUser });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.removeFacultyDepartment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (req.user.role !== 'admin' && req.user.role !== 'hod') {
+      return res.status(403).json({ message: 'Only Admin or HOD can remove faculty from department' });
+    }
+
+    let targetUser = null;
+    let isMongoDoc = false;
+
+    if (mongoose.connection.readyState === 1) {
+      targetUser = await User.findById(id);
+      if (targetUser) isMongoDoc = true;
+    }
+
+    if (!targetUser) {
+      targetUser = demoUsers.find(u => String(u._id) === String(id));
+    }
+
+    if (!targetUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (req.user.role === 'hod' && targetUser.department !== req.user.department) {
+      return res.status(403).json({ message: 'Access denied. You can only remove faculty from your own department.' });
+    }
+
+    const prevDept = targetUser.department;
+
+    if (isMongoDoc) {
+      targetUser.department = 'Unassigned';
+      await targetUser.save();
+
+      const demoIndex = demoUsers.findIndex(u => String(u._id) === String(id));
+      if (demoIndex !== -1) demoUsers[demoIndex].department = 'Unassigned';
+
+      try {
+        await ActivityLog.create({
+          performedBy: req.user._id,
+          action: 'FACULTY_REMOVED_DEPARTMENT',
+          departmentName: prevDept,
+          details: { facultyId: targetUser._id, name: targetUser.name, previousDepartment: prevDept }
+        });
+      } catch (lErr) {}
+
+      return res.json({ message: `Faculty ${targetUser.name} removed from ${prevDept} department`, user: targetUser });
+    } else {
+      targetUser.department = 'Unassigned';
+      return res.json({ message: `Faculty ${targetUser.name} removed from ${prevDept} department`, user: targetUser });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getUnassignedFaculty = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.role !== 'hod') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    if (mongoose.connection.readyState === 1) {
+      const users = await User.find({
+        role: 'user',
+        $or: [
+          { department: { $exists: false } },
+          { department: null },
+          { department: '' },
+          { department: 'Unassigned' }
+        ]
+      }).select('name email department role status phoneNumber');
+      return res.json(users);
+    } else {
+      const unassigned = demoUsers.filter(u => u.role === 'user' && (!u.department || u.department === 'Unassigned' || u.department === ''));
+      return res.json(unassigned);
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 
 

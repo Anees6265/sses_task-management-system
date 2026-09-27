@@ -1,10 +1,30 @@
 const mongoose = require('mongoose');
 const Task = require('../models/Task');
 const Department = require('../models/Department');
+const User = require('../models/User');
+const ActivityLog = require('../models/ActivityLog');
 const { sendTaskAssignmentEmail } = require('../services/emailService');
 const { sendPushNotification } = require('./notificationController');
-const User = require('../models/User');
 const { demoTasks, demoUsers } = require('../utils/mockStore');
+const path = require('path');
+const fs = require('fs');
+
+const calculateNextDueDate = (currentDueDate, pattern, interval = 1) => {
+  const baseDate = currentDueDate ? new Date(currentDueDate) : new Date();
+  const nextDate = new Date(baseDate);
+  const numInterval = Number(interval) || 1;
+
+  if (pattern === 'daily') {
+    nextDate.setDate(nextDate.getDate() + numInterval);
+  } else if (pattern === 'weekly') {
+    nextDate.setDate(nextDate.getDate() + (7 * numInterval));
+  } else if (pattern === 'monthly') {
+    nextDate.setMonth(nextDate.getMonth() + numInterval);
+  } else {
+    nextDate.setDate(nextDate.getDate() + numInterval);
+  }
+  return nextDate;
+};
 
 const getMockStats = (user) => {
   let tasks = demoTasks;
@@ -60,26 +80,14 @@ exports.getTasks = async (req, res) => {
     if (req.user.role === 'admin') {
       filter = {};
     } else if (req.user.role === 'hod') {
-      const adminAndHodUsers = await User.find({ 
-        role: { $in: ['admin', 'hod'] },
-        $or: [
-          { department: req.user.department },
-          { role: 'admin' }
-        ]
-      }).select('_id');
-      const adminAndHodIds = adminAndHodUsers.map(u => u._id);
-      
-      filter = { 
-        department: req.user.department,
-        createdBy: { $in: adminAndHodIds }
-      };
+      filter = { department: req.user.department };
     } else {
       filter = { assignedTo: req.user._id };
     }
     
     const tasks = await Task.find(filter)
-      .populate('assignedTo', 'name email')
-      .populate('createdBy', 'name email')
+      .populate('assignedTo', 'name email department')
+      .populate('createdBy', 'name email department')
       .sort({ createdAt: -1 });
     res.json(tasks);
   } catch (error) {
@@ -112,27 +120,28 @@ exports.getTasksByFaculty = async (req, res) => {
         t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(facultyId))
       );
       if (req.user.role === 'hod') {
-        tasks = tasks.filter(t => !t.isPersonal);
+        tasks = tasks.filter(t => t.department === req.user.department);
       }
       return res.json(tasks);
     }
+
+    const targetFaculty = await User.findById(facultyId);
+    if (!targetFaculty) {
+      return res.status(404).json({ message: 'Faculty member not found' });
+    }
+
+    if (req.user.role === 'hod' && targetFaculty.department !== req.user.department) {
+      return res.status(403).json({ message: 'Access denied. You can only view tasks for faculty in your department.' });
+    }
     
     let filter = { assignedTo: facultyId };
-    
-    // HOD can only see faculty in their department and excluding faculty personal tasks
     if (req.user.role === 'hod') {
-      const adminAndHodUsers = await User.find({ role: { $in: ['admin', 'hod'] } }).select('_id');
-      const adminAndHodIds = adminAndHodUsers.map(u => u._id);
-      filter = { 
-        assignedTo: facultyId,
-        department: req.user.department,
-        createdBy: { $in: adminAndHodIds }
-      };
+      filter.department = req.user.department;
     }
     
     const tasks = await Task.find(filter)
-      .populate('assignedTo', 'name email')
-      .populate('createdBy', 'name email')
+      .populate('assignedTo', 'name email department')
+      .populate('createdBy', 'name email department')
       .sort({ createdAt: -1 });
     
     res.json(tasks);
@@ -149,14 +158,28 @@ exports.getTasksByFaculty = async (req, res) => {
 
 exports.createTask = async (req, res) => {
   try {
+    let taskData = { ...req.body };
+
+    // RBAC department check for HOD
+    if (req.user.role === 'hod') {
+      taskData.department = req.user.department;
+      
+      // Verify assigned faculty belong to HOD department
+      if (taskData.assignedTo && taskData.assignedTo.length > 0 && mongoose.connection.readyState === 1) {
+        const validFaculty = await User.find({
+          _id: { $in: taskData.assignedTo },
+          department: req.user.department
+        }).select('_id');
+        taskData.assignedTo = validFaculty.map(f => f._id);
+      }
+    } else if (req.user.role === 'user') {
+      taskData.assignedTo = [req.user._id];
+      taskData.department = req.user.department;
+      taskData.isPersonal = true;
+    }
+
     if (mongoose.connection.readyState !== 1) {
       console.log('⚡ Creating task in Mock Store');
-      let taskData = { ...req.body };
-      if (req.user.role === 'user') {
-        taskData.assignedTo = [req.user._id];
-        taskData.department = req.user.department;
-        taskData.isPersonal = true;
-      }
       const newTask = {
         _id: '64t' + Date.now().toString(16),
         ...taskData,
@@ -168,37 +191,58 @@ exports.createTask = async (req, res) => {
           const u = demoUsers.find(du => du._id === id);
           return u ? { _id: u._id, name: u.name, email: u.email } : { _id: id, name: 'Assigned User', email: '' };
         }),
+        attachments: [],
+        comments: [],
+        assignmentHistory: [],
         createdAt: new Date().toISOString()
       };
       demoTasks.unshift(newTask);
       return res.status(201).json(newTask);
     }
 
-    let taskData = { ...req.body };
-    
-    // Faculty can only create tasks for themselves
-    if (req.user.role === 'user') {
-      taskData.assignedTo = [req.user._id];
-      taskData.department = req.user.department;
-      taskData.isPersonal = true; // Mark as personal task
-    }
-    
     const task = await Task.create({
       ...taskData,
       department: taskData.department || req.user.department,
       createdBy: req.user._id
     });
-    const populatedTask = await Task.findById(task._id)
-      .populate('assignedTo', 'name email phoneNumber')
-      .populate('createdBy', 'name email');
     
+    const populatedTask = await Task.findById(task._id)
+      .populate('assignedTo', 'name email phoneNumber department')
+      .populate('createdBy', 'name email department');
+
+    // Audit Logging
+    try {
+      await ActivityLog.create({
+        performedBy: req.user._id,
+        action: 'TASK_CREATED',
+        departmentName: task.department,
+        details: { taskId: task._id, title: task.title, priority: task.priority, dueDate: task.dueDate }
+      });
+
+      if (task.assignedTo && task.assignedTo.length > 0) {
+        await ActivityLog.create({
+          performedBy: req.user._id,
+          action: 'TASK_ASSIGNED',
+          departmentName: task.department,
+          details: { taskId: task._id, title: task.title, assignedCount: task.assignedTo.length }
+        });
+      }
+
+      if (task.isRecurring) {
+        await ActivityLog.create({
+          performedBy: req.user._id,
+          action: 'RECURRING_TASK_CREATED',
+          departmentName: task.department,
+          details: { taskId: task._id, title: task.title, pattern: task.recurrencePattern, interval: task.recurrenceInterval }
+        });
+      }
+    } catch (logErr) {
+      console.warn('ActivityLog error:', logErr.message);
+    }
+
     // Send notifications to all assigned users
     if (populatedTask.assignedTo && populatedTask.assignedTo.length > 0) {
-      console.log('📧 Sending notifications for task:', populatedTask.title);
-      
-      // Send email and push notification to each assigned user
       populatedTask.assignedTo.forEach(user => {
-        // Email notification
         sendTaskAssignmentEmail(
           user.email,
           user.name,
@@ -208,7 +252,6 @@ exports.createTask = async (req, res) => {
           populatedTask.dueDate
         ).catch(err => console.error(`❌ Email failed for ${user.email}:`, err.message));
         
-        // Push notification
         sendPushNotification(
           user._id,
           '📋 New Task Assigned',
@@ -217,7 +260,7 @@ exports.createTask = async (req, res) => {
         ).catch(err => console.error(`❌ Push notification failed for ${user.email}:`, err.message));
       });
     }
-    
+
     res.status(201).json(populatedTask);
   } catch (error) {
     console.error('❌ Task creation error:', error);
@@ -231,35 +274,369 @@ exports.updateTask = async (req, res) => {
       console.log('⚡ Updating task in Mock Store');
       const index = demoTasks.findIndex(t => String(t._id) === String(req.params.id));
       if (index !== -1) {
+        if (req.user.role === 'hod' && demoTasks[index].department !== req.user.department) {
+          return res.status(403).json({ message: 'Access denied. Task belongs to another department.' });
+        }
         demoTasks[index] = { ...demoTasks[index], ...req.body };
         return res.json(demoTasks[index]);
       }
       return res.status(404).json({ message: 'Task not found in mock store' });
     }
 
-    let filter = {};
-    
-    if (req.user.role === 'admin') {
-      filter = { _id: req.params.id };
-    } else if (req.user.role === 'hod') {
-      filter = { _id: req.params.id, department: req.user.department };
-    } else {
-      // Faculty can only update their own tasks
-      filter = { _id: req.params.id, assignedTo: req.user._id };
-    }
-    
-    const task = await Task.findOneAndUpdate(
-      filter,
-      req.body,
-      { new: true, runValidators: true }
-    )
-      .populate('assignedTo', 'name email')
-      .populate('createdBy', 'name email');
-    
-    if (!task) {
+    let existingTask = await Task.findById(req.params.id);
+    if (!existingTask) {
       return res.status(404).json({ message: 'Task not found' });
     }
+
+    // RBAC Security Check
+    if (req.user.role === 'hod' && existingTask.department !== req.user.department) {
+      return res.status(403).json({ message: 'Access denied. You can only edit tasks in your department.' });
+    } else if (req.user.role === 'user') {
+      const isAssigned = existingTask.assignedTo.some(id => String(id) === String(req.user._id));
+      if (!isAssigned && String(existingTask.createdBy) !== String(req.user._id)) {
+        return res.status(403).json({ message: 'Access denied. You can only update your assigned tasks.' });
+      }
+    }
+
+    const oldPriority = existingTask.priority;
+    const oldDueDate = existingTask.dueDate ? existingTask.dueDate.toISOString() : null;
+    const oldStatus = existingTask.status;
+
+    let updateData = { ...req.body };
+
+    // Set completedAt timestamp when status changes to completed
+    if (updateData.status === 'completed' && oldStatus !== 'completed') {
+      updateData.completedAt = new Date();
+    }
+
+    const task = await Task.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true, runValidators: true }
+    )
+      .populate('assignedTo', 'name email department')
+      .populate('createdBy', 'name email department');
+
+    // Track Audit Log Events
+    try {
+      if (updateData.priority && updateData.priority !== oldPriority) {
+        await ActivityLog.create({
+          performedBy: req.user._id,
+          action: 'TASK_PRIORITY_CHANGED',
+          departmentName: task.department,
+          details: { taskId: task._id, oldPriority, newPriority: updateData.priority }
+        });
+      }
+
+      if (updateData.dueDate) {
+        const newDueDate = new Date(updateData.dueDate).toISOString();
+        if (newDueDate !== oldDueDate) {
+          await ActivityLog.create({
+            performedBy: req.user._id,
+            action: 'TASK_DEADLINE_CHANGED',
+            departmentName: task.department,
+            details: { taskId: task._id, oldDueDate, newDueDate }
+          });
+        }
+      }
+
+      if (updateData.status && updateData.status !== oldStatus) {
+        await ActivityLog.create({
+          performedBy: req.user._id,
+          action: 'TASK_STATUS_CHANGED',
+          departmentName: task.department,
+          details: { taskId: task._id, oldStatus, newStatus: updateData.status }
+        });
+      }
+    } catch (lErr) {}
+
+    // Handle Recurring Task Auto-Spawn on Completion
+    if (updateData.status === 'completed' && oldStatus !== 'completed' && task.isRecurring && task.recurrencePattern !== 'none') {
+      try {
+        const nextDueDate = calculateNextDueDate(task.dueDate || new Date(), task.recurrencePattern, task.recurrenceInterval);
+        const recurringTask = await Task.create({
+          title: task.title,
+          description: task.description,
+          priority: task.priority,
+          status: 'todo',
+          department: task.department,
+          assignedTo: task.assignedTo.map(u => u._id || u),
+          createdBy: task.createdBy._id || task.createdBy,
+          dueDate: nextDueDate,
+          isRecurring: true,
+          recurrencePattern: task.recurrencePattern,
+          recurrenceInterval: task.recurrenceInterval,
+          parentTaskId: task._id
+        });
+
+        await ActivityLog.create({
+          performedBy: req.user._id,
+          action: 'RECURRING_TASK_CREATED',
+          departmentName: task.department,
+          details: { parentTaskId: task._id, newTaskId: recurringTask._id, title: recurringTask.title, nextDueDate }
+        });
+      } catch (recErr) {
+        console.error('Error auto-spawning recurring task:', recErr.message);
+      }
+    }
+
     res.json(task);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.reassignTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { assignedTo } = req.body;
+
+    if (req.user.role !== 'admin' && req.user.role !== 'hod') {
+      return res.status(403).json({ message: 'Access denied. Only HOD or Admin can reassign tasks.' });
+    }
+
+    if (mongoose.connection.readyState === 1) {
+      const task = await Task.findById(id);
+      if (!task) {
+        return res.status(404).json({ message: 'Task not found' });
+      }
+
+      if (req.user.role === 'hod' && task.department !== req.user.department) {
+        return res.status(403).json({ message: 'Access denied. You can only reassign tasks in your department.' });
+      }
+
+      let newAssignedUserIds = Array.isArray(assignedTo) ? assignedTo : (assignedTo ? [assignedTo] : []);
+
+      // Verify all new assigned users belong to HOD department
+      if (req.user.role === 'hod' && newAssignedUserIds.length > 0) {
+        const validFaculty = await User.find({
+          _id: { $in: newAssignedUserIds },
+          department: req.user.department
+        }).select('_id');
+        
+        if (validFaculty.length !== newAssignedUserIds.length) {
+          return res.status(400).json({ message: 'Cannot assign task to faculty from another department.' });
+        }
+      }
+
+      const previousAssignedTo = [...task.assignedTo];
+
+      task.assignedTo = newAssignedUserIds;
+      task.assignmentHistory.push({
+        previousAssignedTo,
+        newAssignedTo: newAssignedUserIds,
+        reassignedBy: req.user._id,
+        reassignedByName: req.user.name,
+        reassignedAt: new Date()
+      });
+
+      await task.save();
+
+      const updatedTask = await Task.findById(id)
+        .populate('assignedTo', 'name email department')
+        .populate('createdBy', 'name email department');
+
+      await ActivityLog.create({
+        performedBy: req.user._id,
+        action: 'TASK_REASSIGNED',
+        departmentName: task.department,
+        details: { taskId: task._id, previousAssignedCount: previousAssignedTo.length, newAssignedCount: newAssignedUserIds.length }
+      });
+
+      return res.json(updatedTask);
+    } else {
+      const index = demoTasks.findIndex(t => String(t._id) === String(id));
+      if (index !== -1) {
+        let newAssignedUserIds = Array.isArray(assignedTo) ? assignedTo : (assignedTo ? [assignedTo] : []);
+        demoTasks[index].assignedTo = newAssignedUserIds.map(uId => {
+          const u = demoUsers.find(du => String(du._id) === String(uId));
+          return u ? { _id: u._id, name: u.name, email: u.email } : { _id: uId, name: 'Assigned User', email: '' };
+        });
+        return res.json(demoTasks[index]);
+      }
+      return res.status(404).json({ message: 'Task not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.addComment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { text } = req.body;
+
+    if (!text || !text.trim()) {
+      return res.status(400).json({ message: 'Comment text is required' });
+    }
+
+    if (mongoose.connection.readyState === 1) {
+      const task = await Task.findById(id);
+      if (!task) {
+        return res.status(404).json({ message: 'Task not found' });
+      }
+
+      if (req.user.role === 'hod' && task.department !== req.user.department) {
+        return res.status(403).json({ message: 'Access denied. Task belongs to another department.' });
+      }
+
+      task.comments.push({
+        text: text.trim(),
+        user: req.user._id,
+        userName: req.user.name,
+        createdAt: new Date()
+      });
+
+      await task.save();
+
+      await ActivityLog.create({
+        performedBy: req.user._id,
+        action: 'TASK_COMMENT_ADDED',
+        departmentName: task.department,
+        details: { taskId: task._id, commentSnippet: text.trim().substring(0, 50) }
+      });
+
+      return res.json(task.comments);
+    } else {
+      const index = demoTasks.findIndex(t => String(t._id) === String(id));
+      if (index !== -1) {
+        if (!demoTasks[index].comments) demoTasks[index].comments = [];
+        const newComment = {
+          _id: 'c_' + Date.now(),
+          text: text.trim(),
+          userName: req.user.name,
+          createdAt: new Date()
+        };
+        demoTasks[index].comments.push(newComment);
+        return res.json(demoTasks[index].comments);
+      }
+      return res.status(404).json({ message: 'Task not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getComments = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (mongoose.connection.readyState === 1) {
+      const task = await Task.findById(id).select('comments department');
+      if (!task) {
+        return res.status(404).json({ message: 'Task not found' });
+      }
+
+      if (req.user.role === 'hod' && task.department !== req.user.department) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      return res.json(task.comments || []);
+    } else {
+      const task = demoTasks.find(t => String(t._id) === String(id));
+      return res.json(task ? (task.comments || []) : []);
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.uploadAttachment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    if (mongoose.connection.readyState === 1) {
+      const task = await Task.findById(id);
+      if (!task) {
+        return res.status(404).json({ message: 'Task not found' });
+      }
+
+      if (req.user.role === 'hod' && task.department !== req.user.department) {
+        return res.status(403).json({ message: 'Access denied. You can only attach files to tasks in your department.' });
+      }
+
+      const attachmentObj = {
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        path: `/uploads/${req.file.filename}`,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        uploadedAt: new Date(),
+        uploadedBy: req.user._id
+      };
+
+      task.attachments.push(attachmentObj);
+      await task.save();
+
+      await ActivityLog.create({
+        performedBy: req.user._id,
+        action: 'TASK_ATTACHMENT_ADDED',
+        departmentName: task.department,
+        details: { taskId: task._id, filename: req.file.originalname, size: req.file.size }
+      });
+
+      return res.status(201).json(task.attachments);
+    } else {
+      const index = demoTasks.findIndex(t => String(t._id) === String(id));
+      if (index !== -1) {
+        if (!demoTasks[index].attachments) demoTasks[index].attachments = [];
+        const attachmentObj = {
+          _id: 'att_' + Date.now(),
+          filename: req.file.filename,
+          originalName: req.file.originalname,
+          path: `/uploads/${req.file.filename}`,
+          mimetype: req.file.mimetype,
+          size: req.file.size,
+          uploadedAt: new Date()
+        };
+        demoTasks[index].attachments.push(attachmentObj);
+        return res.status(201).json(demoTasks[index].attachments);
+      }
+      return res.status(404).json({ message: 'Task not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.deleteAttachment = async (req, res) => {
+  try {
+    const { id, attachmentId } = req.params;
+
+    if (mongoose.connection.readyState === 1) {
+      const task = await Task.findById(id);
+      if (!task) {
+        return res.status(404).json({ message: 'Task not found' });
+      }
+
+      if (req.user.role === 'hod' && task.department !== req.user.department) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      const attachment = task.attachments.id(attachmentId);
+      if (attachment && attachment.filename) {
+        const filePath = path.join(__dirname, '../../uploads', attachment.filename);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+
+      task.attachments.pull(attachmentId);
+      await task.save();
+
+      return res.json(task.attachments);
+    } else {
+      const index = demoTasks.findIndex(t => String(t._id) === String(id));
+      if (index !== -1 && demoTasks[index].attachments) {
+        demoTasks[index].attachments = demoTasks[index].attachments.filter(a => String(a._id) !== String(attachmentId));
+        return res.json(demoTasks[index].attachments);
+      }
+      return res.status(404).json({ message: 'Task not found' });
+    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -284,7 +661,6 @@ exports.deleteTask = async (req, res) => {
     } else if (req.user.role === 'hod') {
       filter = { _id: req.params.id, department: req.user.department };
     } else {
-      // Faculty cannot delete tasks
       return res.status(403).json({ message: 'You do not have permission to delete tasks' });
     }
     
@@ -310,20 +686,8 @@ exports.getDashboardStats = async (req, res) => {
     if (req.user.role === 'admin') {
       filter = {};
     } else if (req.user.role === 'hod') {
-      const adminAndHodUsers = await User.find({ 
-        role: { $in: ['admin', 'hod'] },
-        $or: [
-          { department: req.user.department },
-          { role: 'admin' }
-        ]
-      }).select('_id');
-      const adminAndHodIds = adminAndHodUsers.map(u => u._id);
-      filter = { 
-        department: req.user.department,
-        createdBy: { $in: adminAndHodIds }
-      };
+      filter = { department: req.user.department };
     } else {
-      // Faculty: Only their assigned tasks
       filter = { assignedTo: req.user._id };
     }
     
@@ -333,15 +697,6 @@ exports.getDashboardStats = async (req, res) => {
     const completedTasks = await Task.countDocuments({ ...filter, status: 'completed' });
     
     let matchFilter = filter;
-    if (req.user.role === 'admin') {
-      matchFilter = {};
-    } else if (req.user.role === 'hod') {
-      const adminAndHodUsers = await User.find({ 
-        role: { $in: ['admin', 'hod'] },
-        $or: [{ department: req.user.department }, { role: 'admin' }]
-      }).select('_id');
-      matchFilter = { department: req.user.department, createdBy: { $in: adminAndHodUsers.map(u => u._id) } };
-    }
     
     const aggregatedDepts = await Task.aggregate([
       { $match: { ...matchFilter, department: { $ne: null, $ne: '' } } },
@@ -385,13 +740,8 @@ exports.getDashboardStats = async (req, res) => {
     // Faculty-wise stats for HOD
     let facultyStats = [];
     if (req.user.role === 'hod') {
-      const adminAndHodUsers = await User.find({ 
-        role: { $in: ['admin', 'hod'] },
-        $or: [{ department: req.user.department }, { role: 'admin' }]
-      }).select('_id');
-      
       facultyStats = await Task.aggregate([
-        { $match: { department: req.user.department, createdBy: { $in: adminAndHodUsers.map(u => u._id) } } },
+        { $match: { department: req.user.department } },
         { $unwind: '$assignedTo' },
         {
           $lookup: {
@@ -434,4 +784,3 @@ exports.getDashboardStats = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
