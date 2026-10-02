@@ -1,11 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { getAllUsers, updateUserDepartment, updateUserProfile } = require('../controllers/userController');
-const { protect, admin } = require('../middleware/auth');
-
 const { 
   getAllUsers, 
   updateUserDepartment, 
+  updateUserProfile,
   createUser,
   updateUser,
   toggleUserStatus,
@@ -25,13 +23,11 @@ router.get('/unassigned', protect, getUnassignedFaculty);
 router.get('/:id/history', protect, getFacultyTaskHistory);
 
 router.post('/', protect, admin, createUser);
+router.put('/profile', protect, updateUserProfile);
 router.put('/:id/department', protect, admin, updateUserDepartment);
 router.put('/:id/assign-department', protect, assignFacultyDepartment);
 router.put('/:id/remove-department', protect, removeFacultyDepartment);
 router.put('/:id', protect, updateUser);
 router.patch('/:id/status', protect, toggleUserStatus);
 
-router.put('/profile', protect, updateUserProfile);
 module.exports = router;
-
-

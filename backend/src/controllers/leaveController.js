@@ -9,7 +9,6 @@ const {
   sendLeaveStatusNotificationToApplicant, 
   sendHolidayAnnouncementToFaculty 
 } = require('../services/whatsappService');
-const { demoLeaves, demoUsers } = require('../utils/mockStore');
 
 exports.applyLeave = async (req, res) => {
   try {
