@@ -21,15 +21,15 @@ exports.protect = async (req, res, next) => {
       try {
         req.user = await User.findById(decoded.id).select('-password');
       } catch (dbErr) {
-        console.warn('⚠️ User lookup failed in auth middleware, falling back to mock user:', dbErr.message);
-        req.user = demoUsers.find(u => u._id === decoded.id) || demoUsers[0];
+        console.warn('⚠️ User lookup failed in auth middleware, falling back to mock lookup:', dbErr.message);
+        req.user = demoUsers.find(u => u._id === decoded.id);
       }
     } else {
-      req.user = demoUsers.find(u => u._id === decoded.id) || demoUsers[0];
+      req.user = demoUsers.find(u => u._id === decoded.id);
     }
     
     if (!req.user) {
-      return res.status(401).json({ message: 'User not found' });
+      return res.status(401).json({ message: 'User not found or token invalid' });
     }
 
     next();
