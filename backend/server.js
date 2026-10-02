@@ -119,6 +119,9 @@ io.use((socket, next) => {
   }
 });
 
+const mongoose = require('mongoose');
+const { demoUsers, demoMessages } = require('./src/utils/mockStore');
+
 io.on('connection', (socket) => {
   console.log('✅ User connected:', socket.userId);
   
@@ -129,40 +132,66 @@ io.on('connection', (socket) => {
   
   socket.on('send-message', async (data) => {
     try {
-      const encryptedMessage = encrypt(data.message);
-      
-      const message = await Message.create({
-        sender: socket.userId,
-        receiver: data.receiver,
-        message: encryptedMessage
-      });
-      
-      const populatedMessage = await Message.findById(message._id)
-        .populate('sender', 'name email')
-        .populate('receiver', 'name email');
-      
-      const decryptedMessage = {
-        ...populatedMessage.toObject(),
-        message: decrypt(populatedMessage.message)
-      };
-      
-      const receiverSocketId = onlineUsers.get(data.receiver);
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit('receive-message', decryptedMessage);
-        await Message.findByIdAndUpdate(message._id, { delivered: true });
-        socket.emit('message-delivered', { messageId: message._id });
-      } else {
-        // Send push notification if user is offline
-        const User = require('./src/models/User');
-        const receiver = await User.findById(data.receiver);
-        if (receiver && receiver.fcmToken && receiver.notificationPreferences.chat) {
-          console.log('📨 Sending push notification to offline user');
-          // TODO: Send via FCM when integrated
+      if (!data || !data.message || !data.receiver) return;
+
+      let sentMsg = null;
+      const receiverId = String(data.receiver?._id || data.receiver);
+      const senderId = String(socket.userId);
+
+      if (mongoose.connection.readyState === 1) {
+        try {
+          const encryptedMessage = encrypt(data.message);
+          const message = await Message.create({
+            sender: socket.userId,
+            receiver: receiverId,
+            message: encryptedMessage
+          });
+          
+          const populatedMessage = await Message.findById(message._id)
+            .populate('sender', 'name email role department')
+            .populate('receiver', 'name email role department');
+          
+          sentMsg = {
+            ...populatedMessage.toObject(),
+            message: data.message.trim()
+          };
+          demoMessages.push(sentMsg);
+        } catch (dbErr) {
+          console.warn('DB socket message create error:', dbErr.message);
         }
       }
+
+      if (!sentMsg) {
+        const senderObj = demoUsers.find(u => String(u._id) === senderId) || { _id: senderId, name: 'User' };
+        const receiverObj = demoUsers.find(u => String(u._id) === receiverId) || { _id: receiverId, name: 'User' };
+        sentMsg = {
+          _id: '64m' + Date.now().toString(16),
+          sender: senderObj,
+          receiver: receiverObj,
+          message: data.message.trim(),
+          read: false,
+          delivered: true,
+          createdAt: new Date()
+        };
+        demoMessages.push(sentMsg);
+      }
+
+      // Emit to receiver's socket room directly
+      io.to(receiverId).emit('receive-message', sentMsg);
+
+      const receiverSocketId = onlineUsers.get(receiverId);
+      if (receiverSocketId && receiverSocketId !== receiverId) {
+        io.to(receiverSocketId).emit('receive-message', sentMsg);
+      }
+
+      if (mongoose.connection.readyState === 1 && sentMsg._id && String(sentMsg._id).length === 24) {
+        try { await Message.findByIdAndUpdate(sentMsg._id, { delivered: true }); } catch (e) {}
+      }
       
-      socket.emit('message-sent', decryptedMessage);
+      socket.emit('message-delivered', { messageId: sentMsg._id });
+      socket.emit('message-sent', sentMsg);
     } catch (error) {
+      console.error('Socket message error:', error);
       socket.emit('message-error', { error: error.message });
     }
   });
@@ -183,10 +212,22 @@ io.on('connection', (socket) => {
   
   socket.on('mark-read', async (data) => {
     try {
-      await Message.updateMany(
-        { sender: data.sender, receiver: socket.userId, read: false },
-        { read: true }
-      );
+      if (mongoose.connection.readyState === 1) {
+        try {
+          await Message.updateMany(
+            { sender: data.sender, receiver: socket.userId, read: false },
+            { read: true }
+          );
+        } catch (dbErr) {}
+      }
+
+      demoMessages.forEach(m => {
+        const sId = m.sender._id || m.sender;
+        const rId = m.receiver._id || m.receiver;
+        if (String(sId) === String(data.sender) && String(rId) === String(socket.userId)) {
+          m.read = true;
+        }
+      });
       
       const senderSocketId = onlineUsers.get(data.sender);
       if (senderSocketId) {

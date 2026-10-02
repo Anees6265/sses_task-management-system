@@ -408,14 +408,10 @@ exports.toggleUserStatus = async (req, res) => {
 
 exports.getFacultyWorkload = async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'hod') {
-      return res.status(403).json({ message: 'Access denied.' });
-    }
-
     const deptFilter = req.user.role === 'hod' ? req.user.department : (req.query.department || 'all');
 
     if (mongoose.connection.readyState === 1) {
-      const userFilter = { role: 'user' };
+      const userFilter = {};
       if (deptFilter !== 'all') {
         userFilter.department = deptFilter;
       }
@@ -473,7 +469,7 @@ exports.getFacultyWorkload = async (req, res) => {
 
       return res.json(workloadList);
     } else {
-      let facultyList = demoUsers.filter(u => u.role === 'user');
+      let facultyList = demoUsers;
       if (deptFilter !== 'all') {
         facultyList = facultyList.filter(u => u.department === deptFilter);
       }
@@ -483,7 +479,10 @@ exports.getFacultyWorkload = async (req, res) => {
       const workloadList = facultyList.map(faculty => {
         const userTasks = demoTasks.filter(t => {
           if (!t.assignedTo) return false;
-          return t.assignedTo.some(u => String(u._id || u) === String(faculty._id));
+          if (Array.isArray(t.assignedTo)) {
+            return t.assignedTo.some(u => String(u._id || u) === String(faculty._id));
+          }
+          return String(t.assignedTo._id || t.assignedTo) === String(faculty._id);
         });
 
         const totalTasks = userTasks.length;
@@ -525,14 +524,10 @@ exports.getFacultyWorkload = async (req, res) => {
 
 exports.getFacultyPerformance = async (req, res) => {
   try {
-    if (req.user.role !== 'admin' && req.user.role !== 'hod') {
-      return res.status(403).json({ message: 'Access denied.' });
-    }
-
     const deptFilter = req.user.role === 'hod' ? req.user.department : (req.query.department || 'all');
 
     if (mongoose.connection.readyState === 1) {
-      const userFilter = { role: 'user' };
+      const userFilter = {};
       if (deptFilter !== 'all') {
         userFilter.department = deptFilter;
       }
@@ -560,7 +555,6 @@ exports.getFacultyPerformance = async (req, res) => {
         const onTimeCompleted = userTasks.filter(t => t.status === 'completed' && (!t.dueDate || new Date(t.updatedAt || t.createdAt) <= new Date(t.dueDate))).length;
         const onTimeCompletionRate = completedTasks > 0 ? Math.round((onTimeCompleted / completedTasks) * 100) : 0;
 
-        // Calculate Average Completion Time (in Hours)
         const completedTaskList = userTasks.filter(t => t.status === 'completed');
         let totalHours = 0;
         completedTaskList.forEach(t => {
@@ -576,7 +570,8 @@ exports.getFacultyPerformance = async (req, res) => {
             _id: faculty._id,
             name: faculty.name,
             email: faculty.email,
-            department: faculty.department
+            department: faculty.department,
+            role: faculty.role
           },
           metrics: {
             totalTasks,
@@ -592,7 +587,7 @@ exports.getFacultyPerformance = async (req, res) => {
 
       return res.json(performanceData);
     } else {
-      let facultyList = demoUsers.filter(u => u.role === 'user');
+      let facultyList = demoUsers;
       if (deptFilter !== 'all') {
         facultyList = facultyList.filter(u => u.department === deptFilter);
       }
@@ -602,7 +597,10 @@ exports.getFacultyPerformance = async (req, res) => {
       const performanceData = facultyList.map(faculty => {
         const userTasks = demoTasks.filter(t => {
           if (!t.assignedTo) return false;
-          return t.assignedTo.some(u => String(u._id || u) === String(faculty._id));
+          if (Array.isArray(t.assignedTo)) {
+            return t.assignedTo.some(u => String(u._id || u) === String(faculty._id));
+          }
+          return String(t.assignedTo._id || t.assignedTo) === String(faculty._id);
         });
 
         const totalTasks = userTasks.length;
@@ -613,12 +611,23 @@ exports.getFacultyPerformance = async (req, res) => {
         const onTimeCompleted = userTasks.filter(t => t.status === 'completed').length;
         const onTimeCompletionRate = completedTasks > 0 ? Math.round((onTimeCompleted / completedTasks) * 100) : 0;
 
+        const completedTaskList = userTasks.filter(t => t.status === 'completed');
+        let totalHours = 0;
+        completedTaskList.forEach(t => {
+          const startTime = new Date(t.createdAt).getTime();
+          const endTime = new Date(t.completedAt || t.updatedAt || Date.now()).getTime();
+          const diffHours = Math.max(0, (endTime - startTime) / (1000 * 60 * 60));
+          totalHours += diffHours;
+        });
+        const avgCompletionTimeHours = completedTaskList.length > 0 ? Math.round((totalHours / completedTaskList.length) * 10) / 10 : 0;
+
         return {
           faculty: {
             _id: faculty._id,
             name: faculty.name,
             email: faculty.email,
-            department: faculty.department
+            department: faculty.department,
+            role: faculty.role
           },
           metrics: {
             totalTasks,
@@ -626,7 +635,8 @@ exports.getFacultyPerformance = async (req, res) => {
             pendingTasks,
             overdueTasks,
             completionRate,
-            onTimeCompletionRate
+            onTimeCompletionRate,
+            avgCompletionTimeHours
           }
         };
       });

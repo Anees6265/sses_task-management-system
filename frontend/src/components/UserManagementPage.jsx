@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { userAPI, departmentAPI } from '../services/api.jsx';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
+import { userAPI, departmentAPI, taskAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { toast } from 'react-toastify';
 import Modal from './Modal.jsx';
@@ -15,12 +15,20 @@ import {
   FiShield, 
   FiMail,
   FiChevronRight,
-  FiPhone
+  FiPhone,
+  FiBarChart2,
+  FiTrendingUp,
+  FiClock,
+  FiAlertTriangle
 } from 'react-icons/fi';
 
 const UserManagementPage = ({ onOpenFacultyProfile }) => {
   const { user } = useContext(AuthContext);
+  const [activeTab, setActiveTab] = useState('directory'); // 'directory' | 'workload' | 'performance'
   const [users, setUsers] = useState([]);
+  const [allTasks, setAllTasks] = useState([]);
+  const [workloadData, setWorkloadData] = useState([]);
+  const [performanceData, setPerformanceData] = useState([]);
   const [departments, setDepartments] = useState(['Computer Science', 'Information Technology', 'Management', 'Electronics & Comm.']);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,31 +43,40 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    fetchUsersData();
-    fetchDepartmentsData();
+    fetchAllData();
   }, []);
 
-  const fetchUsersData = async () => {
+  const fetchAllData = async () => {
     setLoading(true);
     try {
-      const { data } = await userAPI.getAllUsers();
-      setUsers(data || []);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      toast.error('Failed to load user directory');
-    } finally {
-      setLoading(false);
-    }
-  };
+      const [usersRes, deptsRes, tasksRes, workloadRes, perfRes] = await Promise.allSettled([
+        userAPI.getAllUsers(),
+        departmentAPI.getAllDepartments(),
+        taskAPI.getTasks(),
+        userAPI.getFacultyWorkload(),
+        userAPI.getFacultyPerformance()
+      ]);
 
-  const fetchDepartmentsData = async () => {
-    try {
-      const { data } = await departmentAPI.getAllDepartments();
-      if (data && data.length > 0) {
-        setDepartments(Array.from(new Set([...departments, ...data])));
+      if (usersRes.status === 'fulfilled' && usersRes.value?.data) {
+        setUsers(usersRes.value.data);
+      }
+      if (deptsRes.status === 'fulfilled' && deptsRes.value?.data?.length > 0) {
+        setDepartments(Array.from(new Set([...departments, ...deptsRes.value.data])));
+      }
+      if (tasksRes.status === 'fulfilled' && tasksRes.value?.data) {
+        setAllTasks(tasksRes.value.data);
+      }
+      if (workloadRes.status === 'fulfilled' && workloadRes.value?.data) {
+        setWorkloadData(workloadRes.value.data);
+      }
+      if (perfRes.status === 'fulfilled' && perfRes.value?.data) {
+        setPerformanceData(perfRes.value.data);
       }
     } catch (error) {
-      console.error('Error fetching departments:', error);
+      console.error('Error fetching directory data:', error);
+      toast.error('Failed to load user directory data');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -107,21 +124,120 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
   const isHOD = user?.role === 'hod';
 
   // Filtered Users List
-  const filteredUsers = users.filter(u => {
-    const matchesSearch = u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (u.phoneNumber && u.phoneNumber.includes(searchQuery));
-    const matchesDept = deptFilter === 'all' || u.department === deptFilter;
-    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => {
+      const matchesSearch = u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            (u.phoneNumber && u.phoneNumber.includes(searchQuery));
+      const matchesDept = deptFilter === 'all' || u.department === deptFilter;
+      const matchesRole = roleFilter === 'all' || u.role === roleFilter;
 
-    // HOD should only see users in their department
-    if (isHOD) {
-      const isSameDept = u.department === user?.department;
-      return matchesSearch && matchesRole && isSameDept;
+      if (isHOD) {
+        const isSameDept = u.department === user?.department;
+        return matchesSearch && matchesRole && isSameDept;
+      }
+
+      return matchesSearch && matchesDept && matchesRole;
+    });
+  }, [users, searchQuery, deptFilter, roleFilter, isHOD, user]);
+
+  // Combined Workload List
+  const combinedWorkloadList = useMemo(() => {
+    let sourceList = [];
+    if (workloadData && workloadData.length > 0) {
+      sourceList = workloadData;
+    } else {
+      const now = new Date();
+      sourceList = users.map(u => {
+        const uTasks = allTasks.filter(t => {
+          if (!t.assignedTo) return false;
+          if (Array.isArray(t.assignedTo)) {
+            return t.assignedTo.some(a => String(a._id || a) === String(u._id));
+          }
+          return String(t.assignedTo._id || t.assignedTo) === String(u._id);
+        });
+
+        return {
+          faculty: u,
+          workload: {
+            totalTasks: uTasks.length,
+            todoTasks: uTasks.filter(t => t.status === 'todo').length,
+            inprogressTasks: uTasks.filter(t => t.status === 'inprogress').length,
+            completedTasks: uTasks.filter(t => t.status === 'completed').length,
+            overdueTasks: uTasks.filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < now).length
+          }
+        };
+      });
     }
 
-    return matchesSearch && matchesDept && matchesRole;
-  });
+    return sourceList.filter(item => {
+      const f = item.faculty || {};
+      const matchesSearch = f.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            f.email?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesDept = deptFilter === 'all' || f.department === deptFilter;
+      if (isHOD) {
+        return matchesSearch && f.department === user?.department;
+      }
+      return matchesSearch && matchesDept;
+    });
+  }, [workloadData, users, allTasks, searchQuery, deptFilter, isHOD, user]);
+
+  // Combined Performance List
+  const combinedPerformanceList = useMemo(() => {
+    let sourceList = [];
+    if (performanceData && performanceData.length > 0) {
+      sourceList = performanceData;
+    } else {
+      const now = new Date();
+      sourceList = users.map(u => {
+        const uTasks = allTasks.filter(t => {
+          if (!t.assignedTo) return false;
+          if (Array.isArray(t.assignedTo)) {
+            return t.assignedTo.some(a => String(a._id || a) === String(u._id));
+          }
+          return String(t.assignedTo._id || t.assignedTo) === String(u._id);
+        });
+
+        const total = uTasks.length;
+        const completed = uTasks.filter(t => t.status === 'completed').length;
+        const overdue = uTasks.filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < now).length;
+        const onTime = uTasks.filter(t => t.status === 'completed' && (!t.dueDate || new Date(t.updatedAt || t.createdAt) <= new Date(t.dueDate))).length;
+        const onTimeRate = completed > 0 ? Math.round((onTime / completed) * 100) : 0;
+
+        const completedTaskList = uTasks.filter(t => t.status === 'completed');
+        let totalHours = 0;
+        completedTaskList.forEach(t => {
+          const startTime = new Date(t.createdAt).getTime();
+          const endTime = new Date(t.completedAt || t.updatedAt || Date.now()).getTime();
+          const diff = Math.max(0, (endTime - startTime) / (1000 * 60 * 60));
+          totalHours += diff;
+        });
+        const avgHrs = completedTaskList.length > 0 ? Math.round((totalHours / completedTaskList.length) * 10) / 10 : 0;
+
+        return {
+          faculty: u,
+          metrics: {
+            totalTasks: total,
+            completedTasks: completed,
+            onTimeCompletionRate: onTimeRate,
+            overdueTasks: overdue,
+            avgCompletionTimeHours: avgHrs
+          }
+        };
+      });
+    }
+
+    return sourceList.filter(item => {
+      const f = item.faculty || {};
+      const matchesSearch = f.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            f.email?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesDept = deptFilter === 'all' || f.department === deptFilter;
+      if (isHOD) {
+        return matchesSearch && f.department === user?.department;
+      }
+      return matchesSearch && matchesDept;
+    });
+  }, [performanceData, users, allTasks, searchQuery, deptFilter, isHOD, user]);
 
   const getRoleBadge = (role) => {
     switch (role) {
@@ -132,6 +248,15 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
       default:
         return <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-extrabold rounded-full flex items-center gap-1 border border-blue-300">Faculty</span>;
     }
+  };
+
+  const formatAvgCompletionTime = (hours) => {
+    if (!hours || hours === 0) return 'N/A';
+    if (hours >= 24) {
+      const days = (hours / 24).toFixed(1);
+      return `${days} ${days === '1.0' ? 'day' : 'days'}`;
+    }
+    return `${hours} hrs`;
   };
 
   if (loading) {
@@ -213,52 +338,93 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
         </div>
       </div>
 
-      {/* Main Records Container */}
-      <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-6">
-        {/* Search & Filter Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-          <div>
-            <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
-              <FiUsers className="text-orange-500 w-5 h-5" />
-              <span>User Records Directory</span>
-            </h3>
-            <p className="text-xs text-slate-500 font-semibold mt-0.5">
-              Click any faculty row to view complete leave history & profile details
-            </p>
+      {/* Tab Switcher & Search Bar (Placed directly under stats / above user records) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
+        {/* Left Tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+          <button
+            onClick={() => setActiveTab('directory')}
+            className={`px-3.5 py-2 rounded-xl text-xs md:text-sm font-extrabold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+              activeTab === 'directory'
+                ? 'border-2 border-orange-500 text-orange-600 bg-orange-50/60 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <FiUsers className="w-4 h-4 text-orange-500" />
+            <span>Faculty Directory ({filteredUsers.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('workload')}
+            className={`px-3.5 py-2 rounded-xl text-xs md:text-sm font-extrabold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+              activeTab === 'workload'
+                ? 'border-2 border-orange-500 text-orange-600 bg-orange-50/60 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <FiBarChart2 className="w-4 h-4 text-orange-500" />
+            <span>Faculty Workload</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('performance')}
+            className={`px-3.5 py-2 rounded-xl text-xs md:text-sm font-extrabold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+              activeTab === 'performance'
+                ? 'border-2 border-orange-500 text-orange-600 bg-orange-50/60 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <FiTrendingUp className="w-4 h-4 text-orange-500" />
+            <span>Faculty Performance</span>
+          </button>
+        </div>
+
+        {/* Right Controls: Search Input & Department Dropdown */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-full sm:w-60">
+            <FiSearch className="absolute left-3.5 top-3 text-slate-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search name or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-orange-400 bg-white"
+            />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Search Input */}
-            <div className="relative w-full sm:w-56">
-              <FiSearch className="absolute left-3.5 top-3 text-slate-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search name or email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-orange-400"
-              />
-            </div>
+          <select
+            value={deptFilter}
+            onChange={(e) => setDeptFilter(e.target.value)}
+            className="w-full sm:w-auto px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-orange-400 bg-white cursor-pointer"
+          >
+            <option value="all">All Departments</option>
+            {departments.map(d => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
-            {/* Department Filter (Admin only) */}
-            {isAdmin && (
-              <select
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
-                className="w-full sm:w-auto px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-orange-400 bg-white"
-              >
-                <option value="all">All Departments</option>
-                {departments.map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            )}
+      {/* TAB 1: FACULTY DIRECTORY */}
+      {activeTab === 'directory' && (
+        <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-6">
+          {/* Filter Sub-header */}
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div>
+              <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
+                <FiUsers className="text-orange-500 w-5 h-5" />
+                <span>User Records Directory</span>
+              </h3>
+              <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                Click any faculty row to view complete leave history & profile details
+              </p>
+            </div>
 
             {/* Role Filter */}
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="w-full sm:w-auto px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-orange-400 bg-white"
+              className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-orange-400 bg-white"
             >
               <option value="all">All Roles</option>
               <option value="user">Faculty Only</option>
@@ -266,97 +432,224 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
               {isAdmin && <option value="admin">Admin Only</option>}
             </select>
           </div>
-        </div>
 
-        {/* User Table */}
-        <div className="overflow-x-auto">
-          {filteredUsers.length === 0 ? (
-            <div className="text-center py-16 text-slate-400">
-              <FiUsers className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-              <p className="text-sm font-bold text-slate-700">No Users Found</p>
-              <p className="text-xs text-slate-400 mt-1">There are no user records matching the selected search query or filters.</p>
-            </div>
-          ) : (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
-                  <th className="p-3.5 rounded-l-2xl">User / Faculty</th>
-                  <th className="p-3.5">Email</th>
-                  <th className="p-3.5">Contact Number</th>
-                  <th className="p-3.5">Role</th>
-                  <th className="p-3.5">Department</th>
-                  <th className="p-3.5 text-right rounded-r-2xl">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
-                {filteredUsers.map((u) => (
-                  <tr key={u._id} className="hover:bg-slate-50/80 transition">
-                    <td 
-                      className="p-3.5 cursor-pointer group"
-                      onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(u)}
-                      title="Click to view full faculty profile"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 text-white font-black flex items-center justify-center text-xs shadow-sm group-hover:scale-105 transition">
-                          {u.name?.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-800 leading-tight group-hover:text-orange-600 transition">
-                            {u.name}
-                          </p>
-                          <p className="text-[11px] text-slate-400">ID: {u._id ? String(u._id).slice(-6) : 'N/A'}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-3.5 text-xs text-slate-600 font-semibold">
-                      <span className="flex items-center gap-1.5">
-                        <FiMail className="w-3.5 h-3.5 text-slate-400" />
-                        {u.email}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-xs font-semibold">
-                      <span className="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                        <FiPhone className="w-3.5 h-3.5 text-emerald-600" />
-                        {u.phoneNumber || 'Not provided'}
-                      </span>
-                    </td>
-                    <td className="p-3.5">{getRoleBadge(u.role)}</td>
-                    <td className="p-3.5">
-                      <span className="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 inline-flex items-center gap-1.5">
-                        <FiBriefcase className="w-3 h-3 text-slate-400" />
-                        {u.department || 'General'}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {/* Admin Department Change Button */}
-                        {isAdmin && (
-                          <button
-                            onClick={() => handleOpenChangeDeptModal(u)}
-                            className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 active:scale-95 shadow-xs"
-                            title="Change Department"
-                          >
-                            <FiEdit3 className="w-3.5 h-3.5" />
-                            <span>Change Dept</span>
-                          </button>
-                        )}
-
-                        <button
+          {/* Directory Table */}
+          <div className="overflow-x-auto">
+              {filteredUsers.length === 0 ? (
+                <div className="text-center py-16 text-slate-400">
+                  <FiUsers className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                  <p className="text-sm font-bold text-slate-700">No Users Found</p>
+                  <p className="text-xs text-slate-400 mt-1">There are no user records matching the selected search query or filters.</p>
+                </div>
+              ) : (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
+                      <th className="p-3.5 rounded-l-2xl">User / Faculty</th>
+                      <th className="p-3.5">Email</th>
+                      <th className="p-3.5">Contact Number</th>
+                      <th className="p-3.5">Role</th>
+                      <th className="p-3.5">Department</th>
+                      <th className="p-3.5 text-right rounded-r-2xl">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
+                    {filteredUsers.map((u) => (
+                      <tr key={u._id} className="hover:bg-slate-50/80 transition">
+                        <td 
+                          className="p-3.5 cursor-pointer group"
                           onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(u)}
-                          className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition"
-                          title="View Faculty Profile"
+                          title="Click to view full faculty profile"
                         >
-                          <FiChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 text-white font-black flex items-center justify-center text-xs shadow-sm group-hover:scale-105 transition">
+                              {u.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-800 leading-tight group-hover:text-orange-600 transition">
+                                {u.name}
+                              </p>
+                              <p className="text-[11px] text-slate-400">ID: {u._id ? String(u._id).slice(-6) : 'N/A'}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3.5 text-xs text-slate-600 font-semibold">
+                          <span className="flex items-center gap-1.5">
+                            <FiMail className="w-3.5 h-3.5 text-slate-400" />
+                            {u.email}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-xs font-semibold">
+                          <span className="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                            <FiPhone className="w-3.5 h-3.5 text-emerald-600" />
+                            {u.phoneNumber || 'Not provided'}
+                          </span>
+                        </td>
+                        <td className="p-3.5">{getRoleBadge(u.role)}</td>
+                        <td className="p-3.5">
+                          <span className="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 inline-flex items-center gap-1.5">
+                            <FiBriefcase className="w-3 h-3 text-slate-400" />
+                            {u.department || 'General'}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleOpenChangeDeptModal(u)}
+                                className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 active:scale-95 shadow-xs"
+                                title="Change Department"
+                              >
+                                <FiEdit3 className="w-3.5 h-3.5" />
+                                <span>Change Dept</span>
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(u)}
+                              className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition"
+                              title="View Faculty Profile"
+                            >
+                              <FiChevronRight className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
+      {/* TAB 2: FACULTY WORKLOAD (Image 1 Exact Match) */}
+      {activeTab === 'workload' && (
+        <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-4">
+          <div className="overflow-x-auto">
+            {combinedWorkloadList.length === 0 ? (
+              <div className="text-center py-16 text-slate-400">
+                <FiBarChart2 className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                <p className="text-sm font-bold text-slate-700">No Workload Data Found</p>
+                <p className="text-xs text-slate-400 mt-1">There are no faculty records matching the selected department or search filter.</p>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
+                    <th className="p-3.5 rounded-l-2xl">Faculty Member</th>
+                    <th className="p-3.5">Department</th>
+                    <th className="p-3.5">Total Tasks</th>
+                    <th className="p-3.5">Pending (To Do)</th>
+                    <th className="p-3.5">In Progress</th>
+                    <th className="p-3.5">Completed</th>
+                    <th className="p-3.5 rounded-r-2xl">Overdue Tasks</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
+                  {combinedWorkloadList.map((item, idx) => {
+                    const faculty = item.faculty || {};
+                    const wl = item.workload || {};
+                    return (
+                      <tr key={faculty._id || idx} className="hover:bg-slate-50/80 transition">
+                        <td 
+                          className="p-3.5 font-bold text-slate-800 hover:text-orange-600 cursor-pointer"
+                          onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(faculty)}
+                          title="Click to view faculty profile"
+                        >
+                          {faculty.name || 'Unknown Faculty'}
+                        </td>
+                        <td className="p-3.5 text-slate-500 font-medium">
+                          {faculty.department || 'General'}
+                        </td>
+                        <td className="p-3.5 font-extrabold text-slate-900">
+                          {wl.totalTasks ?? 0}
+                        </td>
+                        <td className="p-3.5 font-extrabold text-indigo-600">
+                          {wl.todoTasks ?? 0}
+                        </td>
+                        <td className="p-3.5 font-extrabold text-amber-600">
+                          {wl.inprogressTasks ?? 0}
+                        </td>
+                        <td className="p-3.5 font-extrabold text-emerald-600">
+                          {wl.completedTasks ?? 0}
+                        </td>
+                        <td className="p-3.5 font-extrabold text-rose-600">
+                          {wl.overdueTasks ?? 0}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* TAB 3: FACULTY PERFORMANCE (Image 2 Exact Match) */}
+      {activeTab === 'performance' && (
+        <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-4">
+          <div className="overflow-x-auto">
+            {combinedPerformanceList.length === 0 ? (
+              <div className="text-center py-16 text-slate-400">
+                <FiTrendingUp className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                <p className="text-sm font-bold text-slate-700">No Performance Data Found</p>
+                <p className="text-xs text-slate-400 mt-1">There are no faculty performance records matching the selected search filter.</p>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
+                    <th className="p-3.5 rounded-l-2xl">Faculty Member</th>
+                    <th className="p-3.5">Tasks Assigned</th>
+                    <th className="p-3.5">Tasks Completed</th>
+                    <th className="p-3.5">On-Time Completion</th>
+                    <th className="p-3.5">Overdue Tasks</th>
+                    <th className="p-3.5 rounded-r-2xl">Avg Completion Time</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
+                  {combinedPerformanceList.map((item, idx) => {
+                    const faculty = item.faculty || {};
+                    const metrics = item.metrics || {};
+                    const onTimeRate = metrics.onTimeCompletionRate ?? 0;
+
+                    return (
+                      <tr key={faculty._id || idx} className="hover:bg-slate-50/80 transition">
+                        <td 
+                          className="p-3.5 font-bold text-slate-800 hover:text-orange-600 cursor-pointer"
+                          onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(faculty)}
+                          title="Click to view faculty profile"
+                        >
+                          {faculty.name || 'Unknown Faculty'}
+                        </td>
+                        <td className="p-3.5 font-extrabold text-slate-900">
+                          {metrics.totalTasks ?? 0}
+                        </td>
+                        <td className="p-3.5 font-extrabold text-emerald-600">
+                          {metrics.completedTasks ?? 0}
+                        </td>
+                        <td className="p-3.5">
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-extrabold inline-block">
+                            {onTimeRate}%
+                          </span>
+                        </td>
+                        <td className="p-3.5 font-extrabold text-rose-600">
+                          {metrics.overdueTasks ?? 0}
+                        </td>
+                        <td className="p-3.5 font-bold text-slate-500">
+                          {formatAvgCompletionTime(metrics.avgCompletionTimeHours)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Change Department Modal (Admin Only) */}
       <Modal isOpen={!!selectedUserForDeptChange} onClose={() => setSelectedUserForDeptChange(null)}>

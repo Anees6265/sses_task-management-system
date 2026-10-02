@@ -317,4 +317,25 @@ const demoLeaves = [
 const demoSundayAttendance = [];
 const demoHolidays = [];
 
-module.exports = { demoUsers, demoTasks, demoLeaves, demoSundayAttendance, demoHolidays };
+const demoMessages = [
+  {
+    _id: '64m000000000000000000001',
+    sender: { _id: '64e000000000000000000002', name: 'Dr. Alan Turing (HOD CS)', email: 'hod.cs@ssism.org', role: 'hod', department: 'Computer Science' },
+    receiver: { _id: '64e000000000000000000004', name: 'Prof. John Von Neumann', email: 'faculty.cs@ssism.org', role: 'user', department: 'Computer Science' },
+    message: 'Hello Professor, please check the Data Structures exam syllabus.',
+    read: true,
+    delivered: true,
+    createdAt: new Date(Date.now() - 3600000)
+  },
+  {
+    _id: '64m000000000000000000002',
+    sender: { _id: '64e000000000000000000004', name: 'Prof. John Von Neumann', email: 'faculty.cs@ssism.org', role: 'user', department: 'Computer Science' },
+    receiver: { _id: '64e000000000000000000002', name: 'Dr. Alan Turing (HOD CS)', email: 'hod.cs@ssism.org', role: 'hod', department: 'Computer Science' },
+    message: 'Sure Dr. Turing, I will review it today.',
+    read: true,
+    delivered: true,
+    createdAt: new Date(Date.now() - 1800000)
+  }
+];
+
+module.exports = { demoUsers, demoTasks, demoLeaves, demoSundayAttendance, demoHolidays, demoMessages };
