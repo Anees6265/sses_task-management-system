@@ -82,13 +82,18 @@ app.use((req, res, next) => {
   next();
 });
 
+const path = require('path');
 const leaveRoutes = require('./src/routes/leaveRoutes');
+const taskTemplateRoutes = require('./src/routes/taskTemplateRoutes');
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/leaves', leaveRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/departments', departmentRoutes);
+app.use('/api/task-templates', taskTemplateRoutes);
 app.use('/api/test', testRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/notifications', notificationRoutes);

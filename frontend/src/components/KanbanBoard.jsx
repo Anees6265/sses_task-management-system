@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { taskAPI, userAPI, departmentAPI } from '../services/api.jsx';
+import { taskAPI, userAPI, departmentAPI, taskTemplateAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import Navbar from './Navbar.jsx';
@@ -12,23 +12,30 @@ import Loader from './Loader.jsx';
 import Modal from './Modal.jsx';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { 
-  FiPlus, 
-  FiRefreshCw, 
-  FiArrowLeft, 
-  FiEdit3, 
-  FiTrash2, 
-  FiCalendar, 
-  FiUser, 
-  FiClock, 
-  FiCheckCircle, 
-  FiList, 
-  FiSearch, 
-  FiInbox, 
-  FiX, 
+import {
+  FiPlus,
+  FiRefreshCw,
+  FiArrowLeft,
+  FiEdit3,
+  FiTrash2,
+  FiCalendar,
+  FiUser,
+  FiClock,
+  FiCheckCircle,
+  FiList,
+  FiSearch,
+  FiInbox,
+  FiX,
   FiAlertTriangle,
   FiBriefcase,
-  FiChevronDown
+  FiChevronDown,
+  FiPaperclip,
+  FiMessageSquare,
+  FiRepeat,
+  FiLayers,
+  FiSend,
+  FiDownload,
+  FiFileText
 } from 'react-icons/fi';
 
 import DepartmentDashboard from './DepartmentDashboard.jsx';
@@ -41,13 +48,30 @@ const KanbanBoard = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '', assignType: 'single', assignedUsers: [] });
+
+  // Form State
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    priority: 'medium',
+    dueDate: '',
+    assignedTo: '',
+    department: '',
+    assignType: 'single',
+    assignedUsers: [],
+    isRecurring: false,
+    recurrencePattern: 'none',
+    recurrenceInterval: 1
+  });
+
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [activeView, setActiveView] = useState('board');
   const [selectedDepartmentName, setSelectedDepartmentName] = useState(null);
   const [selectedFacultyForProfile, setSelectedFacultyForProfile] = useState(null);
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     return localStorage.getItem('sidebar_collapsed') === 'true';
@@ -56,6 +80,15 @@ const KanbanBoard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [selectedFacultyId, setSelectedFacultyId] = useState(null);
+
+  // Modal Sub-Tabs (Details | Comments | Attachments | Reassignment)
+  const [modalTab, setModalTab] = useState('details');
+  const [comments, setComments] = useState([]);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [attachments, setAttachments] = useState([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+
   const { user } = useContext(AuthContext);
   const { t } = useLanguage();
 
@@ -73,6 +106,7 @@ const KanbanBoard = () => {
     if (user?.role === 'admin' || user?.role === 'hod') {
       setActiveView('dashboard');
       fetchDepartments();
+      fetchTemplates();
     }
     fetchTasks();
     fetchUsers();
@@ -91,6 +125,15 @@ const KanbanBoard = () => {
     }
   };
 
+  const fetchTemplates = async () => {
+    try {
+      const { data } = await taskTemplateAPI.getTemplates();
+      setTemplates(data || []);
+    } catch (error) {
+      console.error('Error fetching task templates:', error);
+    }
+  };
+
   const fetchTasks = async () => {
     setLoading(true);
     try {
@@ -102,13 +145,13 @@ const KanbanBoard = () => {
         const response = await taskAPI.getTasks();
         data = response.data;
       }
-      
+
       let filteredData = data;
-      
+
       if ((user?.role === 'admin' || user?.role === 'hod') && activeView !== 'dashboard' && activeView !== 'board' && !selectedFacultyId) {
         filteredData = data.filter(task => task.department === activeView);
       }
-      
+
       const grouped = { todo: [], inprogress: [], completed: [] };
       filteredData.forEach(task => {
         if (grouped[task.status]) {
@@ -128,7 +171,7 @@ const KanbanBoard = () => {
   const fetchUsers = async () => {
     try {
       const { data } = await userAPI.getAllUsers();
-      setUsers(data);
+      setUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
@@ -143,7 +186,10 @@ const KanbanBoard = () => {
     const sourceTasks = [...tasks[source.droppableId]];
     const destTasks = [...tasks[destination.droppableId]];
     const [movedTask] = sourceTasks.splice(source.index, 1);
-    destTasks.splice(destination.index, 0, movedTask);
+    
+    // Update task status optimistically so card status dropdown and object remain in sync
+    const updatedTask = { ...movedTask, status: destination.droppableId };
+    destTasks.splice(destination.index, 0, updatedTask);
 
     setTasks({
       ...tasks,
@@ -153,14 +199,17 @@ const KanbanBoard = () => {
 
     try {
       await taskAPI.updateTask(draggableId, { status: destination.droppableId });
+      await fetchTasks();
     } catch (error) {
-      fetchTasks();
+      console.error('Error updating task status via drag:', error);
+      toast.error(error.response?.data?.message || 'Failed to update task status');
+      await fetchTasks();
     }
   };
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
-    
+
     const taskData = { ...newTask };
     
     if (newTask.assignType === 'multi') {
@@ -176,7 +225,7 @@ const KanbanBoard = () => {
       delete taskData.assignType;
       delete taskData.assignedUsers;
     }
-    
+
     if (!taskData.dueDate) delete taskData.dueDate;
     
     if (user?.role === 'admin') {
@@ -192,7 +241,7 @@ const KanbanBoard = () => {
     
     setShowModal(false);
     setLoading(true);
-    
+
     try {
       if (editingTask) {
         await taskAPI.updateTask(editingTask._id, taskData);
@@ -214,23 +263,146 @@ const KanbanBoard = () => {
     }
   };
 
+  const resetTaskForm = () => {
+    setNewTask({
+      title: '',
+      description: '',
+      priority: 'medium',
+      dueDate: '',
+      assignedTo: '',
+      department: user?.role === 'hod' ? user.department : '',
+      assignType: 'single',
+      assignedUsers: [],
+      isRecurring: false,
+      recurrencePattern: 'none',
+      recurrenceInterval: 1
+    });
+    setUserSearchQuery('');
+    setEditingTask(null);
+    setSelectedTemplateId('');
+    setModalTab('details');
+    setComments([]);
+    setAttachments([]);
+    setSelectedFile(null);
+  };
+
   const handleEditTask = (task) => {
     setEditingTask(task);
-    const assignedIds = Array.isArray(task.assignedTo) 
+    const assignedIds = Array.isArray(task.assignedTo)
       ? task.assignedTo.map(u => u._id || u)
       : task.assignedTo ? [task.assignedTo._id || task.assignedTo] : [];
-    
+
     setNewTask({
       title: task.title,
       description: task.description || '',
-      priority: task.priority,
+      priority: task.priority || 'medium',
       dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
       assignedTo: assignedIds.length === 1 ? assignedIds[0] : '',
-      department: task.department || '',
+      department: task.department || (user?.role === 'hod' ? user.department : ''),
       assignType: assignedIds.length > 1 ? 'multi' : 'single',
-      assignedUsers: assignedIds.length > 1 ? assignedIds : []
+      assignedUsers: assignedIds.length > 1 ? assignedIds : [],
+      isRecurring: task.isRecurring || false,
+      recurrencePattern: task.recurrencePattern || 'none',
+      recurrenceInterval: task.recurrenceInterval || 1
     });
+
+    setComments(task.comments || []);
+    setAttachments(task.attachments || []);
+    setModalTab('details');
     setShowModal(true);
+  };
+
+  const handleSelectTemplate = (templateId) => {
+    setSelectedTemplateId(templateId);
+    if (!templateId) return;
+    const tmpl = templates.find(t => String(t._id) === String(templateId));
+    if (tmpl) {
+      const defaultDate = new Date(Date.now() + (tmpl.defaultDueDateOffsetDays || 7) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      setNewTask(prev => ({
+        ...prev,
+        title: tmpl.title,
+        description: tmpl.description || '',
+        priority: tmpl.priority || 'medium',
+        dueDate: defaultDate,
+        department: tmpl.department || (user?.role === 'hod' ? user.department : '')
+      }));
+      toast.info(`Loaded template "${tmpl.title}"`, { autoClose: 1500 });
+    }
+  };
+
+  const handleSaveAsTemplate = async () => {
+    if (!newTask.title.trim()) {
+      toast.error('Please specify a title before saving template');
+      return;
+    }
+    try {
+      await taskTemplateAPI.createTemplate({
+        title: newTask.title.trim(),
+        description: newTask.description.trim(),
+        priority: newTask.priority,
+        department: user?.role === 'hod' ? user.department : (newTask.department || 'General')
+      });
+      toast.success('Saved as task template!');
+      fetchTemplates();
+    } catch (error) {
+      toast.error('Failed to save template');
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!newCommentText.trim() || !editingTask) return;
+    try {
+      const { data } = await taskAPI.addComment(editingTask._id, newCommentText.trim());
+      const updatedComments = data || [];
+      setComments(updatedComments);
+      setEditingTask(prev => prev ? { ...prev, comments: updatedComments } : null);
+      setNewCommentText('');
+      await fetchTasks();
+      toast.success('Comment added');
+    } catch (error) {
+      toast.error('Failed to add comment');
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !editingTask) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size exceeds 10MB limit!');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('attachment', file);
+
+    setUploadingFile(true);
+    try {
+      const { data } = await taskAPI.uploadAttachment(editingTask._id, formData);
+      const updatedAttachments = data || [];
+      setAttachments(updatedAttachments);
+      setEditingTask(prev => prev ? { ...prev, attachments: updatedAttachments } : null);
+      await fetchTasks();
+      toast.success('Attachment uploaded successfully!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to upload attachment');
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId) => {
+    if (!editingTask) return;
+    try {
+      const { data } = await taskAPI.deleteAttachment(editingTask._id, attachmentId);
+      const updatedAttachments = data || [];
+      setAttachments(updatedAttachments);
+      setEditingTask(prev => prev ? { ...prev, attachments: updatedAttachments } : null);
+      await fetchTasks();
+      toast.success('Attachment deleted');
+    } catch (error) {
+      toast.error('Failed to delete attachment');
+    }
   };
 
   const handleDeleteTask = async (id) => {
@@ -241,6 +413,7 @@ const KanbanBoard = () => {
       toast.success('Task deleted!', { position: 'top-center', autoClose: 2000 });
     } catch (error) {
       console.error('Error deleting task:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete task');
     }
   };
 

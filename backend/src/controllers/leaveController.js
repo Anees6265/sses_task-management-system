@@ -9,6 +9,7 @@ const {
   sendLeaveStatusNotificationToApplicant, 
   sendHolidayAnnouncementToFaculty 
 } = require('../services/whatsappService');
+const { demoLeaves, demoUsers } = require('../utils/mockStore');
 
 exports.applyLeave = async (req, res) => {
   try {
@@ -43,6 +44,10 @@ exports.applyLeave = async (req, res) => {
 
       resultLeave = await Leave.findById(leave._id)
         .populate('applicant', 'name email department role phoneNumber');
+      const populatedLeave = await Leave.findById(leave._id)
+        .populate('applicant', 'name email department role');
+
+      return res.status(201).json(populatedLeave);
     } else {
       const newLeave = {
         _id: '64l' + Date.now().toString(16),
@@ -221,9 +226,11 @@ exports.updateLeaveStatus = async (req, res) => {
       leave.reviewedAt = new Date();
 
       await leave.save();
-      updatedResult = await Leave.findById(id)
-        .populate('applicant', 'name email department role phoneNumber')
-        .populate('reviewedBy', 'name email phoneNumber');
+      const updated = await Leave.findById(id)
+        .populate('applicant', 'name email department role')
+        .populate('reviewedBy', 'name email');
+
+      return res.json(updated);
     } else {
       leave.status = status;
       leave.reviewComment = reviewComment || (status === 'approved' ? 'Approved' : 'Rejected');
@@ -408,12 +415,22 @@ exports.getDailyAttendance = async (req, res) => {
         }
       });
 
-      return res.json(Object.values(departmentMap));
+      let results = Object.values(departmentMap);
+      if (req.user.role !== 'admin' && req.user.department) {
+        results = results.filter(d => d.department.toLowerCase() === req.user.department.toLowerCase());
+      }
+
+      return res.json(results);
     } else {
       // Mock code mode
       const departmentMap = {};
 
-      demoUsers.filter(u => u.role !== 'admin').forEach(u => {
+      let filteredDemoUsers = demoUsers.filter(u => u.role !== 'admin');
+      if (req.user.role !== 'admin' && req.user.department) {
+        filteredDemoUsers = filteredDemoUsers.filter(u => u.department === req.user.department);
+      }
+
+      filteredDemoUsers.forEach(u => {
         const dept = u.department || 'General';
         if (!departmentMap[dept]) {
           departmentMap[dept] = {

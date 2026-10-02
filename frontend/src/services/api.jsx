@@ -12,7 +12,7 @@ console.log('Is Native:', Capacitor.isNativePlatform());
 // Create axios instance with mobile-friendly config
 const api = axios.create({
   baseURL: API_URL,
-  headers: { 
+  headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   },
@@ -55,7 +55,7 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
-    
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -79,11 +79,11 @@ api.interceptors.response.use(
       try {
         const { data } = await axios.post(`${API_URL}/auth/refresh-token`, { refreshToken });
         const { accessToken } = data;
-        
+
         localStorage.setItem('accessToken', accessToken);
         api.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-        
+
         processQueue(null, accessToken);
         return api(originalRequest);
       } catch (refreshError) {
@@ -95,9 +95,9 @@ api.interceptors.response.use(
         isRefreshing = false;
       }
     }
-    
+
     console.error('❌ API Error:', error.message);
-    
+
     if (error.response) {
       console.error('Response error:', error.response.status, error.response.data);
     } else if (error.request) {
@@ -107,7 +107,7 @@ api.interceptors.response.use(
     } else {
       console.error('Request setup error:', error.message);
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -123,7 +123,7 @@ export const authAPI = {
       throw error;
     }
   },
-  
+
   login: async (data) => {
     try {
       console.log('Logging in user:', data.email);
@@ -135,7 +135,7 @@ export const authAPI = {
       throw error;
     }
   },
-  
+
   sendOTP: async (email) => {
     try {
       console.log('Sending OTP to:', email);
@@ -147,7 +147,7 @@ export const authAPI = {
       throw error;
     }
   },
-  
+
   verifyOTP: async (email, otp) => {
     try {
       console.log('Verifying OTP for:', email);
@@ -159,7 +159,7 @@ export const authAPI = {
       throw error;
     }
   },
-  
+
   getMe: async () => {
     try {
       return await api.get('/auth/me');
@@ -168,7 +168,7 @@ export const authAPI = {
       throw error;
     }
   },
-  
+
   logout: async () => {
     try {
       return await api.post('/auth/logout');
@@ -185,8 +185,15 @@ export const taskAPI = {
   createTask: (data) => api.post('/tasks', data),
   updateTask: (id, data) => api.put(`/tasks/${id}`, data),
   deleteTask: (id) => api.delete(`/tasks/${id}`),
-  getDashboardStats: () => api.get('/tasks/stats')
+  getDashboardStats: () => api.get('/tasks/stats'),
+  reassignTask: (id, assignedTo) => api.post(`/tasks/${id}/reassign`, { assignedTo }),
+  addComment: (id, text) => api.post(`/tasks/${id}/comments`, { text }),
+  getComments: (id) => api.get(`/tasks/${id}/comments`),
+  uploadAttachment: (id, formData) => api.post(`/tasks/${id}/attachments`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  deleteAttachment: (id, attachmentId) => api.delete(`/tasks/${id}/attachments/${attachmentId}`)
 };
+
+
 
 export const leaveAPI = {
   applyLeave: (data) => api.post('/leaves', data),
@@ -204,12 +211,39 @@ export const leaveAPI = {
 
 export const userAPI = {
   getAllUsers: () => api.get('/users'),
+  updateProfile: (data) => api.put('/users/profile', data),
+  createUser: (data) => api.post('/users', data),
   updateUserDepartment: (id, department) => api.put(`/users/${id}/department`, { department }),
-  updateProfile: (data) => api.put('/users/profile', data)
+  assignFacultyDepartment: (id, department) => api.put(`/users/${id}/assign-department`, { department }),
+  removeFacultyDepartment: (id) => api.put(`/users/${id}/remove-department`),
+  getUnassignedFaculty: () => api.get('/users/unassigned'),
+  updateUser: (id, data) => api.put(`/users/${id}`, data),
+  toggleUserStatus: (id, status) => api.patch(`/users/${id}/status`, { status }),
+  getFacultyWorkload: (params) => api.get('/users/workload', { params }),
+  getFacultyPerformance: (params) => api.get('/users/performance', { params }),
+  getFacultyTaskHistory: (id) => api.get(`/users/${id}/history`)
+};
+
+export const taskTemplateAPI = {
+  getTemplates: () => api.get('/task-templates'),
+  createTemplate: (data) => api.post('/task-templates', data),
+  deleteTemplate: (id) => api.delete(`/task-templates/${id}`),
+  instantiateTemplate: (id, data) => api.post(`/task-templates/${id}/instantiate`, data)
 };
 
 export const departmentAPI = {
-  getAllDepartments: () => api.get('/departments')
+  getAllDepartments: (params) => api.get('/departments', { params }),
+  getAdminDepartments: (params) => api.get('/departments/admin/all', { params }),
+  createDepartment: (data) => api.post('/departments', data),
+  getDepartmentById: (id) => api.get(`/departments/${id}`),
+  updateDepartment: (id, data) => api.put(`/departments/${id}`, data),
+  toggleDepartmentStatus: (id, status) => api.patch(`/departments/${id}/status`, { status }),
+  assignHOD: (id, hodId) => api.post(`/departments/${id}/assign-hod`, { hodId }),
+  changeHOD: (id, newHodId) => api.post(`/departments/${id}/change-hod`, { newHodId }),
+  getDepartmentFaculty: (id) => api.get(`/departments/${id}/faculty`),
+  getDepartmentTaskStats: (id) => api.get(`/departments/${id}/tasks/stats`),
+  getAllHODs: (params) => api.get('/departments/hods/all', { params }),
+  getActivityLogs: () => api.get('/departments/activity-logs')
 };
 
 export const chatAPI = {
