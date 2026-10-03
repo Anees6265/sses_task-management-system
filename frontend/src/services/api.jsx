@@ -193,17 +193,25 @@ export const taskAPI = {
   deleteAttachment: (id, attachmentId) => api.delete(`/tasks/${id}/attachments/${attachmentId}`)
 };
 
+
+
 export const leaveAPI = {
   applyLeave: (data) => api.post('/leaves', data),
   getLeaves: () => api.get('/leaves'),
   getLeaveStats: () => api.get('/leaves/stats'),
   getDailyAttendance: () => api.get('/leaves/attendance'),
   updateLeaveStatus: (id, data) => api.put(`/leaves/${id}/status`, data),
-  cancelLeave: (id) => api.delete(`/leaves/${id}`)
+  cancelLeave: (id) => api.delete(`/leaves/${id}`),
+  getSundayAttendance: (userId) => api.get('/leaves/sunday-attendance', { params: { userId } }),
+  toggleSundayAttendance: (data) => api.post('/leaves/sunday-attendance/toggle', data),
+  getHolidays: () => api.get('/leaves/holidays'),
+  announceHoliday: (data) => api.post('/leaves/holidays', data),
+  deleteHoliday: (id) => api.delete(`/leaves/holidays/${id}`)
 };
 
 export const userAPI = {
   getAllUsers: () => api.get('/users'),
+  updateProfile: (data) => api.put('/users/profile', data),
   createUser: (data) => api.post('/users', data),
   updateUserDepartment: (id, department) => api.put(`/users/${id}/department`, { department }),
   assignFacultyDepartment: (id, department) => api.put(`/users/${id}/assign-department`, { department }),

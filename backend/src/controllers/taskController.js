@@ -52,6 +52,23 @@ const getMockStats = (user) => {
   });
   const departmentStats = Object.values(deptMap);
 
+  let facultyStats = [];
+  if (user.role === 'hod') {
+    const deptFaculty = demoUsers.filter(u => u.department === user.department && u.role === 'user');
+    facultyStats = deptFaculty.map(u => {
+      const uTasks = tasks.filter(t => t.assignedTo && t.assignedTo.some(a => String(a._id || a) === String(u._id)));
+      return {
+        _id: u._id,
+        name: u.name,
+        email: u.email,
+        total: uTasks.length,
+        todo: uTasks.filter(t => t.status === 'todo').length,
+        inprogress: uTasks.filter(t => t.status === 'inprogress').length,
+        completed: uTasks.filter(t => t.status === 'completed').length
+      };
+    });
+  }
+
   return {
     totalTasks,
     todoTasks,
@@ -158,6 +175,31 @@ exports.getTasksByFaculty = async (req, res) => {
 
 exports.createTask = async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      console.log('⚡ Creating task in Mock Store');
+      let taskData = { ...req.body };
+      if (req.user.role === 'user') {
+        taskData.assignedTo = [req.user._id];
+        taskData.department = req.user.department;
+        taskData.isPersonal = true;
+      }
+      const newTask = {
+        _id: '64t' + Date.now().toString(16),
+        ...taskData,
+        status: taskData.status || 'todo',
+        priority: taskData.priority || 'medium',
+        department: taskData.department || req.user.department || 'General',
+        createdBy: { _id: req.user._id, name: req.user.name, email: req.user.email },
+        assignedTo: (taskData.assignedTo || []).map(id => {
+          const u = demoUsers.find(du => du._id === id);
+          return u ? { _id: u._id, name: u.name, email: u.email } : { _id: id, name: 'Assigned User', email: '' };
+        }),
+        createdAt: new Date().toISOString()
+      };
+      demoTasks.unshift(newTask);
+      return res.status(201).json(newTask);
+    }
+
     let taskData = { ...req.body };
 
     // RBAC department check for HOD
@@ -281,6 +323,17 @@ exports.updateTask = async (req, res) => {
         return res.json(demoTasks[index]);
       }
       return res.status(404).json({ message: 'Task not found in mock store' });
+    }
+
+    let filter = {};
+    
+    if (req.user.role === 'admin') {
+      filter = { _id: req.params.id };
+    } else if (req.user.role === 'hod') {
+      filter = { _id: req.params.id, department: req.user.department };
+    } else {
+      // Faculty can only update their own tasks
+      filter = { _id: req.params.id, assignedTo: req.user._id };
     }
 
     let existingTask = await Task.findById(req.params.id);
@@ -696,7 +749,7 @@ exports.getDashboardStats = async (req, res) => {
     const inprogressTasks = await Task.countDocuments({ ...filter, status: 'inprogress' });
     const completedTasks = await Task.countDocuments({ ...filter, status: 'completed' });
     
-    let matchFilter = filter;
+    let matchFilter = req.user.role === 'hod' ? { department: req.user.department } : {};
     
     const aggregatedDepts = await Task.aggregate([
       { $match: { ...matchFilter, department: { $ne: null, $ne: '' } } },
@@ -740,7 +793,9 @@ exports.getDashboardStats = async (req, res) => {
     // Faculty-wise stats for HOD
     let facultyStats = [];
     if (req.user.role === 'hod') {
-      facultyStats = await Task.aggregate([
+      const deptFaculty = await User.find({ department: req.user.department, role: 'user' }).select('_id name email');
+      
+      const aggregated = await Task.aggregate([
         { $match: { department: req.user.department } },
         { $unwind: '$assignedTo' },
         {
@@ -765,6 +820,21 @@ exports.getDashboardStats = async (req, res) => {
         },
         { $sort: { name: 1 } }
       ]);
+
+      const aggMap = new Map(aggregated.map(a => [String(a._id), a]));
+      facultyStats = deptFaculty.map(f => {
+        const existing = aggMap.get(String(f._id));
+        if (existing) return existing;
+        return {
+          _id: f._id,
+          name: f.name,
+          email: f.email,
+          total: 0,
+          todo: 0,
+          inprogress: 0,
+          completed: 0
+        };
+      });
     }
 
     res.json({
@@ -784,3 +854,4 @@ exports.getDashboardStats = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+

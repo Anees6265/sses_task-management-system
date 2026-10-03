@@ -89,11 +89,11 @@ const Login = () => {
 
         <div className="bg-white/95 backdrop-blur-xl p-6 md:p-10 rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 relative z-10 fade-in">
           <div className="text-center mb-8">
-            <div className="inline-flex p-3 bg-gradient-to-tr from-orange-500 to-amber-400 rounded-2xl shadow-lg shadow-orange-500/20 mb-4">
+            <div className="inline-flex p-2.5 bg-white border border-slate-200/80 rounded-2xl shadow-sm mb-4">
               <img 
                 src={logo}
                 alt="Singaji Educational Society Logo" 
-                className="h-16 w-16 object-contain bg-white rounded-xl p-1"
+                className="h-16 w-16 object-contain rounded-xl"
               />
             </div>
             <h1 className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight">SSES Portal</h1>

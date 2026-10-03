@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { userAPI, departmentAPI } from '../services/api.jsx';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
+import { userAPI, departmentAPI, taskAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { toast } from 'react-toastify';
+import Modal from './Modal.jsx';
 import { 
   FiUsers, 
   FiSearch, 
@@ -14,25 +15,18 @@ import {
   FiShield, 
   FiMail,
   FiChevronRight,
-  FiUserPlus,
-  FiLock,
   FiPhone,
-  FiUser,
-  FiActivity,
-  FiClock,
-  FiAlertTriangle,
-  FiCheckSquare,
-  FiTrash2,
-  FiPower,
-  FiUserMinus,
   FiBarChart2,
-  FiTrendingUp
+  FiTrendingUp,
+  FiClock,
+  FiAlertTriangle
 } from 'react-icons/fi';
 
 const UserManagementPage = ({ onOpenFacultyProfile }) => {
   const { user } = useContext(AuthContext);
+  const [activeTab, setActiveTab] = useState('directory'); // 'directory' | 'workload' | 'performance'
   const [users, setUsers] = useState([]);
-  const [unassignedUsers, setUnassignedUsers] = useState([]);
+  const [allTasks, setAllTasks] = useState([]);
   const [workloadData, setWorkloadData] = useState([]);
   const [performanceData, setPerformanceData] = useState([]);
   const [departments, setDepartments] = useState(['Computer Science', 'Information Technology', 'Management', 'Electronics & Comm.']);
@@ -40,194 +34,52 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [activeTab, setActiveTab] = useState('directory'); // 'directory' | 'workload' | 'performance'
   
-  // Modals
+  // Modal for changing department (Admin only)
   const [selectedUserForDeptChange, setSelectedUserForDeptChange] = useState(null);
   const [targetDepartment, setTargetDepartment] = useState('');
   const [isCustomDept, setIsCustomDept] = useState(false);
   const [customDeptName, setCustomDeptName] = useState('');
   const [updating, setUpdating] = useState(false);
 
-  // Edit Faculty Modal (HOD / Admin)
-  const [editingFaculty, setEditingFaculty] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', email: '', phoneNumber: '' });
-  const [savingEdit, setSavingEdit] = useState(false);
-
-  // Assign Unassigned Faculty Modal (HOD / Admin)
-  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const [selectedUnassignedUser, setSelectedUnassignedUser] = useState('');
-  const [assigning, setAssigning] = useState(false);
-
-  // Status Change Confirmation Dialog
-  const [statusConfirmUser, setStatusConfirmUser] = useState(null);
-
-  // Remove Faculty Confirmation Dialog
-  const [removeConfirmUser, setRemoveConfirmUser] = useState(null);
-
-  // Create User Modal (Admin only)
-  const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
-  const [createUserForm, setCreateUserForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-    role: 'user',
-    department: 'Computer Science',
-    phoneNumber: ''
-  });
-  const [isCustomCreateDept, setIsCustomCreateDept] = useState(false);
-  const [customCreateDeptName, setCustomCreateDeptName] = useState('');
-  const [creatingUser, setCreatingUser] = useState(false);
-
   useEffect(() => {
-    fetchUsersData();
-    fetchDepartmentsData();
-    fetchWorkloadAndPerformance();
-    fetchUnassigned();
+    fetchAllData();
   }, []);
 
-  const fetchUsersData = async () => {
+  const fetchAllData = async () => {
     setLoading(true);
     try {
-      const { data } = await userAPI.getAllUsers();
-      setUsers(data || []);
+      const [usersRes, deptsRes, tasksRes, workloadRes, perfRes] = await Promise.allSettled([
+        userAPI.getAllUsers(),
+        departmentAPI.getAllDepartments(),
+        taskAPI.getTasks(),
+        userAPI.getFacultyWorkload(),
+        userAPI.getFacultyPerformance()
+      ]);
+
+      if (usersRes.status === 'fulfilled' && usersRes.value?.data) {
+        setUsers(usersRes.value.data);
+      }
+      if (deptsRes.status === 'fulfilled' && deptsRes.value?.data?.length > 0) {
+        setDepartments(Array.from(new Set([...departments, ...deptsRes.value.data])));
+      }
+      if (tasksRes.status === 'fulfilled' && tasksRes.value?.data) {
+        setAllTasks(tasksRes.value.data);
+      }
+      if (workloadRes.status === 'fulfilled' && workloadRes.value?.data) {
+        setWorkloadData(workloadRes.value.data);
+      }
+      if (perfRes.status === 'fulfilled' && perfRes.value?.data) {
+        setPerformanceData(perfRes.value.data);
+      }
     } catch (error) {
-      console.error('Error fetching users:', error);
-      toast.error('Failed to load user directory');
+      console.error('Error fetching directory data:', error);
+      toast.error('Failed to load user directory data');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchDepartmentsData = async () => {
-    try {
-      const { data } = await departmentAPI.getAllDepartments();
-      if (data && data.length > 0) {
-        const fetchedDepts = data.map(d => typeof d === 'object' ? (d.name || d.code) : String(d));
-        setDepartments(Array.from(new Set([...departments, ...fetchedDepts])));
-      }
-    } catch (error) {
-      console.error('Error fetching departments:', error);
-    }
-  };
-
-  const fetchWorkloadAndPerformance = async () => {
-    try {
-      const [wlRes, perfRes] = await Promise.all([
-        userAPI.getFacultyWorkload(),
-        userAPI.getFacultyPerformance()
-      ]);
-      setWorkloadData(wlRes.data || []);
-      setPerformanceData(perfRes.data || []);
-    } catch (error) {
-      console.error('Error fetching workload/performance:', error);
-    }
-  };
-
-  const fetchUnassigned = async () => {
-    try {
-      const { data } = await userAPI.getUnassignedFaculty();
-      setUnassignedUsers(data || []);
-    } catch (error) {
-      console.error('Error fetching unassigned faculty:', error);
-    }
-  };
-
-  // Edit Faculty Handler
-  const handleOpenEditModal = (targetUser) => {
-    setEditingFaculty(targetUser);
-    setEditForm({
-      name: targetUser.name || '',
-      email: targetUser.email || '',
-      phoneNumber: targetUser.phoneNumber || ''
-    });
-  };
-
-  const handleSaveEditFaculty = async (e) => {
-    e.preventDefault();
-    if (!editingFaculty) return;
-
-    if (!editForm.name.trim()) {
-      toast.error('Name is required');
-      return;
-    }
-    if (editForm.email && !editForm.email.toLowerCase().endsWith('@ssism.org')) {
-      toast.error('Only @ssism.org email addresses are allowed');
-      return;
-    }
-
-    setSavingEdit(true);
-    try {
-      const { data } = await userAPI.updateUser(editingFaculty._id, {
-        name: editForm.name.trim(),
-        email: editForm.email.toLowerCase().trim(),
-        phoneNumber: editForm.phoneNumber.trim()
-      });
-      toast.success(`Faculty profile updated for ${data.name}`);
-      setEditingFaculty(null);
-      await fetchUsersData();
-      await fetchWorkloadAndPerformance();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update faculty profile');
-    } finally {
-      setSavingEdit(false);
-    }
-  };
-
-  // Toggle Status Handler
-  const handleConfirmToggleStatus = async () => {
-    if (!statusConfirmUser) return;
-    const newStatus = statusConfirmUser.status === 'inactive' ? 'active' : 'inactive';
-    try {
-      await userAPI.toggleUserStatus(statusConfirmUser._id, newStatus);
-      toast.success(`Account status updated to ${newStatus} for ${statusConfirmUser.name}`);
-      setStatusConfirmUser(null);
-      await fetchUsersData();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update status');
-    }
-  };
-
-  // Assign Faculty Handler
-  const handleAssignFaculty = async (e) => {
-    e.preventDefault();
-    if (!selectedUnassignedUser) {
-      toast.error('Please select a faculty member to assign');
-      return;
-    }
-    setAssigning(true);
-    try {
-      const deptToAssign = user?.role === 'hod' ? user.department : (targetDepartment || departments[0]);
-      await userAPI.assignFacultyDepartment(selectedUnassignedUser, deptToAssign);
-      toast.success(`Faculty assigned to ${deptToAssign} department`);
-      setIsAssignModalOpen(false);
-      setSelectedUnassignedUser('');
-      await fetchUsersData();
-      await fetchUnassigned();
-      await fetchWorkloadAndPerformance();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to assign faculty');
-    } finally {
-      setAssigning(false);
-    }
-  };
-
-  // Remove Faculty Handler
-  const handleConfirmRemoveFaculty = async () => {
-    if (!removeConfirmUser) return;
-    try {
-      await userAPI.removeFacultyDepartment(removeConfirmUser._id);
-      toast.success(`Faculty member ${removeConfirmUser.name} removed from ${user?.department || 'department'}`);
-      setRemoveConfirmUser(null);
-      await fetchUsersData();
-      await fetchUnassigned();
-      await fetchWorkloadAndPerformance();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to remove faculty');
-    }
-  };
-
-  // Change Department Handler (Admin Only)
   const handleOpenChangeDeptModal = (targetUser) => {
     setSelectedUserForDeptChange(targetUser);
     setTargetDepartment(targetUser.department || departments[0] || 'Computer Science');
@@ -249,9 +101,18 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
     try {
       await userAPI.updateUserDepartment(selectedUserForDeptChange._id, finalDept);
       toast.success(`Department updated to "${finalDept}" for ${selectedUserForDeptChange.name}`);
+      
+      // Update local state
+      setUsers(prev => prev.map(u => 
+        u._id === selectedUserForDeptChange._id ? { ...u, department: finalDept } : u
+      ));
+
+      // Also update departments list if custom
+      if (isCustomDept && !departments.includes(finalDept)) {
+        setDepartments(prev => [...prev, finalDept]);
+      }
+
       setSelectedUserForDeptChange(null);
-      await fetchUsersData();
-      await fetchWorkloadAndPerformance();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to update department');
     } finally {
@@ -259,84 +120,124 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
     }
   };
 
-  const handleCreateUserSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!createUserForm.name.trim()) {
-      toast.error('Please enter a user name');
-      return;
-    }
-    const emailVal = createUserForm.email.toLowerCase().trim();
-    if (!emailVal.endsWith('@ssism.org')) {
-      toast.error('Only @ssism.org email domain is allowed');
-      return;
-    }
-    if (!createUserForm.password || createUserForm.password.length < 6) {
-      toast.error('Password must be at least 6 characters long');
-      return;
-    }
-
-    const finalDept = isCustomCreateDept ? customCreateDeptName.trim() : createUserForm.department;
-    if (createUserForm.role !== 'admin' && !finalDept) {
-      toast.error('Please select or specify a department for this user');
-      return;
-    }
-
-    setCreatingUser(true);
-    try {
-      const payload = {
-        name: createUserForm.name.trim(),
-        email: emailVal,
-        password: createUserForm.password,
-        role: createUserForm.role,
-        phoneNumber: createUserForm.phoneNumber.trim()
-      };
-      if (createUserForm.role !== 'admin') {
-        payload.department = finalDept;
-      }
-
-      await userAPI.createUser(payload);
-      toast.success(`User "${createUserForm.name}" created successfully!`);
-
-      setIsCreateUserModalOpen(false);
-      setCreateUserForm({
-        name: '',
-        email: '',
-        password: '',
-        role: 'user',
-        department: departments[0] || 'Computer Science',
-        phoneNumber: ''
-      });
-      setIsCustomCreateDept(false);
-      setCustomCreateDeptName('');
-
-      await fetchUsersData();
-      await fetchWorkloadAndPerformance();
-    } catch (error) {
-      console.error('Error creating user:', error);
-      toast.error(error.response?.data?.message || 'Failed to create user');
-    } finally {
-      setCreatingUser(false);
-    }
-  };
-
   const isAdmin = user?.role === 'admin';
   const isHOD = user?.role === 'hod';
 
   // Filtered Users List
-  const filteredUsers = users.filter(u => {
-    const matchesSearch = u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          u.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDept = deptFilter === 'all' || u.department === deptFilter;
-    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => {
+      const matchesSearch = u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            (u.phoneNumber && u.phoneNumber.includes(searchQuery));
+      const matchesDept = deptFilter === 'all' || u.department === deptFilter;
+      const matchesRole = roleFilter === 'all' || u.role === roleFilter;
 
-    if (isHOD) {
-      const isSameDept = u.department === user?.department;
-      return matchesSearch && matchesRole && isSameDept;
+      if (isHOD) {
+        const isSameDept = u.department === user?.department;
+        return matchesSearch && matchesRole && isSameDept;
+      }
+
+      return matchesSearch && matchesDept && matchesRole;
+    });
+  }, [users, searchQuery, deptFilter, roleFilter, isHOD, user]);
+
+  // Combined Workload List
+  const combinedWorkloadList = useMemo(() => {
+    let sourceList = [];
+    if (workloadData && workloadData.length > 0) {
+      sourceList = workloadData;
+    } else {
+      const now = new Date();
+      sourceList = users.map(u => {
+        const uTasks = allTasks.filter(t => {
+          if (!t.assignedTo) return false;
+          if (Array.isArray(t.assignedTo)) {
+            return t.assignedTo.some(a => String(a._id || a) === String(u._id));
+          }
+          return String(t.assignedTo._id || t.assignedTo) === String(u._id);
+        });
+
+        return {
+          faculty: u,
+          workload: {
+            totalTasks: uTasks.length,
+            todoTasks: uTasks.filter(t => t.status === 'todo').length,
+            inprogressTasks: uTasks.filter(t => t.status === 'inprogress').length,
+            completedTasks: uTasks.filter(t => t.status === 'completed').length,
+            overdueTasks: uTasks.filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < now).length
+          }
+        };
+      });
     }
 
-    return matchesSearch && matchesDept && matchesRole;
-  });
+    return sourceList.filter(item => {
+      const f = item.faculty || {};
+      const matchesSearch = f.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            f.email?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesDept = deptFilter === 'all' || f.department === deptFilter;
+      if (isHOD) {
+        return matchesSearch && f.department === user?.department;
+      }
+      return matchesSearch && matchesDept;
+    });
+  }, [workloadData, users, allTasks, searchQuery, deptFilter, isHOD, user]);
+
+  // Combined Performance List
+  const combinedPerformanceList = useMemo(() => {
+    let sourceList = [];
+    if (performanceData && performanceData.length > 0) {
+      sourceList = performanceData;
+    } else {
+      const now = new Date();
+      sourceList = users.map(u => {
+        const uTasks = allTasks.filter(t => {
+          if (!t.assignedTo) return false;
+          if (Array.isArray(t.assignedTo)) {
+            return t.assignedTo.some(a => String(a._id || a) === String(u._id));
+          }
+          return String(t.assignedTo._id || t.assignedTo) === String(u._id);
+        });
+
+        const total = uTasks.length;
+        const completed = uTasks.filter(t => t.status === 'completed').length;
+        const overdue = uTasks.filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < now).length;
+        const onTime = uTasks.filter(t => t.status === 'completed' && (!t.dueDate || new Date(t.updatedAt || t.createdAt) <= new Date(t.dueDate))).length;
+        const onTimeRate = completed > 0 ? Math.round((onTime / completed) * 100) : 0;
+
+        const completedTaskList = uTasks.filter(t => t.status === 'completed');
+        let totalHours = 0;
+        completedTaskList.forEach(t => {
+          const startTime = new Date(t.createdAt).getTime();
+          const endTime = new Date(t.completedAt || t.updatedAt || Date.now()).getTime();
+          const diff = Math.max(0, (endTime - startTime) / (1000 * 60 * 60));
+          totalHours += diff;
+        });
+        const avgHrs = completedTaskList.length > 0 ? Math.round((totalHours / completedTaskList.length) * 10) / 10 : 0;
+
+        return {
+          faculty: u,
+          metrics: {
+            totalTasks: total,
+            completedTasks: completed,
+            onTimeCompletionRate: onTimeRate,
+            overdueTasks: overdue,
+            avgCompletionTimeHours: avgHrs
+          }
+        };
+      });
+    }
+
+    return sourceList.filter(item => {
+      const f = item.faculty || {};
+      const matchesSearch = f.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            f.email?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesDept = deptFilter === 'all' || f.department === deptFilter;
+      if (isHOD) {
+        return matchesSearch && f.department === user?.department;
+      }
+      return matchesSearch && matchesDept;
+    });
+  }, [performanceData, users, allTasks, searchQuery, deptFilter, isHOD, user]);
 
   const getRoleBadge = (role) => {
     switch (role) {
@@ -349,22 +250,17 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
     }
   };
 
-  const getStatusBadge = (status) => {
-    if (status === 'inactive') {
-      return <span className="px-2.5 py-0.5 bg-rose-100 text-rose-800 text-xs font-extrabold rounded-full border border-rose-300 inline-flex items-center gap-1"><FiPower className="w-3 h-3" /> Inactive</span>;
+  const formatAvgCompletionTime = (hours) => {
+    if (!hours || hours === 0) return 'N/A';
+    if (hours >= 24) {
+      const days = (hours / 24).toFixed(1);
+      return `${days} ${days === '1.0' ? 'day' : 'days'}`;
     }
-    return <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-extrabold rounded-full border border-emerald-300 inline-flex items-center gap-1"><FiCheckCircle className="w-3 h-3" /> Active</span>;
+    return `${hours} hrs`;
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-bold text-sm">Loading User Directory...</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -379,36 +275,13 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
             </span>
           </div>
           <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3">
-            <span>Faculty & User Management</span>
+            <span>User & Faculty Directory</span>
           </h2>
           <p className="text-xs md:text-sm text-slate-300">
-            {isHOD 
-              ? `Manage faculty members in ${user?.department} department, track workloads & performance metrics.`
-              : 'View all institution faculties & staff across departments. Reassign departments or create new user accounts.'}
+            {isAdmin 
+              ? 'View all institution faculties & staff across departments. Reassign departments with full admin privileges.' 
+              : `View faculties and colleagues in ${user?.department} department.`}
           </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="relative z-10 flex items-center gap-3">
-          {isHOD && (
-            <button
-              onClick={() => setIsAssignModalOpen(true)}
-              className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-extrabold rounded-2xl transition border border-white/20 flex items-center gap-2 text-xs md:text-sm backdrop-blur-md active:scale-95"
-            >
-              <FiUserPlus className="w-4 h-4 text-orange-400" />
-              <span>+ Assign Faculty</span>
-            </button>
-          )}
-
-          {isAdmin && (
-            <button
-              onClick={() => setIsCreateUserModalOpen(true)}
-              className="px-5 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold rounded-2xl transition shadow-lg shadow-orange-500/30 flex items-center gap-2 text-xs md:text-sm active:scale-95"
-            >
-              <FiUserPlus className="w-4 h-4" />
-              <span>+ Create User</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -440,509 +313,347 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
 
         <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
           <div className="flex items-center justify-between mb-2">
-            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-2xl">
+            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-2xl">
               <FiUserCheck className="w-5 h-5" />
             </div>
-            <span className="text-[10px] font-extrabold text-emerald-500 uppercase tracking-wider">Active</span>
+            <span className="text-[10px] font-extrabold text-amber-500 uppercase tracking-wider">Leadership</span>
           </div>
-          <p className="text-2xl md:text-3xl font-extrabold text-emerald-600">
-            {filteredUsers.filter(u => u.status !== 'inactive').length}
+          <p className="text-2xl md:text-3xl font-extrabold text-amber-600">
+            {filteredUsers.filter(u => u.role === 'hod' || u.role === 'admin').length}
           </p>
-          <p className="text-xs font-semibold text-slate-500 mt-0.5">Active Accounts</p>
+          <p className="text-xs font-semibold text-slate-500 mt-0.5">HODs & Admins</p>
         </div>
 
         <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
           <div className="flex items-center justify-between mb-2">
-            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-2xl">
+            <div className="p-2.5 bg-purple-50 text-purple-600 rounded-2xl">
               <FiBriefcase className="w-5 h-5" />
             </div>
-            <span className="text-[10px] font-extrabold text-amber-500 uppercase tracking-wider">Dept</span>
+            <span className="text-[10px] font-extrabold text-purple-500 uppercase tracking-wider">Depts</span>
           </div>
-          <p className="text-2xl md:text-3xl font-extrabold text-amber-600">
-            {isHOD ? user?.department : new Set(users.map(u => u.department)).size}
+          <p className="text-2xl md:text-3xl font-extrabold text-purple-600">
+            {new Set(users.map(u => u.department)).size}
           </p>
-          <p className="text-xs font-semibold text-slate-500 mt-0.5">{isHOD ? 'My Department' : 'Active Depts'}</p>
+          <p className="text-xs font-semibold text-slate-500 mt-0.5">Active Departments</p>
         </div>
       </div>
 
-      {/* TABS NAVIGATION (Directory | Workload | Performance) */}
-      <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-          <div className="flex items-center gap-4 border-b md:border-b-0 border-slate-200 pb-2 md:pb-0">
-            <button
-              onClick={() => setActiveTab('directory')}
-              className={`font-extrabold text-sm flex items-center gap-2 pb-2 md:pb-0 border-b-2 transition ${
-                activeTab === 'directory' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <FiUsers className="w-4 h-4" />
-              <span>Faculty Directory ({filteredUsers.length})</span>
-            </button>
-            {(isHOD || isAdmin) && (
-              <>
-                <button
-                  onClick={() => setActiveTab('workload')}
-                  className={`font-extrabold text-sm flex items-center gap-2 pb-2 md:pb-0 border-b-2 transition ${
-                    activeTab === 'workload' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  <FiBarChart2 className="w-4 h-4" />
-                  <span>Faculty Workload</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('performance')}
-                  className={`font-extrabold text-sm flex items-center gap-2 pb-2 md:pb-0 border-b-2 transition ${
-                    activeTab === 'performance' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  <FiTrendingUp className="w-4 h-4" />
-                  <span>Faculty Performance</span>
-                </button>
-              </>
-            )}
-          </div>
+      {/* Tab Switcher & Search Bar (Placed directly under stats / above user records) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
+        {/* Left Tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+          <button
+            onClick={() => setActiveTab('directory')}
+            className={`px-3.5 py-2 rounded-xl text-xs md:text-sm font-extrabold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+              activeTab === 'directory'
+                ? 'border-2 border-orange-500 text-orange-600 bg-orange-50/60 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <FiUsers className="w-4 h-4 text-orange-500" />
+            <span>Faculty Directory ({filteredUsers.length})</span>
+          </button>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Search Input */}
-            <div className="relative w-full sm:w-56">
-              <FiSearch className="absolute left-3.5 top-3 text-slate-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search name or email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-orange-400"
-              />
-            </div>
+          <button
+            onClick={() => setActiveTab('workload')}
+            className={`px-3.5 py-2 rounded-xl text-xs md:text-sm font-extrabold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+              activeTab === 'workload'
+                ? 'border-2 border-orange-500 text-orange-600 bg-orange-50/60 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <FiBarChart2 className="w-4 h-4 text-orange-500" />
+            <span>Faculty Workload</span>
+          </button>
 
-            {/* Department Filter (Admin only) */}
-            {isAdmin && (
-              <select
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
-                className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-orange-400 bg-white"
-              >
-                <option value="all">All Departments</option>
-                {departments.map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            )}
-          </div>
+          <button
+            onClick={() => setActiveTab('performance')}
+            className={`px-3.5 py-2 rounded-xl text-xs md:text-sm font-extrabold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+              activeTab === 'performance'
+                ? 'border-2 border-orange-500 text-orange-600 bg-orange-50/60 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <FiTrendingUp className="w-4 h-4 text-orange-500" />
+            <span>Faculty Performance</span>
+          </button>
         </div>
 
-        {/* TAB 1: FACULTY DIRECTORY TABLE */}
-        {activeTab === 'directory' && (
+        {/* Right Controls: Search Input & Department Dropdown */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-full sm:w-60">
+            <FiSearch className="absolute left-3.5 top-3 text-slate-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search name or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-orange-400 bg-white"
+            />
+          </div>
+
+          <select
+            value={deptFilter}
+            onChange={(e) => setDeptFilter(e.target.value)}
+            className="w-full sm:w-auto px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-orange-400 bg-white cursor-pointer"
+          >
+            <option value="all">All Departments</option>
+            {departments.map(d => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* TAB 1: FACULTY DIRECTORY */}
+      {activeTab === 'directory' && (
+        <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-6">
+          {/* Filter Sub-header */}
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div>
+              <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
+                <FiUsers className="text-orange-500 w-5 h-5" />
+                <span>User Records Directory</span>
+              </h3>
+              <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                Click any faculty row to view complete leave history & profile details
+              </p>
+            </div>
+
+            {/* Role Filter */}
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-orange-400 bg-white"
+            >
+              <option value="all">All Roles</option>
+              <option value="user">Faculty Only</option>
+              <option value="hod">HOD Only</option>
+              {isAdmin && <option value="admin">Admin Only</option>}
+            </select>
+          </div>
+
+          {/* Directory Table */}
           <div className="overflow-x-auto">
-            {filteredUsers.length === 0 ? (
+              {filteredUsers.length === 0 ? (
+                <div className="text-center py-16 text-slate-400">
+                  <FiUsers className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                  <p className="text-sm font-bold text-slate-700">No Users Found</p>
+                  <p className="text-xs text-slate-400 mt-1">There are no user records matching the selected search query or filters.</p>
+                </div>
+              ) : (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
+                      <th className="p-3.5 rounded-l-2xl">User / Faculty</th>
+                      <th className="p-3.5">Email</th>
+                      <th className="p-3.5">Contact Number</th>
+                      <th className="p-3.5">Role</th>
+                      <th className="p-3.5">Department</th>
+                      <th className="p-3.5 text-right rounded-r-2xl">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
+                    {filteredUsers.map((u) => (
+                      <tr key={u._id} className="hover:bg-slate-50/80 transition">
+                        <td 
+                          className="p-3.5 cursor-pointer group"
+                          onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(u)}
+                          title="Click to view full faculty profile"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 text-white font-black flex items-center justify-center text-xs shadow-sm group-hover:scale-105 transition">
+                              {u.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-800 leading-tight group-hover:text-orange-600 transition">
+                                {u.name}
+                              </p>
+                              <p className="text-[11px] text-slate-400">ID: {u._id ? String(u._id).slice(-6) : 'N/A'}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3.5 text-xs text-slate-600 font-semibold">
+                          <span className="flex items-center gap-1.5">
+                            <FiMail className="w-3.5 h-3.5 text-slate-400" />
+                            {u.email}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-xs font-semibold">
+                          <span className="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                            <FiPhone className="w-3.5 h-3.5 text-emerald-600" />
+                            {u.phoneNumber || 'Not provided'}
+                          </span>
+                        </td>
+                        <td className="p-3.5">{getRoleBadge(u.role)}</td>
+                        <td className="p-3.5">
+                          <span className="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 inline-flex items-center gap-1.5">
+                            <FiBriefcase className="w-3 h-3 text-slate-400" />
+                            {u.department || 'General'}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleOpenChangeDeptModal(u)}
+                                className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 active:scale-95 shadow-xs"
+                                title="Change Department"
+                              >
+                                <FiEdit3 className="w-3.5 h-3.5" />
+                                <span>Change Dept</span>
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(u)}
+                              className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition"
+                              title="View Faculty Profile"
+                            >
+                              <FiChevronRight className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
+      {/* TAB 2: FACULTY WORKLOAD (Image 1 Exact Match) */}
+      {activeTab === 'workload' && (
+        <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-4">
+          <div className="overflow-x-auto">
+            {combinedWorkloadList.length === 0 ? (
               <div className="text-center py-16 text-slate-400">
-                <FiUsers className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                <p className="text-sm font-bold text-slate-700">No Faculty Found</p>
-                <p className="text-xs text-slate-400 mt-1">There are no records matching your criteria.</p>
+                <FiBarChart2 className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                <p className="text-sm font-bold text-slate-700">No Workload Data Found</p>
+                <p className="text-xs text-slate-400 mt-1">There are no faculty records matching the selected department or search filter.</p>
               </div>
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
                     <th className="p-3.5 rounded-l-2xl">Faculty Member</th>
-                    <th className="p-3.5">Email / Phone</th>
-                    <th className="p-3.5">Role</th>
                     <th className="p-3.5">Department</th>
-                    <th className="p-3.5">Status</th>
-                    <th className="p-3.5 text-right rounded-r-2xl">Actions</th>
+                    <th className="p-3.5">Total Tasks</th>
+                    <th className="p-3.5">Pending (To Do)</th>
+                    <th className="p-3.5">In Progress</th>
+                    <th className="p-3.5">Completed</th>
+                    <th className="p-3.5 rounded-r-2xl">Overdue Tasks</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
-                  {filteredUsers.map((u) => (
-                    <tr key={u._id} className="hover:bg-slate-50/80 transition">
-                      <td 
-                        className="p-3.5 cursor-pointer group"
-                        onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(u)}
-                        title="Click to view full faculty profile"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 text-white font-black flex items-center justify-center text-xs shadow-sm group-hover:scale-105 transition">
-                            {u.name?.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-800 leading-tight group-hover:text-orange-600 transition">
-                              {u.name}
-                            </p>
-                            <p className="text-[11px] text-slate-400">ID: {u._id ? String(u._id).slice(-6) : 'N/A'}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-3.5">
-                        <p className="text-xs text-slate-700 font-semibold flex items-center gap-1.5">
-                          <FiMail className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{u.email}</span>
-                        </p>
-                        {u.phoneNumber && (
-                          <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5">
-                            <FiPhone className="w-3 h-3 text-slate-400" />
-                            <span>{u.phoneNumber}</span>
-                          </p>
-                        )}
-                      </td>
-                      <td className="p-3.5">{getRoleBadge(u.role)}</td>
-                      <td className="p-3.5">
-                        <span className="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 inline-flex items-center gap-1.5">
-                          <FiBriefcase className="w-3 h-3 text-slate-400" />
-                          {u.department || 'Unassigned'}
-                        </span>
-                      </td>
-                      <td className="p-3.5">{getStatusBadge(u.status)}</td>
-                      <td className="p-3.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {/* HOD & Admin Edit Faculty */}
-                          {(isAdmin || (isHOD && u.role === 'user' && u.department === user?.department)) && (
-                            <button
-                              onClick={() => handleOpenEditModal(u)}
-                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1"
-                              title="Edit Faculty Details"
-                            >
-                              <FiEdit3 className="w-3.5 h-3.5" />
-                              <span>Edit</span>
-                            </button>
-                          )}
-
-                          {/* HOD & Admin Toggle Status */}
-                          {(isAdmin || (isHOD && u.role === 'user' && u.department === user?.department)) && (
-                            <button
-                              onClick={() => setStatusConfirmUser(u)}
-                              className={`px-2 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
-                                u.status === 'inactive' 
-                                  ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200' 
-                                  : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
-                              }`}
-                              title={u.status === 'inactive' ? 'Activate Faculty Account' : 'Deactivate Faculty Account'}
-                            >
-                              <FiPower className="w-3.5 h-3.5" />
-                              <span>{u.status === 'inactive' ? 'Activate' : 'Deactivate'}</span>
-                            </button>
-                          )}
-
-                          {/* HOD Remove Faculty from Department */}
-                          {isHOD && u.role === 'user' && u.department === user?.department && (
-                            <button
-                              onClick={() => setRemoveConfirmUser(u)}
-                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition"
-                              title="Remove Faculty from Department"
-                            >
-                              <FiUserMinus className="w-4 h-4" />
-                            </button>
-                          )}
-
-                          {/* Admin Change Department */}
-                          {isAdmin && (
-                            <button
-                              onClick={() => handleOpenChangeDeptModal(u)}
-                              className="px-2.5 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-xl text-xs font-bold transition flex items-center gap-1"
-                              title="Change Department"
-                            >
-                              <FiBriefcase className="w-3.5 h-3.5" />
-                              <span>Dept</span>
-                            </button>
-                          )}
-
-                          <button
-                            onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(u)}
-                            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition"
-                            title="View Faculty Profile"
-                          >
-                            <FiChevronRight className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {combinedWorkloadList.map((item, idx) => {
+                    const faculty = item.faculty || {};
+                    const wl = item.workload || {};
+                    return (
+                      <tr key={faculty._id || idx} className="hover:bg-slate-50/80 transition">
+                        <td 
+                          className="p-3.5 font-bold text-slate-800 hover:text-orange-600 cursor-pointer"
+                          onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(faculty)}
+                          title="Click to view faculty profile"
+                        >
+                          {faculty.name || 'Unknown Faculty'}
+                        </td>
+                        <td className="p-3.5 text-slate-500 font-medium">
+                          {faculty.department || 'General'}
+                        </td>
+                        <td className="p-3.5 font-extrabold text-slate-900">
+                          {wl.totalTasks ?? 0}
+                        </td>
+                        <td className="p-3.5 font-extrabold text-indigo-600">
+                          {wl.todoTasks ?? 0}
+                        </td>
+                        <td className="p-3.5 font-extrabold text-amber-600">
+                          {wl.inprogressTasks ?? 0}
+                        </td>
+                        <td className="p-3.5 font-extrabold text-emerald-600">
+                          {wl.completedTasks ?? 0}
+                        </td>
+                        <td className="p-3.5 font-extrabold text-rose-600">
+                          {wl.overdueTasks ?? 0}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* TAB 2: FACULTY WORKLOAD TABLE */}
-        {activeTab === 'workload' && (
+      {/* TAB 3: FACULTY PERFORMANCE (Image 2 Exact Match) */}
+      {activeTab === 'performance' && (
+        <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-4">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
-                  <th className="p-3.5 rounded-l-2xl">Faculty Member</th>
-                  <th className="p-3.5">Department</th>
-                  <th className="p-3.5">Total Tasks</th>
-                  <th className="p-3.5">Pending (To Do)</th>
-                  <th className="p-3.5">In Progress</th>
-                  <th className="p-3.5">Completed</th>
-                  <th className="p-3.5 text-right rounded-r-2xl">Overdue Tasks</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
-                {workloadData.map((item) => (
-                  <tr key={item.faculty?._id} className="hover:bg-slate-50/80 transition">
-                    <td className="p-3.5 font-bold text-slate-800">{item.faculty?.name}</td>
-                    <td className="p-3.5 text-xs text-slate-600">{item.faculty?.department}</td>
-                    <td className="p-3.5 font-black text-slate-900">{item.workload?.totalTasks || 0}</td>
-                    <td className="p-3.5 font-bold text-indigo-600">{item.workload?.todoTasks || 0}</td>
-                    <td className="p-3.5 font-bold text-amber-600">{item.workload?.inprogressTasks || 0}</td>
-                    <td className="p-3.5 font-bold text-emerald-600">{item.workload?.completedTasks || 0}</td>
-                    <td className="p-3.5 text-right font-black text-rose-600">{item.workload?.overdueTasks || 0}</td>
+            {combinedPerformanceList.length === 0 ? (
+              <div className="text-center py-16 text-slate-400">
+                <FiTrendingUp className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                <p className="text-sm font-bold text-slate-700">No Performance Data Found</p>
+                <p className="text-xs text-slate-400 mt-1">There are no faculty performance records matching the selected search filter.</p>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
+                    <th className="p-3.5 rounded-l-2xl">Faculty Member</th>
+                    <th className="p-3.5">Tasks Assigned</th>
+                    <th className="p-3.5">Tasks Completed</th>
+                    <th className="p-3.5">On-Time Completion</th>
+                    <th className="p-3.5">Overdue Tasks</th>
+                    <th className="p-3.5 rounded-r-2xl">Avg Completion Time</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
+                  {combinedPerformanceList.map((item, idx) => {
+                    const faculty = item.faculty || {};
+                    const metrics = item.metrics || {};
+                    const onTimeRate = metrics.onTimeCompletionRate ?? 0;
 
-        {/* TAB 3: FACULTY PERFORMANCE METRICS TABLE */}
-        {activeTab === 'performance' && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
-                  <th className="p-3.5 rounded-l-2xl">Faculty Member</th>
-                  <th className="p-3.5">Tasks Assigned</th>
-                  <th className="p-3.5">Tasks Completed</th>
-                  <th className="p-3.5">On-Time Completion</th>
-                  <th className="p-3.5">Overdue Tasks</th>
-                  <th className="p-3.5 text-right rounded-r-2xl">Avg Completion Time</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
-                {performanceData.map((item) => (
-                  <tr key={item.faculty?._id} className="hover:bg-slate-50/80 transition">
-                    <td className="p-3.5 font-bold text-slate-800">{item.faculty?.name}</td>
-                    <td className="p-3.5 font-black text-slate-900">{item.metrics?.totalTasks || 0}</td>
-                    <td className="p-3.5 font-bold text-emerald-600">{item.metrics?.completedTasks || 0}</td>
-                    <td className="p-3.5">
-                      <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 text-xs font-extrabold rounded-full border border-emerald-200">
-                        {item.metrics?.onTimeCompletionRate || 0}%
-                      </span>
-                    </td>
-                    <td className="p-3.5 font-bold text-rose-600">{item.metrics?.overdueTasks || 0}</td>
-                    <td className="p-3.5 text-right font-bold text-slate-700">
-                      {item.metrics?.avgCompletionTimeHours ? `${item.metrics.avgCompletionTimeHours} Hours` : 'N/A'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* EDIT FACULTY MODAL (HOD & Admin) */}
-      {editingFaculty && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 fade-in">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-orange-100 text-orange-600 rounded-2xl">
-                  <FiEdit3 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-extrabold text-slate-800">Edit Faculty Profile</h3>
-                  <p className="text-xs text-slate-500 font-semibold">Update faculty contact & details</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setEditingFaculty(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100"
-              >
-                <FiX className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEditFaculty} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Full Name *</label>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Email Address *</label>
-                <input
-                  type="email"
-                  value={editForm.email}
-                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
-                  required
-                />
-                <p className="text-[11px] text-slate-400 font-semibold mt-1">Must be an @ssism.org domain</p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Phone Number</label>
-                <input
-                  type="tel"
-                  placeholder="+91 9876543210"
-                  value={editForm.phoneNumber}
-                  onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4 border-t border-slate-100">
-                <button
-                  type="submit"
-                  disabled={savingEdit}
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-sm disabled:opacity-50"
-                >
-                  {savingEdit ? 'Saving Changes...' : 'Save Profile Changes'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingFaculty(null)}
-                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ASSIGN FACULTY TO DEPARTMENT MODAL (HOD / Admin) */}
-      {isAssignModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 fade-in">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-orange-100 text-orange-600 rounded-2xl">
-                  <FiUserPlus className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-extrabold text-slate-800">Assign Faculty to Department</h3>
-                  <p className="text-xs text-slate-500 font-semibold">Assign available faculty to {user?.department || 'department'}</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setIsAssignModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100"
-              >
-                <FiX className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAssignFaculty} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                  Select Faculty Member *
-                </label>
-                {unassignedUsers.length === 0 ? (
-                  <div className="p-4 bg-slate-50 rounded-2xl text-center text-xs text-slate-500 font-semibold border border-slate-200">
-                    No unassigned faculty available right now.
-                  </div>
-                ) : (
-                  <select
-                    value={selectedUnassignedUser}
-                    onChange={(e) => setSelectedUnassignedUser(e.target.value)}
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-bold text-slate-800 bg-white"
-                    required
-                  >
-                    <option value="">-- Select Faculty --</option>
-                    {unassignedUsers.map(u => (
-                      <option key={u._id} value={u._id}>{u.name} ({u.email})</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              <div className="flex gap-3 pt-4 border-t border-slate-100">
-                <button
-                  type="submit"
-                  disabled={assigning || unassignedUsers.length === 0}
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-sm disabled:opacity-50"
-                >
-                  {assigning ? 'Assigning...' : 'Assign to Department'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsAssignModalOpen(false)}
-                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* STATUS TOGGLE CONFIRMATION DIALOG */}
-      {statusConfirmUser && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 text-center fade-in">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
-              statusConfirmUser.status === 'inactive' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
-            }`}>
-              <FiPower className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-extrabold text-slate-800 mb-1 capitalize">
-              {statusConfirmUser.status === 'inactive' ? 'Activate' : 'Deactivate'} Faculty Account?
-            </h3>
-            <p className="text-xs text-slate-500 mb-6">
-              Are you sure you want to {statusConfirmUser.status === 'inactive' ? 'activate' : 'deactivate'} <span className="font-bold text-slate-700">{statusConfirmUser.name}</span>'s account?
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={handleConfirmToggleStatus}
-                className={`flex-1 text-white py-2.5 rounded-xl font-bold text-sm shadow-md transition ${
-                  statusConfirmUser.status === 'inactive' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
-                }`}
-              >
-                Confirm {statusConfirmUser.status === 'inactive' ? 'Activation' : 'Deactivation'}
-              </button>
-              <button
-                onClick={() => setStatusConfirmUser(null)}
-                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* REMOVE FACULTY CONFIRMATION DIALOG */}
-      {removeConfirmUser && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 text-center fade-in">
-            <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <FiUserMinus className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-extrabold text-slate-800 mb-1">Remove Faculty from Department?</h3>
-            <p className="text-xs text-slate-500 mb-6">
-              Are you sure you want to remove <span className="font-bold text-slate-700">{removeConfirmUser.name}</span> from <span className="font-bold text-slate-700">{user?.department}</span>?
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={handleConfirmRemoveFaculty}
-                className="flex-1 bg-rose-600 text-white py-2.5 rounded-xl font-bold hover:bg-rose-700 transition text-sm shadow-md shadow-rose-600/20"
-              >
-                Confirm Removal
-              </button>
-              <button
-                onClick={() => setRemoveConfirmUser(null)}
-                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
-              >
-                Cancel
-              </button>
-            </div>
+                    return (
+                      <tr key={faculty._id || idx} className="hover:bg-slate-50/80 transition">
+                        <td 
+                          className="p-3.5 font-bold text-slate-800 hover:text-orange-600 cursor-pointer"
+                          onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(faculty)}
+                          title="Click to view faculty profile"
+                        >
+                          {faculty.name || 'Unknown Faculty'}
+                        </td>
+                        <td className="p-3.5 font-extrabold text-slate-900">
+                          {metrics.totalTasks ?? 0}
+                        </td>
+                        <td className="p-3.5 font-extrabold text-emerald-600">
+                          {metrics.completedTasks ?? 0}
+                        </td>
+                        <td className="p-3.5">
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-extrabold inline-block">
+                            {onTimeRate}%
+                          </span>
+                        </td>
+                        <td className="p-3.5 font-extrabold text-rose-600">
+                          {metrics.overdueTasks ?? 0}
+                        </td>
+                        <td className="p-3.5 font-bold text-slate-500">
+                          {formatAvgCompletionTime(metrics.avgCompletionTimeHours)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       )}
 
       {/* Change Department Modal (Admin Only) */}
-      {selectedUserForDeptChange && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <Modal isOpen={!!selectedUserForDeptChange} onClose={() => setSelectedUserForDeptChange(null)}>
+        {selectedUserForDeptChange && (
           <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 fade-in">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
               <div className="flex items-center gap-2.5">
@@ -967,7 +678,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                 <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Target Faculty</p>
                 <p className="font-extrabold text-slate-800 text-sm mt-0.5">{selectedUserForDeptChange.name}</p>
                 <p className="text-xs text-slate-500">{selectedUserForDeptChange.email}</p>
-                <p className="text-xs font-bold text-orange-600 mt-1">Current Department: {selectedUserForDeptChange.department || 'Unassigned'}</p>
+                <p className="text-xs font-bold text-orange-600 mt-1">Current Department: {selectedUserForDeptChange.department || 'General'}</p>
               </div>
 
               <div>
@@ -998,7 +709,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                   <div className="space-y-3">
                     <input
                       type="text"
-                      placeholder="Enter new department name"
+                      placeholder="Enter new department name (e.g. Electrical Eng.)"
                       value={customDeptName}
                       onChange={(e) => setCustomDeptName(e.target.value)}
                       className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
@@ -1033,171 +744,8 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
               </div>
             </form>
           </div>
-        </div>
-      )}
-
-      {/* Create User Modal (Admin Only) */}
-      {isCreateUserModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 fade-in max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-orange-100 text-orange-600 rounded-2xl">
-                  <FiUserPlus className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg md:text-xl font-extrabold text-slate-800">Create User Account</h3>
-                  <p className="text-xs text-slate-500 font-semibold">Add a new Faculty, HOD, or Admin to SSES</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setIsCreateUserModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100"
-              >
-                <FiX className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateUserSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Full Name *</label>
-                <div className="relative">
-                  <FiUser className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Prof. John Von Neumann"
-                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
-                    value={createUserForm.name}
-                    onChange={(e) => setCreateUserForm({ ...createUserForm, name: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Email Address *</label>
-                <div className="relative">
-                  <FiMail className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
-                  <input
-                    type="email"
-                    placeholder="user@ssism.org"
-                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
-                    value={createUserForm.email}
-                    onChange={(e) => setCreateUserForm({ ...createUserForm, email: e.target.value })}
-                    required
-                  />
-                </div>
-                <p className="text-[11px] text-slate-400 font-semibold mt-1">Must be an @ssism.org email domain</p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Password *</label>
-                <div className="relative">
-                  <FiLock className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
-                  <input
-                    type="password"
-                    placeholder="Minimum 6 characters"
-                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
-                    value={createUserForm.password}
-                    onChange={(e) => setCreateUserForm({ ...createUserForm, password: e.target.value })}
-                    required
-                    minLength={6}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">User Role *</label>
-                <select
-                  value={createUserForm.role}
-                  onChange={(e) => setCreateUserForm({ ...createUserForm, role: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-bold text-slate-800 bg-white"
-                >
-                  <option value="user">Faculty (user)</option>
-                  <option value="hod">Head of Department (hod)</option>
-                  <option value="admin">System Administrator (admin)</option>
-                </select>
-              </div>
-
-              {createUserForm.role !== 'admin' && (
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Department *</label>
-                  {!isCustomCreateDept ? (
-                    <div className="space-y-2">
-                      <select
-                        value={createUserForm.department}
-                        onChange={(e) => setCreateUserForm({ ...createUserForm, department: e.target.value })}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-bold text-slate-800 bg-white"
-                      >
-                        {departments.map((dept) => (
-                          <option key={dept} value={dept}>{dept}</option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => setIsCustomCreateDept(true)}
-                        className="text-xs text-orange-600 font-extrabold hover:underline block"
-                      >
-                        + Add Custom Department Name
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        placeholder="Enter custom department name"
-                        value={customCreateDeptName}
-                        onChange={(e) => setCustomCreateDeptName(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setIsCustomCreateDept(false)}
-                        className="text-xs text-slate-500 font-bold hover:underline block"
-                      >
-                        ← Select from existing department list
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Phone Number (Optional)</label>
-                <div className="relative">
-                  <FiPhone className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
-                  <input
-                    type="tel"
-                    placeholder="+91 9876543210"
-                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
-                    value={createUserForm.phoneNumber}
-                    onChange={(e) => setCreateUserForm({ ...createUserForm, phoneNumber: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4 border-t border-slate-100">
-                <button
-                  type="submit"
-                  disabled={creatingUser}
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-sm disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  <FiCheckCircle className="w-4 h-4" />
-                  <span>{creatingUser ? 'Creating User...' : 'Create User Account'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsCreateUserModalOpen(false)}
-                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 };

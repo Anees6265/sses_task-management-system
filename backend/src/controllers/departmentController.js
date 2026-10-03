@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Department = require('../models/Department');
 const User = require('../models/User');
 const Task = require('../models/Task');
@@ -44,6 +45,12 @@ const autoSeedDepartments = async () => {
 // 1. Get All Departments (Simple array of name strings for dropdowns, Register, Sidebar, Kanban)
 exports.getAllDepartments = async (req, res) => {
   try {
+    if (mongoose.connection.readyState === 1) {
+      const departments = await User.distinct('department', { department: { $ne: null } });
+      return res.json(departments.sort());
+    } else {
+      return res.json(['Computer Science', 'Information Technology', 'Electronics & Comm.', 'Management']);
+    }
     await autoSeedDepartments();
     const depts = await Department.find({ status: 'active' }).select('name').sort({ name: 1 });
     if (depts.length > 0) {

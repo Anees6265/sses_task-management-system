@@ -6,7 +6,7 @@ const { demoUsers } = require('../utils/mockStore');
 exports.protect = async (req, res, next) => {
   try {
     let token;
-    
+
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
     }
@@ -16,7 +16,7 @@ exports.protect = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     if (mongoose.connection.readyState === 1) {
       try {
         req.user = await User.findById(decoded.id).select('-password');
@@ -27,7 +27,7 @@ exports.protect = async (req, res, next) => {
     } else {
       req.user = demoUsers.find(u => u._id === decoded.id) || demoUsers[0];
     }
-    
+
     if (!req.user) {
       return res.status(401).json({ message: 'User not found' });
     }

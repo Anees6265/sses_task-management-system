@@ -18,7 +18,7 @@ const generateOTP = () => {
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, department, role } = req.body;
+    const { name, email, password, department, role, phoneNumber } = req.body;
 
     if (!email.endsWith('@ssism.org')) {
       return res.status(400).json({ message: 'Only @ssism.org email addresses are allowed' });
@@ -30,7 +30,7 @@ exports.register = async (req, res) => {
         return res.status(400).json({ message: 'User already exists' });
       }
 
-      const userData = { name, email, password, role: role || 'user' };
+      const userData = { name, email, password, role: role || 'user', phoneNumber };
       if (role !== 'admin') {
         userData.department = department;
       }
@@ -103,7 +103,13 @@ exports.login = async (req, res) => {
       console.log('⚡ Handling login via Code Mock Fallback for:', email);
       const demoUser = demoUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
 
-      if (!demoUser || (password && demoUser.passwordRaw !== password)) {
+      const validPasswords = [
+        process.env.SEED_ADMIN_PASSWORD || 'AdminPassword123!',
+        process.env.SEED_HOD_PASSWORD || 'HodPassword123!',
+        process.env.SEED_FACULTY_PASSWORD || 'FacultyPassword123!'
+      ];
+
+      if (!demoUser || !password || !validPasswords.includes(password)) {
         return res.status(401).json({ message: 'Invalid email or password' });
       }
 

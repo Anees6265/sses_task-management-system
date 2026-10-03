@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { sendOTPEmail, sendTaskAssignmentEmail } = require('../services/emailService');
+const { sendLeaveNotificationToReviewer, sendWhatsAppText } = require('../services/whatsappService');
 
 // Test OTP email
 router.post('/test-otp-email', async (req, res) => {
@@ -57,12 +58,34 @@ router.post('/test-task-email', async (req, res) => {
   }
 });
 
-// Check email configuration
-router.get('/email-config', (req, res) => {
+// Test WhatsApp notification
+router.post('/test-whatsapp', async (req, res) => {
+  try {
+    const { recipientNumber, message } = req.body;
+    if (!recipientNumber) {
+      return res.status(400).json({ success: false, message: 'recipientNumber is required' });
+    }
+    
+    console.log('🧪 Testing WhatsApp to:', recipientNumber);
+    const sent = await sendWhatsAppText(recipientNumber, message || 'Hello! This is a test WhatsApp notification from SSES Task Management System.');
+    
+    if (sent) {
+      return res.json({ success: true, message: 'WhatsApp message sent successfully' });
+    } else {
+      return res.status(500).json({ success: false, message: 'Failed to send WhatsApp message. Check console logs and credentials.' });
+    }
+  } catch (error) {
+    console.error('❌ Test WhatsApp failed:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Check email and twilio configuration
+router.get('/config-status', (req, res) => {
   res.json({
     emailConfigured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
-    emailUser: process.env.EMAIL_USER ? process.env.EMAIL_USER.substring(0, 3) + '***' : 'Not set',
-    emailPassSet: !!process.env.EMAIL_PASS
+    twilioConfigured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_NUMBER),
+    twilioWhatsappNumber: process.env.TWILIO_WHATSAPP_NUMBER || 'Not set'
   });
 });
 

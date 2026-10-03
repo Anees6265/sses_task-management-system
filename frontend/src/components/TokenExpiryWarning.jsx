@@ -90,7 +90,7 @@ const TokenExpiryWarning = () => {
   if (!showWarning) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+    <div className="modal-backdrop-fixed flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 md:p-8 border border-slate-100 text-center fade-in">
         <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center mx-auto mb-4">
           <FiClock className="w-8 h-8" />
