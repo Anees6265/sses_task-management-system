@@ -11,73 +11,77 @@ export const SocketProvider = ({ children }) => {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
-    if (!token) {
-      console.log('⚠️ No token found, skipping socket connection');
-      return;
-    }
+    let newSocket = null;
 
-    // Dynamic socket URL based on environment
-    const API_URL = import.meta.env.VITE_API_URL || 'https://sses-task-management-system.onrender.com/api';
-    const socketUrl = API_URL.replace('/api', '');
+    const connectSocket = () => {
+      const token = localStorage.getItem('accessToken') || localStorage.getItem('token');
+      if (!token) {
+        console.log('⚠️ No valid token found, skipping socket connection');
+        setConnected(false);
+        return;
+      }
 
-    console.log('🔌 Connecting to Socket.IO:', socketUrl);
-    console.log('🔑 Using token:', token.substring(0, 20) + '...');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const socketUrl = API_URL.replace(/\/api\/?$/, '');
 
-    const newSocket = io(socketUrl, {
-      auth: { token },
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: 10,
-      timeout: 20000,
-      forceNew: true
-    });
+      console.log('🔌 Connecting to Socket.IO:', socketUrl);
 
-    newSocket.on('connect', () => {
-      console.log('✅ Socket connected:', newSocket.id);
-      setConnected(true);
-    });
+      newSocket = io(socketUrl, {
+        auth: { token },
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: 15,
+        timeout: 20000,
+        forceNew: true
+      });
 
-    newSocket.on('disconnect', (reason) => {
-      console.log('❌ Socket disconnected:', reason);
-      setConnected(false);
-    });
+      newSocket.on('connect', () => {
+        console.log('✅ Socket connected:', newSocket.id);
+        setConnected(true);
+      });
 
-    newSocket.on('connect_error', (error) => {
-      console.error('🔴 Socket connection error:', error.message);
-    });
+      newSocket.on('disconnect', (reason) => {
+        console.log('❌ Socket disconnected:', reason);
+        setConnected(false);
+      });
 
-    newSocket.on('reconnect', (attemptNumber) => {
-      console.log('🔄 Socket reconnected after', attemptNumber, 'attempts');
-      setConnected(true);
-    });
+      newSocket.on('connect_error', (error) => {
+        console.error('🔴 Socket connection error:', error.message);
+        setConnected(false);
+      });
 
-    newSocket.on('reconnect_attempt', (attemptNumber) => {
-      console.log('🔄 Reconnection attempt:', attemptNumber);
-    });
+      newSocket.on('reconnect', (attemptNumber) => {
+        console.log('🔄 Socket reconnected after', attemptNumber, 'attempts');
+        setConnected(true);
+      });
 
-    newSocket.on('online-users', (users) => {
-      console.log('👥 Online users:', users.length);
-      setOnlineUsers(users);
-    });
+      newSocket.on('online-users', (users) => {
+        console.log('👥 Online users:', users.length);
+        setOnlineUsers(users || []);
+      });
 
-    newSocket.on('user-online', ({ userId }) => {
-      console.log('✅ User online:', userId);
-      setOnlineUsers(prev => [...new Set([...prev, userId])]);
-    });
+      newSocket.on('user-online', ({ userId }) => {
+        console.log('✅ User online:', userId);
+        if (userId) setOnlineUsers(prev => [...new Set([...prev, userId])]);
+      });
 
-    newSocket.on('user-offline', ({ userId }) => {
-      console.log('❌ User offline:', userId);
-      setOnlineUsers(prev => prev.filter(id => id !== userId));
-    });
+      newSocket.on('user-offline', ({ userId }) => {
+        console.log('❌ User offline:', userId);
+        if (userId) setOnlineUsers(prev => prev.filter(id => id !== userId));
+      });
 
-    setSocket(newSocket);
+      setSocket(newSocket);
+    };
+
+    connectSocket();
 
     return () => {
-      console.log('🔌 Closing socket connection');
-      newSocket.close();
+      if (newSocket) {
+        console.log('🔌 Closing socket connection');
+        newSocket.close();
+      }
     };
   }, []);
 

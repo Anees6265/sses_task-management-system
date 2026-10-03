@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { taskAPI, userAPI, departmentAPI, taskTemplateAPI } from '../services/api.jsx';
+import { taskAPI, userAPI, departmentAPI, taskTemplateAPI, getBackendBaseUrl } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import Navbar from './Navbar.jsx';
@@ -1109,7 +1109,7 @@ const KanbanBoard = () => {
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <a
-                              href={att.path ? `http://localhost:5000${att.path}` : '#'}
+                              href={att.path ? `${getBackendBaseUrl()}${att.path}` : '#'}
                               target="_blank"
                               rel="noreferrer"
                               className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"

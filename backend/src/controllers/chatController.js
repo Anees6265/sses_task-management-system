@@ -7,34 +7,13 @@ exports.getConversations = async (req, res) => {
     const userId = req.user._id;
     console.log('🔍 Getting conversations for user:', req.user.email, 'Role:', req.user.role, 'Department:', req.user.department);
     
-    // Get all users the current user can chat with
-    let allowedUsers = [];
+    // Return all active users (excluding current user) so any team member can chat with any other user
+    const allowedUsers = await User.find({
+      _id: { $ne: userId },
+      status: { $ne: 'inactive' }
+    }).select('name email role department status');
     
-    if (req.user.role === 'admin') {
-      // Admin can chat with everyone
-      allowedUsers = await User.find({ _id: { $ne: userId } }).select('name email role department');
-      console.log('✅ Admin - Found', allowedUsers.length, 'users');
-    } else if (req.user.role === 'hod') {
-      // HOD can chat with admin and faculty in their department
-      allowedUsers = await User.find({
-        _id: { $ne: userId },
-        $or: [
-          { role: 'admin' },
-          { department: req.user.department, role: 'user' }
-        ]
-      }).select('name email role department');
-      console.log('✅ HOD - Found', allowedUsers.length, 'users (admin + faculty in', req.user.department, ')');
-    } else {
-      // Faculty can chat with admin and their HOD
-      allowedUsers = await User.find({
-        _id: { $ne: userId },
-        $or: [
-          { role: 'admin' },
-          { role: 'hod', department: req.user.department }
-        ]
-      }).select('name email role department');
-      console.log('✅ Faculty - Found', allowedUsers.length, 'users (admin + HOD in', req.user.department, ')');
-    }
+    console.log('✅ Found', allowedUsers.length, 'potential chat partners');
     
     // Get last message with each user
     const conversations = await Promise.all(
@@ -54,17 +33,21 @@ exports.getConversations = async (req, res) => {
         
         return {
           user,
-          lastMessage,
+          lastMessage: lastMessage ? {
+            ...lastMessage.toObject(),
+            message: decrypt(lastMessage.message)
+          } : null,
           unreadCount
         };
       })
     );
     
-    // Sort by last message time
+    // Sort by last message time, and secondary by name
     conversations.sort((a, b) => {
-      const timeA = a.lastMessage?.createdAt || 0;
-      const timeB = b.lastMessage?.createdAt || 0;
-      return timeB - timeA;
+      const timeA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+      const timeB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+      if (timeB !== timeA) return timeB - timeA;
+      return (a.user.name || '').localeCompare(b.user.name || '');
     });
     
     console.log('✅ Returning', conversations.length, 'conversations');
@@ -102,6 +85,7 @@ exports.getMessages = async (req, res) => {
     
     res.json(decryptedMessages);
   } catch (error) {
+    console.error('❌ Error in getMessages:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -109,8 +93,11 @@ exports.getMessages = async (req, res) => {
 exports.sendMessage = async (req, res) => {
   try {
     const { receiver, message } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ message: 'Message content cannot be empty' });
+    }
     
-    const encryptedMessage = encrypt(message);
+    const encryptedMessage = encrypt(message.trim());
     
     const newMessage = await Message.create({
       sender: req.user._id,
@@ -122,11 +109,20 @@ exports.sendMessage = async (req, res) => {
       .populate('sender', 'name email')
       .populate('receiver', 'name email');
     
-    res.status(201).json({
+    const decryptedMessage = {
       ...populatedMessage.toObject(),
       message: decrypt(populatedMessage.message)
-    });
+    };
+    
+    // Broadcast via socket if io instance is available
+    const io = req.app.get('io');
+    if (io) {
+      io.to(String(receiver)).emit('receive-message', decryptedMessage);
+    }
+    
+    res.status(201).json(decryptedMessage);
   } catch (error) {
+    console.error('❌ Error in sendMessage:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -142,6 +138,8 @@ exports.markAsRead = async (req, res) => {
     
     res.json({ message: 'Messages marked as read' });
   } catch (error) {
+    console.error('❌ Error in markAsRead:', error);
     res.status(500).json({ message: error.message });
   }
 };
+

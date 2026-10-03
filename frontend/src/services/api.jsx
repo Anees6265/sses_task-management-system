@@ -1,8 +1,7 @@
 import axios from 'axios';
 import { Capacitor } from '@capacitor/core';
 
-// PRODUCTION: Use your deployed backend URL
-const API_URL = import.meta.env.VITE_API_URL || 'https://sses-task-management-system.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 console.log('=== API Configuration ===');
 console.log('API_URL:', API_URL);
@@ -250,10 +249,15 @@ export const chatAPI = {
   markAsRead: (userId) => api.put(`/chat/read/${userId}`)
 };
 
-// Socket.IO connection helper
+// Socket.IO and backend base URL connection helpers
 export const getSocketUrl = () => {
-  const API_URL = import.meta.env.VITE_API_URL || 'https://sses-task-management-system.onrender.com/api';
-  return API_URL.replace('/api', '');
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  return API_URL.replace(/\/api\/?$/, '');
+};
+
+export const getBackendBaseUrl = () => {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  return API_URL.replace(/\/api\/?$/, '');
 };
 
 export const notificationAPI = {
