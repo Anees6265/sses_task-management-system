@@ -36,6 +36,7 @@ import {
   FiFileText
 } from 'react-icons/fi';
 
+import LeaveDashboard from './LeaveDashboard.jsx';
 import DepartmentDashboard from './DepartmentDashboard.jsx';
 import DepartmentDetailPage from './DepartmentDetailPage.jsx';
 import FacultyProfilePage from './FacultyProfilePage.jsx';
@@ -639,7 +640,23 @@ const KanbanBoard = () => {
               <Dashboard onFacultyClick={handleFacultyClick} onSelectDepartment={handleSelectDepartment} />
             )}
 
-            {activeView !== 'dashboard' && activeView !== 'chats' && activeView !== 'analytics' && activeView !== 'settings' && (
+            {activeView === 'leaves' && (
+              <LeaveDashboard onSelectDepartment={handleSelectDepartment} onOpenFacultyProfile={handleOpenFacultyProfile} />
+            )}
+
+            {activeView === 'departments-overview' && (
+              <DepartmentDashboard onSelectDepartment={handleSelectDepartment} />
+            )}
+
+            {activeView === 'dept-detail' && (
+              <DepartmentDetailPage departmentName={selectedDepartmentName} onBack={() => setActiveView('departments-overview')} onOpenFacultyProfile={handleOpenFacultyProfile} />
+            )}
+
+            {activeView === 'faculty-profile' && (
+              <FacultyProfilePage targetUser={selectedFacultyForProfile || user} onBack={() => setActiveView('leaves')} />
+            )}
+
+            {activeView !== 'dashboard' && activeView !== 'leaves' && activeView !== 'departments-overview' && activeView !== 'dept-detail' && activeView !== 'faculty-profile' && activeView !== 'chats' && activeView !== 'users' && activeView !== 'analytics' && activeView !== 'settings' && (
               <>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 md:mb-6 gap-2 md:gap-3">
                   <div className="flex items-center gap-3">
@@ -714,11 +731,11 @@ const KanbanBoard = () => {
         {/* Create / Edit Task Modal with HOD Features */}
         {showModal && (
           <div
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
             onClick={() => setShowModal(false)}
           >
             <div 
-              className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100 fade-in space-y-5"
+              className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-2xl shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in space-y-5"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header & Sub-Tabs */}
@@ -1120,8 +1137,8 @@ const KanbanBoard = () => {
 
         {/* Delete Confirmation Modal */}
         {deleteConfirm && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 text-center fade-in">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in">
               <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <FiTrash2 className="w-6 h-6" />
               </div>

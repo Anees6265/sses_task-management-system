@@ -198,6 +198,11 @@ export const leaveAPI = {
   getLeaves: () => api.get('/leaves'),
   getLeaveStats: () => api.get('/leaves/stats'),
   getDailyAttendance: () => api.get('/leaves/attendance'),
+  getSundayAttendance: (params) => api.get('/leaves/sunday-attendance', { params }),
+  toggleSundayAttendance: (data) => api.post('/leaves/sunday-attendance/toggle', data),
+  getHolidays: () => api.get('/leaves/holidays'),
+  announceHoliday: (data) => api.post('/leaves/holidays', data),
+  deleteHoliday: (id) => api.delete(`/leaves/holidays/${id}`),
   updateLeaveStatus: (id, data) => api.put(`/leaves/${id}/status`, data),
   cancelLeave: (id) => api.delete(`/leaves/${id}`)
 };
