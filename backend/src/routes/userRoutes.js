@@ -24,7 +24,7 @@ router.get('/:id/history', protect, getFacultyTaskHistory);
 
 router.post('/', protect, admin, createUser);
 router.put('/profile', protect, updateUserProfile);
-router.put('/:id/department', protect, admin, updateUserDepartment);
+router.put('/:id/department', protect, updateUserDepartment);
 router.put('/:id/assign-department', protect, assignFacultyDepartment);
 router.put('/:id/remove-department', protect, removeFacultyDepartment);
 router.put('/:id', protect, updateUser);

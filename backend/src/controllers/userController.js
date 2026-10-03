@@ -10,7 +10,7 @@ exports.getAllUsers = async (req, res) => {
       const filter = (req.user.role === 'admin' || req.user.role === 'hod')
         ? (req.user.role === 'admin' ? {} : { department: req.user.department })
         : { department: req.user.department };
-      const users = await User.find(filter).select('name email department role phoneNumber');
+      const users = await User.find(filter).select('name email department role phoneNumber status');
       return res.json(users);
     }
   } catch (error) {
@@ -27,7 +27,8 @@ exports.getAllUsers = async (req, res) => {
     email: u.email, 
     department: u.department, 
     role: u.role, 
-    phoneNumber: u.phoneNumber 
+    phoneNumber: u.phoneNumber,
+    status: u.status || 'active'
   })));
 };
 
@@ -82,37 +83,67 @@ exports.updateUserDepartment = async (req, res) => {
       return res.status(400).json({ message: 'Department is required' });
     }
 
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Only Admin can change user department' });
-    }
+    let targetUser = null;
+    let isMongoDoc = false;
 
     if (mongoose.connection.readyState === 1) {
       try {
-        const updatedUser = await User.findByIdAndUpdate(
-          id,
-          { department },
-          { new: true, runValidators: true }
-        ).select('name email department role phoneNumber');
-
-        if (updatedUser) {
-          const demoIndex = demoUsers.findIndex(u => String(u._id) === String(id));
-          if (demoIndex !== -1) {
-            demoUsers[demoIndex].department = department;
-          }
-          return res.json(updatedUser);
-        }
-      } catch (dbErr) {
-        console.warn('DB update failed, updating mock store:', dbErr.message);
+        targetUser = await User.findById(id);
+        if (targetUser) isMongoDoc = true;
+      } catch (err) {
+        console.warn('MongoDB findById failed:', err.message);
       }
     }
 
-    const demoIndex = demoUsers.findIndex(u => String(u._id) === String(id));
-    if (demoIndex !== -1) {
-      demoUsers[demoIndex].department = department;
-      return res.json(demoUsers[demoIndex]);
+    if (!targetUser) {
+      targetUser = demoUsers.find(u => String(u._id) === String(id));
     }
 
-    return res.status(404).json({ message: 'User not found' });
+    if (!targetUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (req.user.role === 'hod') {
+      if (targetUser.role !== 'user') {
+        return res.status(403).json({ message: 'HOD can only change department for faculty members' });
+      }
+    } else if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only Admin or HOD can change user department' });
+    }
+
+    if (isMongoDoc) {
+      targetUser.department = department;
+      await targetUser.save();
+
+      const demoIndex = demoUsers.findIndex(u => String(u._id) === String(id));
+      if (demoIndex !== -1) {
+        demoUsers[demoIndex].department = department;
+      }
+      return res.json({
+        _id: targetUser._id,
+        name: targetUser.name,
+        email: targetUser.email,
+        department: targetUser.department,
+        role: targetUser.role,
+        status: targetUser.status || 'active',
+        phoneNumber: targetUser.phoneNumber
+      });
+    } else {
+      targetUser.department = department;
+      const demoIndex = demoUsers.findIndex(u => String(u._id) === String(id));
+      if (demoIndex !== -1) {
+        demoUsers[demoIndex].department = department;
+      }
+      return res.json({
+        _id: targetUser._id,
+        name: targetUser.name,
+        email: targetUser.email,
+        department: targetUser.department,
+        role: targetUser.role,
+        status: targetUser.status || 'active',
+        phoneNumber: targetUser.phoneNumber
+      });
+    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -221,7 +252,7 @@ exports.createUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, phoneNumber } = req.body;
+    const { name, email, phoneNumber, department, role, status } = req.body;
 
     let targetUser = null;
     let isMongoDoc = false;
@@ -264,12 +295,26 @@ exports.updateUser = async (req, res) => {
       }
     }
 
-    if (isMongoDoc) {
-      if (name) targetUser.name = name.trim();
-      if (phoneNumber !== undefined) targetUser.phoneNumber = phoneNumber.trim();
-      if (email && (req.user.role === 'admin' || req.user.role === 'hod')) {
-        targetUser.email = email.toLowerCase().trim();
+    if (name) targetUser.name = name.trim();
+    if (phoneNumber !== undefined) targetUser.phoneNumber = phoneNumber.trim();
+    if (email && (req.user.role === 'admin' || req.user.role === 'hod')) {
+      targetUser.email = email.toLowerCase().trim();
+    }
+    if (department && (req.user.role === 'admin' || req.user.role === 'hod')) {
+      targetUser.department = department.trim();
+    }
+    if (status && (req.user.role === 'admin' || req.user.role === 'hod')) {
+      if (['active', 'inactive'].includes(status)) {
+        targetUser.status = status;
       }
+    }
+    if (role && req.user.role === 'admin') {
+      if (['admin', 'hod', 'user'].includes(role)) {
+        targetUser.role = role;
+      }
+    }
+
+    if (isMongoDoc) {
       await targetUser.save();
 
       try {
@@ -288,6 +333,9 @@ exports.updateUser = async (req, res) => {
         demoUsers[demoIndex].name = targetUser.name;
         demoUsers[demoIndex].email = targetUser.email;
         demoUsers[demoIndex].phoneNumber = targetUser.phoneNumber;
+        demoUsers[demoIndex].department = targetUser.department;
+        demoUsers[demoIndex].status = targetUser.status;
+        demoUsers[demoIndex].role = targetUser.role;
       }
 
       return res.json({
@@ -300,10 +348,14 @@ exports.updateUser = async (req, res) => {
         phoneNumber: targetUser.phoneNumber
       });
     } else {
-      if (name) targetUser.name = name.trim();
-      if (phoneNumber !== undefined) targetUser.phoneNumber = phoneNumber.trim();
-      if (email && (req.user.role === 'admin' || req.user.role === 'hod')) {
-        targetUser.email = email.toLowerCase().trim();
+      const demoIndex = demoUsers.findIndex(u => String(u._id) === String(id));
+      if (demoIndex !== -1) {
+        demoUsers[demoIndex].name = targetUser.name;
+        demoUsers[demoIndex].email = targetUser.email;
+        demoUsers[demoIndex].phoneNumber = targetUser.phoneNumber;
+        demoUsers[demoIndex].department = targetUser.department;
+        demoUsers[demoIndex].status = targetUser.status;
+        demoUsers[demoIndex].role = targetUser.role;
       }
       return res.json({
         _id: targetUser._id,
