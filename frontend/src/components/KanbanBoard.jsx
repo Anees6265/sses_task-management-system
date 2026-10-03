@@ -38,6 +38,7 @@ import {
   FiFileText
 } from 'react-icons/fi';
 
+import LeaveDashboard from './LeaveDashboard.jsx';
 import DepartmentDashboard from './DepartmentDashboard.jsx';
 import DepartmentDetailPage from './DepartmentDetailPage.jsx';
 import FacultyProfilePage from './FacultyProfilePage.jsx';
@@ -186,7 +187,7 @@ const KanbanBoard = () => {
     const sourceTasks = [...tasks[source.droppableId]];
     const destTasks = [...tasks[destination.droppableId]];
     const [movedTask] = sourceTasks.splice(source.index, 1);
-    
+
     // Update task status optimistically so card status dropdown and object remain in sync
     const updatedTask = { ...movedTask, status: destination.droppableId };
     destTasks.splice(destination.index, 0, updatedTask);
@@ -211,7 +212,7 @@ const KanbanBoard = () => {
     e.preventDefault();
 
     const taskData = { ...newTask };
-    
+
     if (newTask.assignType === 'multi') {
       taskData.assignedTo = newTask.assignedUsers;
       delete taskData.assignType;
@@ -227,7 +228,7 @@ const KanbanBoard = () => {
     }
 
     if (!taskData.dueDate) delete taskData.dueDate;
-    
+
     if (user?.role === 'admin') {
       if (!taskData.department) {
         toast.error('Please select a department', { position: 'top-center', autoClose: 2000 });
@@ -238,7 +239,7 @@ const KanbanBoard = () => {
     } else {
       delete taskData.department;
     }
-    
+
     setShowModal(false);
     setLoading(true);
 
@@ -250,7 +251,7 @@ const KanbanBoard = () => {
         await taskAPI.createTask(taskData);
         toast.success('Task created successfully!', { position: 'top-center', autoClose: 2000 });
       }
-      
+
       setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '', assignType: 'single', assignedUsers: [] });
       setUserSearchQuery('');
       setEditingTask(null);
@@ -447,7 +448,7 @@ const KanbanBoard = () => {
 
   const Column = ({ title, tasks, droppableId, icon: IconComponent, badgeColor }) => {
     const hasScroll = tasks.length > 5;
-    
+
     return (
       <div className="w-full lg:flex-1 lg:min-w-[300px]">
         <div className="bg-white/80 backdrop-blur-md rounded-3xl p-4 border border-slate-200/80 shadow-md flex flex-col min-h-[500px]">
@@ -462,15 +463,14 @@ const KanbanBoard = () => {
               {tasks.length}
             </span>
           </div>
-          
+
           <Droppable droppableId={droppableId}>
             {(provided, snapshot) => (
               <div
                 ref={provided.innerRef}
                 {...provided.droppableProps}
-                className={`space-y-3 flex-1 transition-colors rounded-2xl p-1 ${
-                  snapshot.isDraggingOver ? 'bg-orange-50/50 border-2 border-dashed border-orange-300' : ''
-                }`}
+                className={`space-y-3 flex-1 transition-colors rounded-2xl p-1 ${snapshot.isDraggingOver ? 'bg-orange-50/50 border-2 border-dashed border-orange-300' : ''
+                  }`}
               >
                 {tasks.map((task, index) => (
                   <Draggable key={task._id} draggableId={task._id} index={index}>
@@ -479,9 +479,8 @@ const KanbanBoard = () => {
                         ref={provided.innerRef}
                         {...provided.draggableProps}
                         {...provided.dragHandleProps}
-                        className={`bg-white rounded-2xl border border-slate-200/90 p-4 hover:border-orange-300 transition-all duration-200 glass-card-hover ${
-                          snapshot.isDragging ? 'shadow-2xl rotate-2 scale-105 border-orange-500' : 'shadow-sm'
-                        }`}
+                        className={`bg-white rounded-2xl border border-slate-200/90 p-4 hover:border-orange-300 transition-all duration-200 glass-card-hover ${snapshot.isDragging ? 'shadow-2xl rotate-2 scale-105 border-orange-500' : 'shadow-sm'
+                          }`}
                       >
                         <div className="flex justify-between items-start mb-2 gap-2">
                           <h4 className="font-bold text-slate-800 text-sm md:text-base leading-snug break-words flex-1">
@@ -525,49 +524,46 @@ const KanbanBoard = () => {
                             )}
                           </div>
                         </div>
-                        
+
                         {task.description && (
                           <p className="text-xs text-slate-500 mb-3 line-clamp-2 leading-relaxed">
                             {task.description}
                           </p>
                         )}
-                        
+
                         {task.assignedTo && task.assignedTo.length > 0 && (
                           <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-slate-600">
                             <FiUser className="w-3.5 h-3.5 text-slate-400" />
                             <span className="truncate">
-                              {Array.isArray(task.assignedTo) 
+                              {Array.isArray(task.assignedTo)
                                 ? task.assignedTo.map(u => u.name).join(', ')
                                 : task.assignedTo.name}
                             </span>
                           </div>
                         )}
-                        
+
                         {task.dueDate && (
                           <div className="flex items-center gap-1.5 mb-3 text-xs font-medium">
                             <FiCalendar className="w-3.5 h-3.5 text-slate-400" />
-                            <span className={`${
-                              new Date(task.dueDate) < new Date() && task.status !== 'completed'
+                            <span className={`${new Date(task.dueDate) < new Date() && task.status !== 'completed'
                                 ? 'text-rose-600 font-bold'
                                 : 'text-slate-600'
-                            }`}>
+                              }`}>
                               {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                             </span>
                           </div>
                         )}
-                        
+
                         <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                          <span className={`px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] flex items-center gap-1 ${
-                            task.priority === 'high' ? 'bg-rose-100 text-rose-700 border border-rose-200' :
-                            task.priority === 'medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                            'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${
-                              task.priority === 'high' ? 'bg-rose-500' : task.priority === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'
-                            }`} />
+                          <span className={`px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] flex items-center gap-1 ${task.priority === 'high' ? 'bg-rose-100 text-rose-700 border border-rose-200' :
+                              task.priority === 'medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                            }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${task.priority === 'high' ? 'bg-rose-500' : task.priority === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'
+                              }`} />
                             <span>{task.priority}</span>
                           </span>
-                          
+
                           <span className="text-[11px] text-slate-400 font-semibold">
                             {new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </span>
@@ -577,7 +573,7 @@ const KanbanBoard = () => {
                   </Draggable>
                 ))}
                 {provided.placeholder}
-                
+
                 {tasks.length === 0 && (
                   <div className="text-center py-12 text-slate-400">
                     <FiInbox className="w-10 h-10 mx-auto mb-2 text-slate-300" />
@@ -594,27 +590,27 @@ const KanbanBoard = () => {
 
   return (
     <>
-      <ToastContainer 
-        position="top-center" 
-        autoClose={3000} 
-        hideProgressBar={false} 
-        newestOnTop 
-        closeOnClick 
-        theme="light" 
+      <ToastContainer
+        position="top-center"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        theme="light"
         style={{ zIndex: 9999, top: '70px' }}
       />
       {loading && <Loader />}
       <div className="min-h-screen bg-slate-50/50 pt-[60px] md:pt-[68px]">
-        <Navbar 
-          onMenuClick={() => setIsMobileSidebarOpen(true)} 
-          onFacultyCreated={() => setSidebarRefreshTrigger(prev => prev + 1)} 
+        <Navbar
+          onMenuClick={() => setIsMobileSidebarOpen(true)}
+          onFacultyCreated={() => setSidebarRefreshTrigger(prev => prev + 1)}
           onOpenProfile={() => handleOpenFacultyProfile(user)}
         />
-        
+
         <div className="flex flex-col md:flex-row">
-          <Sidebar 
-            activeView={activeView} 
-            setActiveView={setActiveView} 
+          <Sidebar
+            activeView={activeView}
+            setActiveView={setActiveView}
             userRole={user?.role}
             isMobileOpen={isMobileSidebarOpen}
             setIsMobileOpen={setIsMobileSidebarOpen}
@@ -625,10 +621,9 @@ const KanbanBoard = () => {
               localStorage.setItem('sidebar_collapsed', String(collapsed));
             }}
           />
-          
-          <main className={`flex-1 p-4 md:p-6 overflow-x-hidden transition-all duration-300 ${
-            isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'
-          }`}>
+
+          <main className={`flex-1 p-4 md:p-6 overflow-x-hidden transition-all duration-300 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'
+            }`}>
             {(activeView === 'dashboard' && (user?.role === 'admin' || user?.role === 'hod')) && (
               <Dashboard onFacultyClick={handleFacultyClick} onSelectDepartment={handleSelectDepartment} />
             )}
@@ -690,25 +685,25 @@ const KanbanBoard = () => {
 
                 <DragDropContext onDragEnd={handleDragEnd}>
                   <div className="flex flex-col lg:grid lg:grid-cols-3 gap-5">
-                    <Column 
-                      title={t('todo')} 
-                      tasks={tasks.todo} 
-                      droppableId="todo" 
-                      icon={FiClock} 
+                    <Column
+                      title={t('todo')}
+                      tasks={tasks.todo}
+                      droppableId="todo"
+                      icon={FiClock}
                       badgeColor="bg-indigo-600"
                     />
-                    <Column 
-                      title={t('inProgress')} 
-                      tasks={tasks.inprogress} 
-                      droppableId="inprogress" 
-                      icon={FiList} 
+                    <Column
+                      title={t('inProgress')}
+                      tasks={tasks.inprogress}
+                      droppableId="inprogress"
+                      icon={FiList}
                       badgeColor="bg-amber-500"
                     />
-                    <Column 
-                      title={t('completed')} 
-                      tasks={tasks.completed} 
-                      droppableId="completed" 
-                      icon={FiCheckCircle} 
+                    <Column
+                      title={t('completed')}
+                      tasks={tasks.completed}
+                      droppableId="completed"
+                      icon={FiCheckCircle}
                       badgeColor="bg-emerald-600"
                     />
                   </div>
@@ -758,7 +753,7 @@ const KanbanBoard = () => {
                   <FiX className="w-5 h-5" />
                 </button>
               </div>
-              
+
               <form onSubmit={handleCreateTask} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{t('taskTitle')} *</label>
@@ -771,7 +766,7 @@ const KanbanBoard = () => {
                     required
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{t('description')}</label>
                   <textarea
@@ -782,7 +777,7 @@ const KanbanBoard = () => {
                     rows="3"
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{t('priority')}</label>
@@ -796,7 +791,7 @@ const KanbanBoard = () => {
                       <option value="high">High Priority</option>
                     </select>
                   </div>
-                  
+
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{t('dueDate')}</label>
                     <input
@@ -808,7 +803,7 @@ const KanbanBoard = () => {
                     />
                   </div>
                 </div>
-                
+
                 {user?.role === 'admin' && (
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{t('selectDepartment')} *</label>
@@ -837,11 +832,11 @@ const KanbanBoard = () => {
                     />
                   </div>
                 )}
-                
+
                 {(user?.role === 'admin' || user?.role === 'hod') && (
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">{t('assignTo')}</label>
-                    
+
                     <div className="flex gap-4 mb-3">
                       <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
                         <input
@@ -866,7 +861,7 @@ const KanbanBoard = () => {
                         <span>Multiple Faculty</span>
                       </label>
                     </div>
-                    
+
                     {newTask.assignType === 'single' && (
                       <select
                         className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition"
@@ -881,7 +876,7 @@ const KanbanBoard = () => {
                           ))}
                       </select>
                     )}
-                    
+
                     {newTask.assignType === 'multi' && (
                       <div className="border border-slate-200 rounded-2xl overflow-hidden">
                         <div className="p-3 bg-slate-50 border-b border-slate-200 relative">
@@ -894,17 +889,17 @@ const KanbanBoard = () => {
                             className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400"
                           />
                         </div>
-                        
+
                         {newTask.assignedUsers.length > 0 && (
                           <div className="px-4 py-2 bg-orange-50 text-orange-700 text-xs font-bold border-b border-orange-200">
                             ✓ {newTask.assignedUsers.length} faculty member(s) selected
                           </div>
                         )}
-                        
+
                         <div className="p-3 max-h-40 overflow-y-auto space-y-1">
                           {users
                             .filter(u => user?.role === 'admin' ? true : u.department === user?.department)
-                            .filter(u => 
+                            .filter(u =>
                               u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
                               u.email.toLowerCase().includes(userSearchQuery.toLowerCase())
                             )
@@ -930,7 +925,7 @@ const KanbanBoard = () => {
                     )}
                   </div>
                 )}
-                
+
                 <div className="flex gap-3 pt-4 border-t border-slate-100">
                   <button
                     type="submit"

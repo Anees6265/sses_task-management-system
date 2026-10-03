@@ -801,6 +801,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                     const metrics = item.metrics || {};
                     const onTimeRate = metrics.onTimeCompletionRate ?? 0;
 
+<<<<<<< HEAD
                     return (
                       <tr key={faculty._id || idx} className="hover:bg-slate-50/80 transition">
                         <td 
@@ -841,6 +842,12 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
       <Modal isOpen={!!selectedUserForEdit} onClose={() => setSelectedUserForEdit(null)}>
         {selectedUserForEdit && (
           <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 fade-in">
+=======
+      {/* EDIT FACULTY MODAL (HOD & Admin) */}
+      {editingFaculty && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in">
+>>>>>>> dev_shivalika_02
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
               <div className="flex items-center gap-2.5">
                 <div className="p-2.5 bg-orange-100 text-orange-600 rounded-2xl">
@@ -992,10 +999,148 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
         )}
       </Modal>
 
+<<<<<<< HEAD
       {/* Change Department Custom Modal */}
       <Modal isOpen={!!selectedUserForDeptChange} onClose={() => setSelectedUserForDeptChange(null)}>
         {selectedUserForDeptChange && (
           <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 fade-in">
+=======
+      {/* ASSIGN FACULTY TO DEPARTMENT MODAL (HOD / Admin) */}
+      {isAssignModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-orange-100 text-orange-600 rounded-2xl">
+                  <FiUserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-slate-800">Assign Faculty to Department</h3>
+                  <p className="text-xs text-slate-500 font-semibold">Assign available faculty to {user?.department || 'department'}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsAssignModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAssignFaculty} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                  Select Faculty Member *
+                </label>
+                {unassignedUsers.length === 0 ? (
+                  <div className="p-4 bg-slate-50 rounded-2xl text-center text-xs text-slate-500 font-semibold border border-slate-200">
+                    No unassigned faculty available right now.
+                  </div>
+                ) : (
+                  <select
+                    value={selectedUnassignedUser}
+                    onChange={(e) => setSelectedUnassignedUser(e.target.value)}
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-bold text-slate-800 bg-white"
+                    required
+                  >
+                    <option value="">-- Select Faculty --</option>
+                    {unassignedUsers.map(u => (
+                      <option key={u._id} value={u._id}>{u.name} ({u.email})</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="submit"
+                  disabled={assigning || unassignedUsers.length === 0}
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-sm disabled:opacity-50"
+                >
+                  {assigning ? 'Assigning...' : 'Assign to Department'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAssignModalOpen(false)}
+                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* STATUS TOGGLE CONFIRMATION DIALOG */}
+      {statusConfirmUser && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
+              statusConfirmUser.status === 'inactive' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+            }`}>
+              <FiPower className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-extrabold text-slate-800 mb-1 capitalize">
+              {statusConfirmUser.status === 'inactive' ? 'Activate' : 'Deactivate'} Faculty Account?
+            </h3>
+            <p className="text-xs text-slate-500 mb-6">
+              Are you sure you want to {statusConfirmUser.status === 'inactive' ? 'activate' : 'deactivate'} <span className="font-bold text-slate-700">{statusConfirmUser.name}</span>'s account?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleConfirmToggleStatus}
+                className={`flex-1 text-white py-2.5 rounded-xl font-bold text-sm shadow-md transition ${
+                  statusConfirmUser.status === 'inactive' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
+                }`}
+              >
+                Confirm {statusConfirmUser.status === 'inactive' ? 'Activation' : 'Deactivation'}
+              </button>
+              <button
+                onClick={() => setStatusConfirmUser(null)}
+                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REMOVE FACULTY CONFIRMATION DIALOG */}
+      {removeConfirmUser && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in">
+            <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <FiUserMinus className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-extrabold text-slate-800 mb-1">Remove Faculty from Department?</h3>
+            <p className="text-xs text-slate-500 mb-6">
+              Are you sure you want to remove <span className="font-bold text-slate-700">{removeConfirmUser.name}</span> from <span className="font-bold text-slate-700">{user?.department}</span>?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleConfirmRemoveFaculty}
+                className="flex-1 bg-rose-600 text-white py-2.5 rounded-xl font-bold hover:bg-rose-700 transition text-sm shadow-md shadow-rose-600/20"
+              >
+                Confirm Removal
+              </button>
+              <button
+                onClick={() => setRemoveConfirmUser(null)}
+                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Department Modal (Admin Only) */}
+      {selectedUserForDeptChange && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in">
+>>>>>>> dev_shivalika_02
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
               <div className="flex items-center gap-2.5">
                 <div className="p-2.5 bg-orange-100 text-orange-600 rounded-2xl">
@@ -1087,8 +1232,176 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
               </div>
             </form>
           </div>
+<<<<<<< HEAD
         )}
       </Modal>
+=======
+        </div>
+      )}
+
+      {/* Create User Modal (Admin Only) */}
+      {isCreateUserModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-lg shadow-2xl my-auto border border-slate-100 fade-in max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-orange-100 text-orange-600 rounded-2xl">
+                  <FiUserPlus className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg md:text-xl font-extrabold text-slate-800">Create User Account</h3>
+                  <p className="text-xs text-slate-500 font-semibold">Add a new Faculty, HOD, or Admin to SSES</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsCreateUserModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateUserSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Full Name *</label>
+                <div className="relative">
+                  <FiUser className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Prof. John Von Neumann"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                    value={createUserForm.name}
+                    onChange={(e) => setCreateUserForm({ ...createUserForm, name: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Email Address *</label>
+                <div className="relative">
+                  <FiMail className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
+                  <input
+                    type="email"
+                    placeholder="user@ssism.org"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                    value={createUserForm.email}
+                    onChange={(e) => setCreateUserForm({ ...createUserForm, email: e.target.value })}
+                    required
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 font-semibold mt-1">Must be an @ssism.org email domain</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Password *</label>
+                <div className="relative">
+                  <FiLock className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
+                  <input
+                    type="password"
+                    placeholder="Minimum 6 characters"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                    value={createUserForm.password}
+                    onChange={(e) => setCreateUserForm({ ...createUserForm, password: e.target.value })}
+                    required
+                    minLength={6}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">User Role *</label>
+                <select
+                  value={createUserForm.role}
+                  onChange={(e) => setCreateUserForm({ ...createUserForm, role: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-bold text-slate-800 bg-white"
+                >
+                  <option value="user">Faculty (user)</option>
+                  <option value="hod">Head of Department (hod)</option>
+                  <option value="admin">System Administrator (admin)</option>
+                </select>
+              </div>
+
+              {createUserForm.role !== 'admin' && (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Department *</label>
+                  {!isCustomCreateDept ? (
+                    <div className="space-y-2">
+                      <select
+                        value={createUserForm.department}
+                        onChange={(e) => setCreateUserForm({ ...createUserForm, department: e.target.value })}
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-bold text-slate-800 bg-white"
+                      >
+                        {departments.map((dept) => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomCreateDept(true)}
+                        className="text-xs text-orange-600 font-extrabold hover:underline block"
+                      >
+                        + Add Custom Department Name
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        placeholder="Enter custom department name"
+                        value={customCreateDeptName}
+                        onChange={(e) => setCustomCreateDeptName(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomCreateDept(false)}
+                        className="text-xs text-slate-500 font-bold hover:underline block"
+                      >
+                        ← Select from existing department list
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Phone Number (Optional)</label>
+                <div className="relative">
+                  <FiPhone className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
+                  <input
+                    type="tel"
+                    placeholder="+91 9876543210"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                    value={createUserForm.phoneNumber}
+                    onChange={(e) => setCreateUserForm({ ...createUserForm, phoneNumber: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="submit"
+                  disabled={creatingUser}
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <FiCheckCircle className="w-4 h-4" />
+                  <span>{creatingUser ? 'Creating User...' : 'Create User Account'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateUserModalOpen(false)}
+                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+>>>>>>> dev_shivalika_02
     </div>
   );
 };

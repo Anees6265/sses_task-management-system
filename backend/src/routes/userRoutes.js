@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { 
-  getAllUsers, 
-  updateUserDepartment, 
+const {
+  getAllUsers,
+  updateUserDepartment,
   updateUserProfile,
   createUser,
   updateUser,

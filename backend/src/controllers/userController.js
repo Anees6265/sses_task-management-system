@@ -21,12 +21,12 @@ exports.getAllUsers = async (req, res) => {
   if (req.user.role === 'hod') {
     filtered = demoUsers.filter(u => u.department === req.user.department);
   }
-  return res.json(filtered.map(u => ({ 
-    _id: u._id, 
-    name: u.name, 
-    email: u.email, 
-    department: u.department, 
-    role: u.role, 
+  return res.json(filtered.map(u => ({
+    _id: u._id,
+    name: u.name,
+    email: u.email,
+    department: u.department,
+    role: u.role,
     phoneNumber: u.phoneNumber,
     status: u.status || 'active'
   })));
@@ -41,9 +41,9 @@ exports.updateUserProfile = async (req, res) => {
       try {
         const updatedUser = await User.findByIdAndUpdate(
           userId,
-          { 
-            ...(name && { name: name.trim() }), 
-            ...(phoneNumber !== undefined && { phoneNumber: phoneNumber.trim() }) 
+          {
+            ...(name && { name: name.trim() }),
+            ...(phoneNumber !== undefined && { phoneNumber: phoneNumber.trim() })
           },
           { new: true, runValidators: true }
         ).select('name email department role phoneNumber');
@@ -794,7 +794,7 @@ exports.assignFacultyDepartment = async (req, res) => {
           departmentName: targetDept,
           details: { facultyId: targetUser._id, name: targetUser.name, previousDepartment: prevDept, newDepartment: targetDept }
         });
-      } catch (lErr) {}
+      } catch (lErr) { }
 
       return res.json({ message: `Faculty ${targetUser.name} assigned to ${targetDept} department`, user: targetUser });
     } else {
@@ -850,7 +850,7 @@ exports.removeFacultyDepartment = async (req, res) => {
           departmentName: prevDept,
           details: { facultyId: targetUser._id, name: targetUser.name, previousDepartment: prevDept }
         });
-      } catch (lErr) {}
+      } catch (lErr) { }
 
       return res.json({ message: `Faculty ${targetUser.name} removed from ${prevDept} department`, user: targetUser });
     } else {
