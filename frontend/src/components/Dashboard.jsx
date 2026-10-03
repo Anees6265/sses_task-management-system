@@ -4,14 +4,14 @@ import { useLanguage } from '../context/LanguageContext.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import FacultyProfileModal from './FacultyProfileModal.jsx';
 import Modal from './Modal.jsx';
-import { 
-  FiPieChart, 
-  FiCheckCircle, 
-  FiClock, 
-  FiTrendingUp, 
-  FiList, 
-  FiBriefcase, 
-  FiUsers, 
+import {
+  FiPieChart,
+  FiCheckCircle,
+  FiClock,
+  FiTrendingUp,
+  FiList,
+  FiBriefcase,
+  FiUsers,
   FiFolder,
   FiActivity,
   FiCalendar,
@@ -57,7 +57,14 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
   };
 
   if (loading) {
-    return null;
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-slate-600 font-bold text-sm">{t('loadingDashboard')}</p>
+        </div>
+      </div>
+    );
   }
 
   const calculateProgress = (completed, total) => {
@@ -173,10 +180,10 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {stats.facultyStats.map((faculty) => {
               const facultyProgress = calculateProgress(faculty.completed, faculty.total);
-              
+
               return (
-                <div 
-                  key={faculty._id} 
+                <div
+                  key={faculty._id}
                   onClick={() => onFacultyClick && onFacultyClick(faculty._id)}
                   className="glass-card glass-card-hover rounded-2xl p-5 border border-slate-200/80 hover:border-orange-400 cursor-pointer"
                 >
@@ -215,7 +222,7 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
                   </div>
 
                   <div className="bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full transition-all duration-500"
                       style={{ width: `${facultyProgress}%` }}
                     />
@@ -228,40 +235,59 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {stats.departmentStats.map((dept) => {
               const deptProgress = calculateProgress(dept.completed, dept.total);
-              
+
               return (
-                <div key={dept._id} className="glass-card glass-card-hover rounded-2xl p-5 border border-slate-200/80">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-base font-bold text-slate-800 truncate pr-2">{dept._id}</h4>
-                    <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-2.5 py-0.5 rounded-full text-xs font-extrabold flex-shrink-0">
-                      {deptProgress}%
+                <div
+                  key={dept._id}
+                  onClick={() => onSelectDepartment && onSelectDepartment(dept._id)}
+                  className="glass-card glass-card-hover rounded-2xl p-5 border border-slate-200/80 hover:border-orange-500 cursor-pointer transition-all group shadow-sm hover:shadow-xl flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 text-white font-extrabold flex items-center justify-center text-sm shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
+                          {dept._id.charAt(0)}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-extrabold text-slate-900 group-hover:text-orange-600 transition-colors">{dept._id}</h4>
+                          <p className="text-[11px] font-semibold text-slate-400">Department Performance</p>
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-2.5 py-0.5 rounded-full text-xs font-black flex-shrink-0 shadow-xs">
+                        {deptProgress}%
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 mb-4 text-xs font-semibold">
+                      <div className="flex justify-between items-center text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                        <span className="flex items-center gap-1.5"><FiList className="w-3.5 h-3.5 text-slate-400" /> Total Tasks</span>
+                        <span className="font-extrabold text-slate-800">{dept.total}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-slate-600 bg-indigo-50/50 p-2 rounded-xl border border-indigo-100/50">
+                        <span className="flex items-center gap-1.5"><FiClock className="w-3.5 h-3.5 text-indigo-500" /> To Do</span>
+                        <span className="font-extrabold text-indigo-600">{dept.todo}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-slate-600 bg-amber-50/50 p-2 rounded-xl border border-amber-100/50">
+                        <span className="flex items-center gap-1.5"><FiTrendingUp className="w-3.5 h-3.5 text-amber-500" /> In Progress</span>
+                        <span className="font-extrabold text-amber-600">{dept.inprogress}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-slate-600 bg-emerald-50/50 p-2 rounded-xl border border-emerald-100/50">
+                        <span className="flex items-center gap-1.5"><FiCheckCircle className="w-3.5 h-3.5 text-emerald-500" /> Completed</span>
+                        <span className="font-extrabold text-emerald-600">{dept.completed}</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-100 h-2 rounded-full overflow-hidden mb-3">
+                      <div
+                        className="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${deptProgress}%` }}
+                      />
                     </div>
                   </div>
 
-                  <div className="space-y-2 mb-4 text-xs font-semibold">
-                    <div className="flex justify-between items-center text-slate-600">
-                      <span className="flex items-center gap-1.5"><FiList className="w-3.5 h-3.5 text-slate-400" /> {t('total')}</span>
-                      <span className="font-extrabold text-slate-800">{dept.total}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-slate-600">
-                      <span className="flex items-center gap-1.5"><FiClock className="w-3.5 h-3.5 text-indigo-500" /> {t('todo')}</span>
-                      <span className="font-bold text-indigo-600">{dept.todo}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-slate-600">
-                      <span className="flex items-center gap-1.5"><FiTrendingUp className="w-3.5 h-3.5 text-amber-500" /> {t('progress')}</span>
-                      <span className="font-bold text-amber-600">{dept.inprogress}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-slate-600">
-                      <span className="flex items-center gap-1.5"><FiCheckCircle className="w-3.5 h-3.5 text-emerald-500" /> Done</span>
-                      <span className="font-bold text-emerald-600">{dept.completed}</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div 
-                      className="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${deptProgress}%` }}
-                    />
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-400 group-hover:text-orange-600">
+                    <span>View Department Tasks & Details</span>
+                    <span>➔</span>
                   </div>
                 </div>
               );
@@ -312,7 +338,7 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
               {selectedDeptAttendance.leaveRequests && selectedDeptAttendance.leaveRequests.length > 0 ? (
                 <div className="space-y-3">
                   {selectedDeptAttendance.leaveRequests.map((leave) => (
-                    <div 
+                    <div
                       key={leave._id}
                       className="glass-card rounded-2xl p-4 border border-slate-200/80 hover:border-slate-300 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
                     >
@@ -335,11 +361,10 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
                       </div>
 
                       <div className="flex flex-col md:items-end gap-2 border-t md:border-t-0 pt-3 md:pt-0 border-slate-100">
-                        <span className={`px-3 py-1 rounded-full text-xs font-extrabold border w-fit uppercase tracking-wider ${
-                          leave.status === 'approved' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
-                          leave.status === 'rejected' ? 'bg-rose-100 text-rose-800 border-rose-300' :
-                          'bg-amber-100 text-amber-800 border-amber-300'
-                        }`}>
+                        <span className={`px-3 py-1 rounded-full text-xs font-extrabold border w-fit uppercase tracking-wider ${leave.status === 'approved' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                            leave.status === 'rejected' ? 'bg-rose-100 text-rose-800 border-rose-300' :
+                              'bg-amber-100 text-amber-800 border-amber-300'
+                          }`}>
                           {leave.status}
                         </span>
                         <p className="text-xs font-bold text-slate-500">
@@ -366,7 +391,7 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
 
               <div className="space-y-3">
                 {selectedDeptAttendance.facultyList.map((faculty) => (
-                  <div 
+                  <div
                     key={faculty._id}
                     className="glass-card rounded-2xl p-4 border border-slate-200/80 flex items-center justify-between gap-4"
                   >

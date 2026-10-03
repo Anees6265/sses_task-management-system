@@ -4,17 +4,17 @@ import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { toast } from 'react-toastify';
 import Modal from './Modal.jsx';
-import { 
-  FiX, 
-  FiUser, 
-  FiMail, 
-  FiBriefcase, 
-  FiCalendar, 
-  FiClock, 
-  FiCheckCircle, 
-  FiXCircle, 
-  FiCheck, 
-  FiActivity, 
+import {
+  FiX,
+  FiUser,
+  FiMail,
+  FiBriefcase,
+  FiCalendar,
+  FiClock,
+  FiCheckCircle,
+  FiXCircle,
+  FiCheck,
+  FiActivity,
   FiCheckSquare,
   FiFileText,
   FiAward,
@@ -52,7 +52,7 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
 
   const handleOpenMonthLeaveModal = (type) => {
     const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June', 
+      'January', 'February', 'March', 'April', 'May', 'June',
       'July', 'August', 'September', 'October', 'November', 'December'
     ];
     const now = new Date();
@@ -189,14 +189,14 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
           return t.assignedTo.some(u => {
             const uid = u._id || u;
             const uemail = u.email;
-            return (uid && targetId && String(uid) === String(targetId)) || 
-                   (uemail && targetEmail && uemail.toLowerCase() === targetEmail.toLowerCase());
+            return (uid && targetId && String(uid) === String(targetId)) ||
+              (uemail && targetEmail && uemail.toLowerCase() === targetEmail.toLowerCase());
           });
         }
         const uid = t.assignedTo._id || t.assignedTo;
         const uemail = t.assignedTo.email;
-        return (uid && targetId && String(uid) === String(targetId)) || 
-               (uemail && targetEmail && uemail.toLowerCase() === targetEmail.toLowerCase());
+        return (uid && targetId && String(uid) === String(targetId)) ||
+          (uemail && targetEmail && uemail.toLowerCase() === targetEmail.toLowerCase());
       });
       setFacultyTasks(userTasks);
 
@@ -205,7 +205,7 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
       const deptInfo = allDepts.find(d => d.department === targetDept);
       let activeFacultyItem = null;
       if (deptInfo && deptInfo.facultyList) {
-        activeFacultyItem = deptInfo.facultyList.find(f => 
+        activeFacultyItem = deptInfo.facultyList.find(f =>
           (f._id && targetId && String(f._id) === String(targetId)) ||
           (f.email && targetEmail && f.email.toLowerCase() === targetEmail.toLowerCase())
         );
@@ -270,7 +270,7 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
     try {
       const res = await userAPI.updateProfile(editFormData);
       toast.success('Profile updated successfully!', { position: 'top-center' });
-      
+
       setProfileData(prev => prev ? ({
         ...prev,
         name: res.data.name || prev.name,
@@ -317,8 +317,8 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
       const activeLeaveOnDay = approvedLeaves.find(l => {
         const start = new Date(l.startDate);
         const end = new Date(l.endDate);
-        start.setHours(0,0,0,0);
-        end.setHours(23,59,59,999);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
         return dayDate >= start && dayDate <= end;
       });
 
@@ -326,8 +326,8 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
       const activeHolidayOnDay = holidays.find(h => {
         const start = new Date(h.startDate);
         const end = new Date(h.endDate);
-        start.setHours(0,0,0,0);
-        end.setHours(23,59,59,999);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
         return dayDate >= start && dayDate <= end;
       });
 
@@ -564,9 +564,8 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
             <button
               type="button"
               onClick={() => setActiveTab('calendar')}
-              className={`pb-3 font-extrabold text-sm flex items-center gap-2 border-b-2 transition whitespace-nowrap ${
-                activeTab === 'calendar' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
+              className={`pb-3 font-extrabold text-sm flex items-center gap-2 border-b-2 transition whitespace-nowrap ${activeTab === 'calendar' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
             >
               <FiCalendar className="w-4 h-4" />
               <span>1 to 30/31 Daily Leave Calendar Matrix</span>
@@ -574,9 +573,8 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
             <button
               type="button"
               onClick={() => { setActiveTab('history'); setStatusFilter('all'); }}
-              className={`pb-3 font-extrabold text-sm flex items-center gap-2 border-b-2 transition whitespace-nowrap ${
-                (activeTab === 'history' || activeTab === 'leaves') ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
+              className={`pb-3 font-extrabold text-sm flex items-center gap-2 border-b-2 transition whitespace-nowrap ${(activeTab === 'history' || activeTab === 'leaves') ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
             >
               <FiFileText className="w-4 h-4" />
               <span>All Leave Records & Approvals ({facultyLeaves.length})</span>
@@ -584,9 +582,8 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
             <button
               type="button"
               onClick={() => setActiveTab('tasks')}
-              className={`pb-3 font-extrabold text-sm flex items-center gap-2 border-b-2 transition whitespace-nowrap ${
-                activeTab === 'tasks' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
+              className={`pb-3 font-extrabold text-sm flex items-center gap-2 border-b-2 transition whitespace-nowrap ${activeTab === 'tasks' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
             >
               <FiCheckSquare className="w-4 h-4" />
               <span>Faculty Tasks ({facultyTasks.length})</span>
@@ -612,9 +609,8 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
                   <button
                     type="button"
                     onClick={() => setSelectedMonthOffset(-1)}
-                    className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition ${
-                      selectedMonthOffset === -1 ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition ${selectedMonthOffset === -1 ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                      }`}
                   >
                     <FiChevronLeft className="w-4 h-4" />
                     <span>Last Month</span>
@@ -623,9 +619,8 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
                   <button
                     type="button"
                     onClick={() => setSelectedMonthOffset(0)}
-                    className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition ${
-                      selectedMonthOffset === 0 ? 'bg-orange-500 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition ${selectedMonthOffset === 0 ? 'bg-orange-500 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                      }`}
                   >
                     <span>This Month</span>
                   </button>
@@ -633,9 +628,8 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
                   <button
                     type="button"
                     onClick={() => setSelectedMonthOffset(1)}
-                    className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition ${
-                      selectedMonthOffset === 1 ? 'bg-purple-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-                    }`}
+                    className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition ${selectedMonthOffset === 1 ? 'bg-purple-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                      }`}
                   >
                     <span>Next Month</span>
                     <FiChevronRight className="w-4 h-4" />
@@ -784,9 +778,8 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
                   return (
                     <div
                       key={day.dayNumber}
-                      className={`calendar-day-cell rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 border transition-all flex flex-col justify-between min-h-[50px] sm:min-h-[85px] relative group ${cardStyle} ${
-                        day.isToday ? 'ring-2 ring-orange-500 shadow-md' : ''
-                      }`}
+                      className={`calendar-day-cell rounded-xl sm:rounded-2xl p-1.5 sm:p-2.5 border transition-all flex flex-col justify-between min-h-[50px] sm:min-h-[85px] relative group ${cardStyle} ${day.isToday ? 'ring-2 ring-orange-500 shadow-md' : ''
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-0.5 sm:mb-1">
                         <div className="flex items-center gap-1">
@@ -809,9 +802,8 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
                               handleToggleSunday(day.dateISO);
                             }}
                             title={day.isSundayWorked ? 'Sunday Duty Active - Click to Toggle Off' : 'Click to Toggle Sunday Present'}
-                            className={`w-6 h-3.5 sm:w-7 sm:h-4 rounded-full p-0.5 transition-all duration-200 flex items-center cursor-pointer shadow-2xs ${
-                              day.isSundayWorked ? 'bg-emerald-500 justify-end' : 'bg-slate-300 hover:bg-slate-400 justify-start'
-                            }`}
+                            className={`w-6 h-3.5 sm:w-7 sm:h-4 rounded-full p-0.5 transition-all duration-200 flex items-center cursor-pointer shadow-2xs ${day.isSundayWorked ? 'bg-emerald-500 justify-end' : 'bg-slate-300 hover:bg-slate-400 justify-start'
+                              }`}
                           >
                             <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-white rounded-full shadow-md transition-transform" />
                           </button>
@@ -1012,11 +1004,10 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
                         <h4 className="font-extrabold text-slate-800 text-sm">{task.title}</h4>
                         {task.description && <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{task.description}</p>}
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-extrabold uppercase ${
-                        task.status === 'completed' ? 'bg-emerald-100 text-emerald-800' :
-                        task.status === 'inprogress' ? 'bg-amber-100 text-amber-800' :
-                        'bg-indigo-100 text-indigo-800'
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-extrabold uppercase ${task.status === 'completed' ? 'bg-emerald-100 text-emerald-800' :
+                          task.status === 'inprogress' ? 'bg-amber-100 text-amber-800' :
+                            'bg-indigo-100 text-indigo-800'
+                        }`}>
                         {task.status}
                       </span>
                     </div>
@@ -1042,9 +1033,8 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
       {reviewModal && (
         <div className="modal-backdrop-fixed flex items-center justify-center p-4">
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 text-center fade-in">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
-              reviewModal.action === 'approved' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
-            }`}>
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${reviewModal.action === 'approved' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+              }`}>
               {reviewModal.action === 'approved' ? <FiCheck className="w-6 h-6" /> : <FiX className="w-6 h-6" />}
             </div>
 
@@ -1066,9 +1056,8 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
             <div className="flex gap-3">
               <button
                 onClick={handleReviewAction}
-                className={`flex-1 text-white py-2.5 rounded-xl font-bold text-sm shadow-md transition ${
-                  reviewModal.action === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20' : 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'
-                }`}
+                className={`flex-1 text-white py-2.5 rounded-xl font-bold text-sm shadow-md transition ${reviewModal.action === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20' : 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'
+                  }`}
               >
                 Confirm {reviewModal.action}
               </button>
@@ -1163,11 +1152,10 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
                       {selectedMonthDetailsModal.takenLeaves.map((l, idx) => (
                         <div key={l._id || idx} className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className={`px-2 py-0.5 text-[11px] font-extrabold rounded-md uppercase tracking-wider ${
-                              l.leaveType === 'casual' ? 'bg-amber-100 text-amber-800' :
-                              l.leaveType === 'sick' ? 'bg-rose-100 text-rose-800' :
-                              l.leaveType === 'earned' ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-100 text-emerald-800'
-                            }`}>
+                            <span className={`px-2 py-0.5 text-[11px] font-extrabold rounded-md uppercase tracking-wider ${l.leaveType === 'casual' ? 'bg-amber-100 text-amber-800' :
+                                l.leaveType === 'sick' ? 'bg-rose-100 text-rose-800' :
+                                  l.leaveType === 'earned' ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-100 text-emerald-800'
+                              }`}>
                               {l.leaveType} Leave
                             </span>
                             <span className="text-xs font-bold text-slate-700 bg-white px-2 py-0.5 rounded-md border border-slate-200">
@@ -1208,15 +1196,13 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
                       {selectedMonthDetailsModal.upcomingLeaves.map((l, idx) => (
                         <div key={l._id || idx} className="p-3 bg-indigo-50/50 rounded-2xl border border-indigo-200/80 space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className={`px-2 py-0.5 text-[11px] font-extrabold rounded-md uppercase tracking-wider ${
-                              l.leaveType === 'casual' ? 'bg-amber-100 text-amber-800' :
-                              l.leaveType === 'sick' ? 'bg-rose-100 text-rose-800' : 'bg-indigo-100 text-indigo-800'
-                            }`}>
+                            <span className={`px-2 py-0.5 text-[11px] font-extrabold rounded-md uppercase tracking-wider ${l.leaveType === 'casual' ? 'bg-amber-100 text-amber-800' :
+                                l.leaveType === 'sick' ? 'bg-rose-100 text-rose-800' : 'bg-indigo-100 text-indigo-800'
+                              }`}>
                               {l.leaveType} Leave
                             </span>
-                            <span className={`px-2 py-0.5 text-[11px] font-extrabold rounded-md uppercase tracking-wider ${
-                              l.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                            }`}>
+                            <span className={`px-2 py-0.5 text-[11px] font-extrabold rounded-md uppercase tracking-wider ${l.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                              }`}>
                               {l.status}
                             </span>
                           </div>
@@ -1267,9 +1253,8 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
                           <FiCalendar className="w-4 h-4 text-indigo-600" />
                           {mObj.monthName} {mObj.year}
                         </span>
-                        <span className={`px-2.5 py-0.5 text-xs font-extrabold rounded-md ${
-                          mObj.totalDays > 0 ? 'bg-orange-100 text-orange-800' : 'bg-emerald-100 text-emerald-800'
-                        }`}>
+                        <span className={`px-2.5 py-0.5 text-xs font-extrabold rounded-md ${mObj.totalDays > 0 ? 'bg-orange-100 text-orange-800' : 'bg-emerald-100 text-emerald-800'
+                          }`}>
                           {mObj.totalDays} {mObj.totalDays === 1 ? 'Day' : 'Days'} Taken
                         </span>
                       </div>

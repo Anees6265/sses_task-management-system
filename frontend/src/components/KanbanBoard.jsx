@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { taskAPI, userAPI, departmentAPI } from '../services/api.jsx';
+import { taskAPI, userAPI, departmentAPI, taskTemplateAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import Navbar from './Navbar.jsx';
@@ -12,25 +12,33 @@ import Loader from './Loader.jsx';
 import Modal from './Modal.jsx';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { 
-  FiPlus, 
-  FiRefreshCw, 
-  FiArrowLeft, 
-  FiEdit3, 
-  FiTrash2, 
-  FiCalendar, 
-  FiUser, 
-  FiClock, 
-  FiCheckCircle, 
-  FiList, 
-  FiSearch, 
-  FiInbox, 
-  FiX, 
+import {
+  FiPlus,
+  FiRefreshCw,
+  FiArrowLeft,
+  FiEdit3,
+  FiTrash2,
+  FiCalendar,
+  FiUser,
+  FiClock,
+  FiCheckCircle,
+  FiList,
+  FiSearch,
+  FiInbox,
+  FiX,
   FiAlertTriangle,
   FiBriefcase,
-  FiChevronDown
+  FiChevronDown,
+  FiPaperclip,
+  FiMessageSquare,
+  FiRepeat,
+  FiLayers,
+  FiSend,
+  FiDownload,
+  FiFileText
 } from 'react-icons/fi';
 
+import LeaveDashboard from './LeaveDashboard.jsx';
 import DepartmentDashboard from './DepartmentDashboard.jsx';
 import DepartmentDetailPage from './DepartmentDetailPage.jsx';
 import FacultyProfilePage from './FacultyProfilePage.jsx';
@@ -41,13 +49,30 @@ const KanbanBoard = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '', assignType: 'single', assignedUsers: [] });
+
+  // Form State
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    priority: 'medium',
+    dueDate: '',
+    assignedTo: '',
+    department: '',
+    assignType: 'single',
+    assignedUsers: [],
+    isRecurring: false,
+    recurrencePattern: 'none',
+    recurrenceInterval: 1
+  });
+
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [activeView, setActiveView] = useState('board');
   const [selectedDepartmentName, setSelectedDepartmentName] = useState(null);
   const [selectedFacultyForProfile, setSelectedFacultyForProfile] = useState(null);
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     return localStorage.getItem('sidebar_collapsed') === 'true';
@@ -56,6 +81,15 @@ const KanbanBoard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [selectedFacultyId, setSelectedFacultyId] = useState(null);
+
+  // Modal Sub-Tabs (Details | Comments | Attachments | Reassignment)
+  const [modalTab, setModalTab] = useState('details');
+  const [comments, setComments] = useState([]);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [attachments, setAttachments] = useState([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+
   const { user } = useContext(AuthContext);
   const { t } = useLanguage();
 
@@ -73,6 +107,7 @@ const KanbanBoard = () => {
     if (user?.role === 'admin' || user?.role === 'hod') {
       setActiveView('dashboard');
       fetchDepartments();
+      fetchTemplates();
     }
     fetchTasks();
     fetchUsers();
@@ -91,6 +126,15 @@ const KanbanBoard = () => {
     }
   };
 
+  const fetchTemplates = async () => {
+    try {
+      const { data } = await taskTemplateAPI.getTemplates();
+      setTemplates(data || []);
+    } catch (error) {
+      console.error('Error fetching task templates:', error);
+    }
+  };
+
   const fetchTasks = async () => {
     setLoading(true);
     try {
@@ -102,13 +146,13 @@ const KanbanBoard = () => {
         const response = await taskAPI.getTasks();
         data = response.data;
       }
-      
+
       let filteredData = data;
-      
+
       if ((user?.role === 'admin' || user?.role === 'hod') && activeView !== 'dashboard' && activeView !== 'board' && !selectedFacultyId) {
         filteredData = data.filter(task => task.department === activeView);
       }
-      
+
       const grouped = { todo: [], inprogress: [], completed: [] };
       filteredData.forEach(task => {
         if (grouped[task.status]) {
@@ -128,7 +172,7 @@ const KanbanBoard = () => {
   const fetchUsers = async () => {
     try {
       const { data } = await userAPI.getAllUsers();
-      setUsers(data);
+      setUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
@@ -143,7 +187,10 @@ const KanbanBoard = () => {
     const sourceTasks = [...tasks[source.droppableId]];
     const destTasks = [...tasks[destination.droppableId]];
     const [movedTask] = sourceTasks.splice(source.index, 1);
-    destTasks.splice(destination.index, 0, movedTask);
+
+    // Update task status optimistically so card status dropdown and object remain in sync
+    const updatedTask = { ...movedTask, status: destination.droppableId };
+    destTasks.splice(destination.index, 0, updatedTask);
 
     setTasks({
       ...tasks,
@@ -153,16 +200,19 @@ const KanbanBoard = () => {
 
     try {
       await taskAPI.updateTask(draggableId, { status: destination.droppableId });
+      await fetchTasks();
     } catch (error) {
-      fetchTasks();
+      console.error('Error updating task status via drag:', error);
+      toast.error(error.response?.data?.message || 'Failed to update task status');
+      await fetchTasks();
     }
   };
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
-    
+
     const taskData = { ...newTask };
-    
+
     if (newTask.assignType === 'multi') {
       taskData.assignedTo = newTask.assignedUsers;
       delete taskData.assignType;
@@ -176,9 +226,9 @@ const KanbanBoard = () => {
       delete taskData.assignType;
       delete taskData.assignedUsers;
     }
-    
+
     if (!taskData.dueDate) delete taskData.dueDate;
-    
+
     if (user?.role === 'admin') {
       if (!taskData.department) {
         toast.error('Please select a department', { position: 'top-center', autoClose: 2000 });
@@ -189,10 +239,10 @@ const KanbanBoard = () => {
     } else {
       delete taskData.department;
     }
-    
+
     setShowModal(false);
     setLoading(true);
-    
+
     try {
       if (editingTask) {
         await taskAPI.updateTask(editingTask._id, taskData);
@@ -201,7 +251,7 @@ const KanbanBoard = () => {
         await taskAPI.createTask(taskData);
         toast.success('Task created successfully!', { position: 'top-center', autoClose: 2000 });
       }
-      
+
       setNewTask({ title: '', description: '', priority: 'medium', dueDate: '', assignedTo: '', department: '', assignType: 'single', assignedUsers: [] });
       setUserSearchQuery('');
       setEditingTask(null);
@@ -214,23 +264,146 @@ const KanbanBoard = () => {
     }
   };
 
+  const resetTaskForm = () => {
+    setNewTask({
+      title: '',
+      description: '',
+      priority: 'medium',
+      dueDate: '',
+      assignedTo: '',
+      department: user?.role === 'hod' ? user.department : '',
+      assignType: 'single',
+      assignedUsers: [],
+      isRecurring: false,
+      recurrencePattern: 'none',
+      recurrenceInterval: 1
+    });
+    setUserSearchQuery('');
+    setEditingTask(null);
+    setSelectedTemplateId('');
+    setModalTab('details');
+    setComments([]);
+    setAttachments([]);
+    setSelectedFile(null);
+  };
+
   const handleEditTask = (task) => {
     setEditingTask(task);
-    const assignedIds = Array.isArray(task.assignedTo) 
+    const assignedIds = Array.isArray(task.assignedTo)
       ? task.assignedTo.map(u => u._id || u)
       : task.assignedTo ? [task.assignedTo._id || task.assignedTo] : [];
-    
+
     setNewTask({
       title: task.title,
       description: task.description || '',
-      priority: task.priority,
+      priority: task.priority || 'medium',
       dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
       assignedTo: assignedIds.length === 1 ? assignedIds[0] : '',
-      department: task.department || '',
+      department: task.department || (user?.role === 'hod' ? user.department : ''),
       assignType: assignedIds.length > 1 ? 'multi' : 'single',
-      assignedUsers: assignedIds.length > 1 ? assignedIds : []
+      assignedUsers: assignedIds.length > 1 ? assignedIds : [],
+      isRecurring: task.isRecurring || false,
+      recurrencePattern: task.recurrencePattern || 'none',
+      recurrenceInterval: task.recurrenceInterval || 1
     });
+
+    setComments(task.comments || []);
+    setAttachments(task.attachments || []);
+    setModalTab('details');
     setShowModal(true);
+  };
+
+  const handleSelectTemplate = (templateId) => {
+    setSelectedTemplateId(templateId);
+    if (!templateId) return;
+    const tmpl = templates.find(t => String(t._id) === String(templateId));
+    if (tmpl) {
+      const defaultDate = new Date(Date.now() + (tmpl.defaultDueDateOffsetDays || 7) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      setNewTask(prev => ({
+        ...prev,
+        title: tmpl.title,
+        description: tmpl.description || '',
+        priority: tmpl.priority || 'medium',
+        dueDate: defaultDate,
+        department: tmpl.department || (user?.role === 'hod' ? user.department : '')
+      }));
+      toast.info(`Loaded template "${tmpl.title}"`, { autoClose: 1500 });
+    }
+  };
+
+  const handleSaveAsTemplate = async () => {
+    if (!newTask.title.trim()) {
+      toast.error('Please specify a title before saving template');
+      return;
+    }
+    try {
+      await taskTemplateAPI.createTemplate({
+        title: newTask.title.trim(),
+        description: newTask.description.trim(),
+        priority: newTask.priority,
+        department: user?.role === 'hod' ? user.department : (newTask.department || 'General')
+      });
+      toast.success('Saved as task template!');
+      fetchTemplates();
+    } catch (error) {
+      toast.error('Failed to save template');
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!newCommentText.trim() || !editingTask) return;
+    try {
+      const { data } = await taskAPI.addComment(editingTask._id, newCommentText.trim());
+      const updatedComments = data || [];
+      setComments(updatedComments);
+      setEditingTask(prev => prev ? { ...prev, comments: updatedComments } : null);
+      setNewCommentText('');
+      await fetchTasks();
+      toast.success('Comment added');
+    } catch (error) {
+      toast.error('Failed to add comment');
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !editingTask) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size exceeds 10MB limit!');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('attachment', file);
+
+    setUploadingFile(true);
+    try {
+      const { data } = await taskAPI.uploadAttachment(editingTask._id, formData);
+      const updatedAttachments = data || [];
+      setAttachments(updatedAttachments);
+      setEditingTask(prev => prev ? { ...prev, attachments: updatedAttachments } : null);
+      await fetchTasks();
+      toast.success('Attachment uploaded successfully!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to upload attachment');
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId) => {
+    if (!editingTask) return;
+    try {
+      const { data } = await taskAPI.deleteAttachment(editingTask._id, attachmentId);
+      const updatedAttachments = data || [];
+      setAttachments(updatedAttachments);
+      setEditingTask(prev => prev ? { ...prev, attachments: updatedAttachments } : null);
+      await fetchTasks();
+      toast.success('Attachment deleted');
+    } catch (error) {
+      toast.error('Failed to delete attachment');
+    }
   };
 
   const handleDeleteTask = async (id) => {
@@ -241,6 +414,7 @@ const KanbanBoard = () => {
       toast.success('Task deleted!', { position: 'top-center', autoClose: 2000 });
     } catch (error) {
       console.error('Error deleting task:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete task');
     }
   };
 
@@ -274,7 +448,7 @@ const KanbanBoard = () => {
 
   const Column = ({ title, tasks, droppableId, icon: IconComponent, badgeColor }) => {
     const hasScroll = tasks.length > 5;
-    
+
     return (
       <div className="w-full lg:flex-1 lg:min-w-[300px]">
         <div className="bg-white/80 backdrop-blur-md rounded-3xl p-4 border border-slate-200/80 shadow-md flex flex-col min-h-[500px]">
@@ -289,15 +463,14 @@ const KanbanBoard = () => {
               {tasks.length}
             </span>
           </div>
-          
+
           <Droppable droppableId={droppableId}>
             {(provided, snapshot) => (
               <div
                 ref={provided.innerRef}
                 {...provided.droppableProps}
-                className={`space-y-3 flex-1 transition-colors rounded-2xl p-1 ${
-                  snapshot.isDraggingOver ? 'bg-orange-50/50 border-2 border-dashed border-orange-300' : ''
-                }`}
+                className={`space-y-3 flex-1 transition-colors rounded-2xl p-1 ${snapshot.isDraggingOver ? 'bg-orange-50/50 border-2 border-dashed border-orange-300' : ''
+                  }`}
               >
                 {tasks.map((task, index) => (
                   <Draggable key={task._id} draggableId={task._id} index={index}>
@@ -306,9 +479,8 @@ const KanbanBoard = () => {
                         ref={provided.innerRef}
                         {...provided.draggableProps}
                         {...provided.dragHandleProps}
-                        className={`bg-white rounded-2xl border border-slate-200/90 p-4 hover:border-orange-300 transition-all duration-200 glass-card-hover ${
-                          snapshot.isDragging ? 'shadow-2xl rotate-2 scale-105 border-orange-500' : 'shadow-sm'
-                        }`}
+                        className={`bg-white rounded-2xl border border-slate-200/90 p-4 hover:border-orange-300 transition-all duration-200 glass-card-hover ${snapshot.isDragging ? 'shadow-2xl rotate-2 scale-105 border-orange-500' : 'shadow-sm'
+                          }`}
                       >
                         <div className="flex justify-between items-start mb-2 gap-2">
                           <h4 className="font-bold text-slate-800 text-sm md:text-base leading-snug break-words flex-1">
@@ -352,49 +524,46 @@ const KanbanBoard = () => {
                             )}
                           </div>
                         </div>
-                        
+
                         {task.description && (
                           <p className="text-xs text-slate-500 mb-3 line-clamp-2 leading-relaxed">
                             {task.description}
                           </p>
                         )}
-                        
+
                         {task.assignedTo && task.assignedTo.length > 0 && (
                           <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-slate-600">
                             <FiUser className="w-3.5 h-3.5 text-slate-400" />
                             <span className="truncate">
-                              {Array.isArray(task.assignedTo) 
+                              {Array.isArray(task.assignedTo)
                                 ? task.assignedTo.map(u => u.name).join(', ')
                                 : task.assignedTo.name}
                             </span>
                           </div>
                         )}
-                        
+
                         {task.dueDate && (
                           <div className="flex items-center gap-1.5 mb-3 text-xs font-medium">
                             <FiCalendar className="w-3.5 h-3.5 text-slate-400" />
-                            <span className={`${
-                              new Date(task.dueDate) < new Date() && task.status !== 'completed'
+                            <span className={`${new Date(task.dueDate) < new Date() && task.status !== 'completed'
                                 ? 'text-rose-600 font-bold'
                                 : 'text-slate-600'
-                            }`}>
+                              }`}>
                               {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                             </span>
                           </div>
                         )}
-                        
+
                         <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                          <span className={`px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] flex items-center gap-1 ${
-                            task.priority === 'high' ? 'bg-rose-100 text-rose-700 border border-rose-200' :
-                            task.priority === 'medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                            'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${
-                              task.priority === 'high' ? 'bg-rose-500' : task.priority === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'
-                            }`} />
+                          <span className={`px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] flex items-center gap-1 ${task.priority === 'high' ? 'bg-rose-100 text-rose-700 border border-rose-200' :
+                              task.priority === 'medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                            }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${task.priority === 'high' ? 'bg-rose-500' : task.priority === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'
+                              }`} />
                             <span>{task.priority}</span>
                           </span>
-                          
+
                           <span className="text-[11px] text-slate-400 font-semibold">
                             {new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </span>
@@ -404,7 +573,7 @@ const KanbanBoard = () => {
                   </Draggable>
                 ))}
                 {provided.placeholder}
-                
+
                 {tasks.length === 0 && (
                   <div className="text-center py-12 text-slate-400">
                     <FiInbox className="w-10 h-10 mx-auto mb-2 text-slate-300" />
@@ -421,27 +590,27 @@ const KanbanBoard = () => {
 
   return (
     <>
-      <ToastContainer 
-        position="top-center" 
-        autoClose={3000} 
-        hideProgressBar={false} 
-        newestOnTop 
-        closeOnClick 
-        theme="light" 
+      <ToastContainer
+        position="top-center"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        theme="light"
         style={{ zIndex: 9999, top: '70px' }}
       />
       {loading && <Loader />}
       <div className="min-h-screen bg-slate-50/50 pt-[60px] md:pt-[68px]">
-        <Navbar 
-          onMenuClick={() => setIsMobileSidebarOpen(true)} 
-          onFacultyCreated={() => setSidebarRefreshTrigger(prev => prev + 1)} 
+        <Navbar
+          onMenuClick={() => setIsMobileSidebarOpen(true)}
+          onFacultyCreated={() => setSidebarRefreshTrigger(prev => prev + 1)}
           onOpenProfile={() => handleOpenFacultyProfile(user)}
         />
-        
+
         <div className="flex flex-col md:flex-row">
-          <Sidebar 
-            activeView={activeView} 
-            setActiveView={setActiveView} 
+          <Sidebar
+            activeView={activeView}
+            setActiveView={setActiveView}
             userRole={user?.role}
             isMobileOpen={isMobileSidebarOpen}
             setIsMobileOpen={setIsMobileSidebarOpen}
@@ -452,10 +621,9 @@ const KanbanBoard = () => {
               localStorage.setItem('sidebar_collapsed', String(collapsed));
             }}
           />
-          
-          <main className={`flex-1 p-4 md:p-6 overflow-x-hidden transition-all duration-300 ${
-            isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'
-          }`}>
+
+          <main className={`flex-1 p-4 md:p-6 overflow-x-hidden transition-all duration-300 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'
+            }`}>
             {(activeView === 'dashboard' && (user?.role === 'admin' || user?.role === 'hod')) && (
               <Dashboard onFacultyClick={handleFacultyClick} onSelectDepartment={handleSelectDepartment} />
             )}
@@ -517,25 +685,25 @@ const KanbanBoard = () => {
 
                 <DragDropContext onDragEnd={handleDragEnd}>
                   <div className="flex flex-col lg:grid lg:grid-cols-3 gap-5">
-                    <Column 
-                      title={t('todo')} 
-                      tasks={tasks.todo} 
-                      droppableId="todo" 
-                      icon={FiClock} 
+                    <Column
+                      title={t('todo')}
+                      tasks={tasks.todo}
+                      droppableId="todo"
+                      icon={FiClock}
                       badgeColor="bg-indigo-600"
                     />
-                    <Column 
-                      title={t('inProgress')} 
-                      tasks={tasks.inprogress} 
-                      droppableId="inprogress" 
-                      icon={FiList} 
+                    <Column
+                      title={t('inProgress')}
+                      tasks={tasks.inprogress}
+                      droppableId="inprogress"
+                      icon={FiList}
                       badgeColor="bg-amber-500"
                     />
-                    <Column 
-                      title={t('completed')} 
-                      tasks={tasks.completed} 
-                      droppableId="completed" 
-                      icon={FiCheckCircle} 
+                    <Column
+                      title={t('completed')}
+                      tasks={tasks.completed}
+                      droppableId="completed"
+                      icon={FiCheckCircle}
                       badgeColor="bg-emerald-600"
                     />
                   </div>
@@ -585,7 +753,7 @@ const KanbanBoard = () => {
                   <FiX className="w-5 h-5" />
                 </button>
               </div>
-              
+
               <form onSubmit={handleCreateTask} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{t('taskTitle')} *</label>
@@ -598,7 +766,7 @@ const KanbanBoard = () => {
                     required
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{t('description')}</label>
                   <textarea
@@ -609,7 +777,7 @@ const KanbanBoard = () => {
                     rows="3"
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{t('priority')}</label>
@@ -623,7 +791,7 @@ const KanbanBoard = () => {
                       <option value="high">High Priority</option>
                     </select>
                   </div>
-                  
+
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{t('dueDate')}</label>
                     <input
@@ -635,7 +803,7 @@ const KanbanBoard = () => {
                     />
                   </div>
                 </div>
-                
+
                 {user?.role === 'admin' && (
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{t('selectDepartment')} *</label>
@@ -664,11 +832,11 @@ const KanbanBoard = () => {
                     />
                   </div>
                 )}
-                
+
                 {(user?.role === 'admin' || user?.role === 'hod') && (
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">{t('assignTo')}</label>
-                    
+
                     <div className="flex gap-4 mb-3">
                       <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
                         <input
@@ -693,7 +861,7 @@ const KanbanBoard = () => {
                         <span>Multiple Faculty</span>
                       </label>
                     </div>
-                    
+
                     {newTask.assignType === 'single' && (
                       <select
                         className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition"
@@ -708,7 +876,7 @@ const KanbanBoard = () => {
                           ))}
                       </select>
                     )}
-                    
+
                     {newTask.assignType === 'multi' && (
                       <div className="border border-slate-200 rounded-2xl overflow-hidden">
                         <div className="p-3 bg-slate-50 border-b border-slate-200 relative">
@@ -721,17 +889,17 @@ const KanbanBoard = () => {
                             className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400"
                           />
                         </div>
-                        
+
                         {newTask.assignedUsers.length > 0 && (
                           <div className="px-4 py-2 bg-orange-50 text-orange-700 text-xs font-bold border-b border-orange-200">
                             ✓ {newTask.assignedUsers.length} faculty member(s) selected
                           </div>
                         )}
-                        
+
                         <div className="p-3 max-h-40 overflow-y-auto space-y-1">
                           {users
                             .filter(u => user?.role === 'admin' ? true : u.department === user?.department)
-                            .filter(u => 
+                            .filter(u =>
                               u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
                               u.email.toLowerCase().includes(userSearchQuery.toLowerCase())
                             )
@@ -757,7 +925,7 @@ const KanbanBoard = () => {
                     )}
                   </div>
                 )}
-                
+
                 <div className="flex gap-3 pt-4 border-t border-slate-100">
                   <button
                     type="submit"

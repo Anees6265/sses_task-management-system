@@ -26,54 +26,85 @@ const Chat = () => {
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
+  const selectedUserRef = useRef(selectedUser);
+
+  useEffect(() => {
+    selectedUserRef.current = selectedUser;
+  }, [selectedUser]);
+
   useEffect(() => {
     fetchConversations();
     
-    let intervalId;
-    if (!connected) {
-      intervalId = setInterval(() => {
-        fetchConversations();
-      }, 5000);
-    }
+    const intervalId = setInterval(() => {
+      fetchConversations();
+      const activeSel = selectedUserRef.current;
+      if (activeSel && activeSel._id) {
+        chatAPI.getMessages(activeSel._id)
+          .then(({ data }) => {
+            if (data && Array.isArray(data)) {
+              setMessages(prev => {
+                const prevIds = prev.map(m => String(m._id)).join(',');
+                const newIds = data.map(m => String(m._id)).join(',');
+                if (prevIds === newIds) return prev;
+                return data;
+              });
+            }
+          })
+          .catch(() => {});
+      }
+    }, 3000);
     
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [connected]);
+    return () => clearInterval(intervalId);
+  }, []);
 
   useEffect(() => {
     if (!socket) return;
 
     const handleReceiveMessage = (message) => {
-      if (selectedUser && (message.sender._id === selectedUser._id || message.receiver._id === selectedUser._id)) {
-        setMessages(prev => [...prev, message]);
-        socket.emit('mark-read', { sender: message.sender._id });
+      const activeSel = selectedUserRef.current;
+      const activeSelId = activeSel ? String(activeSel._id) : null;
+
+      const senderId = String(message.sender?._id || message.sender);
+      const receiverId = String(message.receiver?._id || message.receiver);
+
+      if (activeSelId && (senderId === activeSelId || receiverId === activeSelId)) {
+        setMessages(prev => {
+          if (prev.some(m => String(m._id) === String(message._id))) return prev;
+          return [...prev, message];
+        });
+        socket?.emit('mark-read', { sender: senderId });
       } else {
-        showNotification(`New message from ${message.sender.name}`, message.message);
+        showNotification(`New message from ${message.sender?.name || 'User'}`, message.message);
       }
       fetchConversations();
     };
 
     const handleMessageSent = (message) => {
-      setMessages(prev => [...prev, message]);
+      setMessages(prev => {
+        if (prev.some(m => String(m._id) === String(message._id))) return prev;
+        return [...prev, message];
+      });
+      fetchConversations();
     };
     
     const handleMessageError = (error) => {
-      alert('Failed to send message: ' + error.error);
+      console.error('Failed to send message via socket:', error);
     };
     
     const handleMessageDelivered = ({ messageId }) => {
       setMessages(prev => prev.map(msg => 
-        msg._id === messageId ? { ...msg, delivered: true } : msg
+        String(msg._id) === String(messageId) ? { ...msg, delivered: true } : msg
       ));
     };
 
     const handleUserTyping = ({ userId }) => {
-      if (selectedUser && userId === selectedUser._id) setTyping(true);
+      const activeSel = selectedUserRef.current;
+      if (activeSel && String(userId) === String(activeSel._id)) setTyping(true);
     };
 
     const handleUserStopTyping = ({ userId }) => {
-      if (selectedUser && userId === selectedUser._id) setTyping(false);
+      const activeSel = selectedUserRef.current;
+      if (activeSel && String(userId) === String(activeSel._id)) setTyping(false);
     };
 
     socket.on('receive-message', handleReceiveMessage);
@@ -91,7 +122,7 @@ const Chat = () => {
       socket.off('user-typing', handleUserTyping);
       socket.off('user-stop-typing', handleUserStopTyping);
     };
-  }, [socket, selectedUser]);
+  }, [socket]);
 
   useEffect(() => {
     scrollToBottom();
@@ -104,7 +135,7 @@ const Chat = () => {
   const fetchConversations = async () => {
     try {
       const { data } = await chatAPI.getConversations();
-      setConversations(data);
+      setConversations(data || []);
     } catch (error) {
       console.error('Error fetching conversations:', error.response?.data || error.message);
     }
@@ -115,7 +146,7 @@ const Chat = () => {
       setLoading(true);
       setSelectedUser(user);
       const { data } = await chatAPI.getMessages(user._id);
-      setMessages(data);
+      setMessages(data || []);
       socket?.emit('mark-read', { sender: user._id });
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -136,18 +167,22 @@ const Chat = () => {
     const originalMessage = newMessage;
     setNewMessage('');
 
-    if (socket && connected) {
-      socket.emit('send-message', messageData);
-      socket.emit('stop-typing', { receiver: selectedUser._id });
-    } else {
-      try {
-        const { data } = await chatAPI.sendMessage(messageData);
-        setMessages(prev => [...prev, data]);
-        fetchConversations();
-      } catch (error) {
-        setNewMessage(originalMessage);
-        alert('Failed to send message. Please try again.');
+    try {
+      const { data } = await chatAPI.sendMessage(messageData);
+      setMessages(prev => {
+        if (prev.some(m => String(m._id) === String(data._id))) return prev;
+        return [...prev, data];
+      });
+
+      if (socket && connected) {
+        socket.emit('send-message', messageData);
+        socket.emit('stop-typing', { receiver: selectedUser._id });
       }
+
+      fetchConversations();
+    } catch (error) {
+      setNewMessage(originalMessage);
+      console.error('Failed to send message:', error);
     }
   };
 

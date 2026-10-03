@@ -4,16 +4,16 @@ const User = require('../models/User');
 const Holiday = require('../models/Holiday');
 const SundayAttendance = require('../models/SundayAttendance');
 const { demoLeaves, demoUsers, demoSundayAttendance, demoHolidays } = require('../utils/mockStore');
-const { 
-  sendLeaveNotificationToReviewer, 
-  sendLeaveStatusNotificationToApplicant, 
-  sendHolidayAnnouncementToFaculty 
+const {
+  sendLeaveNotificationToReviewer,
+  sendLeaveStatusNotificationToApplicant,
+  sendHolidayAnnouncementToFaculty
 } = require('../services/whatsappService');
 
 exports.applyLeave = async (req, res) => {
   try {
     const { leaveType, startDate, endDate, reason } = req.body;
-    
+
     if (!startDate || !endDate || !reason) {
       return res.status(400).json({ message: 'Start date, end date, and reason are required' });
     }
@@ -43,6 +43,10 @@ exports.applyLeave = async (req, res) => {
 
       resultLeave = await Leave.findById(leave._id)
         .populate('applicant', 'name email department role phoneNumber');
+      const populatedLeave = await Leave.findById(leave._id)
+        .populate('applicant', 'name email department role');
+
+      return res.status(201).json(populatedLeave);
     } else {
       const newLeave = {
         _id: '64l' + Date.now().toString(16),
@@ -152,7 +156,7 @@ exports.getLeaves = async (req, res) => {
     if (req.user.role === 'hod') {
       filtered = demoLeaves.filter(l => l.department === req.user.department);
     } else if (req.user.role === 'user') {
-      filtered = demoLeaves.filter(l => 
+      filtered = demoLeaves.filter(l =>
         (l.applicant?._id === req.user._id) || (l.applicant === req.user._id) || (l.applicant?.email === req.user.email)
       );
     }
@@ -191,13 +195,13 @@ exports.updateLeaveStatus = async (req, res) => {
       return res.status(404).json({ message: 'Leave request not found' });
     }
 
-    const applicantId = typeof leave.applicant === 'object' 
-      ? (leave.applicant?._id ? leave.applicant._id.toString() : '') 
+    const applicantId = typeof leave.applicant === 'object'
+      ? (leave.applicant?._id ? leave.applicant._id.toString() : '')
       : (leave.applicant ? leave.applicant.toString() : '');
     const applicantEmail = typeof leave.applicant === 'object' ? leave.applicant?.email : '';
 
-    const isSelfLeave = (applicantId && applicantId === req.user._id.toString()) || 
-                        (applicantEmail && applicantEmail === req.user.email);
+    const isSelfLeave = (applicantId && applicantId === req.user._id.toString()) ||
+      (applicantEmail && applicantEmail === req.user.email);
 
     if (req.user.role === 'user') {
       return res.status(403).json({ message: 'Faculty members cannot review leave requests' });
@@ -223,7 +227,7 @@ exports.updateLeaveStatus = async (req, res) => {
       await leave.save();
       updatedResult = await Leave.findById(id)
         .populate('applicant', 'name email department role phoneNumber')
-        .populate('reviewedBy', 'name email phoneNumber');
+        .populate('reviewedBy', 'name email');
     } else {
       leave.status = status;
       leave.reviewComment = reviewComment || (status === 'approved' ? 'Approved' : 'Rejected');
@@ -239,7 +243,7 @@ exports.updateLeaveStatus = async (req, res) => {
         if (mongoose.connection.readyState === 1 && applicantId) {
           applicantUser = await User.findById(applicantId);
         }
-        
+
         if (!applicantUser) {
           applicantUser = demoUsers.find(u => String(u._id) === String(applicantId) || (applicantEmail && u.email === applicantEmail));
         }
@@ -369,7 +373,7 @@ exports.getDailyAttendance = async (req, res) => {
 
         const isAbsentToday = activeUserIdsToday.has(u._id.toString());
         const activeLeave = activeLeavesToday.find(l => l.applicant._id.toString() === u._id.toString());
-        
+
         const userMonthLeaves = monthLeaves.filter(l => l.applicant.toString() === u._id.toString());
         const monthlyDays = userMonthLeaves.reduce((acc, curr) => acc + (curr.totalDays || 1), 0);
 
@@ -408,12 +412,22 @@ exports.getDailyAttendance = async (req, res) => {
         }
       });
 
-      return res.json(Object.values(departmentMap));
+      let results = Object.values(departmentMap);
+      if (req.user.role !== 'admin' && req.user.department) {
+        results = results.filter(d => d.department.toLowerCase() === req.user.department.toLowerCase());
+      }
+
+      return res.json(results);
     } else {
       // Mock code mode
       const departmentMap = {};
 
-      demoUsers.filter(u => u.role !== 'admin').forEach(u => {
+      let filteredDemoUsers = demoUsers.filter(u => u.role !== 'admin');
+      if (req.user.role !== 'admin' && req.user.department) {
+        filteredDemoUsers = filteredDemoUsers.filter(u => u.department === req.user.department);
+      }
+
+      filteredDemoUsers.forEach(u => {
         const dept = u.department || 'General';
         if (!departmentMap[dept]) {
           departmentMap[dept] = {
@@ -428,12 +442,13 @@ exports.getDailyAttendance = async (req, res) => {
           };
         }
 
-        const activeLeave = demoLeaves.find(l => 
-          l.applicant._id === u._id && 
-          l.status === 'approved' &&
-          new Date(l.startDate) <= endOfToday &&
-          new Date(l.endDate) >= startOfToday
-        );
+        const activeLeave = demoLeaves.find(l => {
+          const applicantId = typeof l.applicant === 'object' ? (l.applicant?._id ? String(l.applicant._id) : '') : String(l.applicant || '');
+          const applicantEmail = typeof l.applicant === 'object' ? l.applicant?.email : '';
+          const isUserMatch = (applicantId && applicantId === String(u._id)) || (applicantEmail && applicantEmail === u.email);
+          const isDateMatch = new Date(l.startDate) <= endOfToday && new Date(l.endDate) >= startOfToday;
+          return isUserMatch && (l.status === 'approved' || l.status === 'pending') && isDateMatch;
+        });
 
         const isAbsentToday = !!activeLeave;
         const userMonthLeaves = demoLeaves.filter(l => l.applicant._id === u._id && l.status === 'approved');
@@ -488,8 +503,8 @@ exports.cancelLeave = async (req, res) => {
     let leave = null;
     if (mongoose.connection.readyState === 1) {
       try {
-        leave = await Leave.findOne({ 
-          _id: id, 
+        leave = await Leave.findOne({
+          _id: id,
           applicant: req.user._id,
           status: { $in: ['pending', 'approved'] }
         });
@@ -503,8 +518,8 @@ exports.cancelLeave = async (req, res) => {
       await leave.save();
       return res.json({ message: 'Leave request cancelled successfully' });
     } else {
-      const index = demoLeaves.findIndex(l => 
-        (String(l._id) === String(id)) && 
+      const index = demoLeaves.findIndex(l =>
+        (String(l._id) === String(id)) &&
         (l.applicant?._id === req.user._id || l.applicant === req.user._id || l.applicant?.email === req.user.email) &&
         (l.status === 'pending' || l.status === 'approved')
       );

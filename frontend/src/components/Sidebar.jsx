@@ -67,7 +67,7 @@ const Sidebar = ({
           onClick={() => setIsMobileOpen(false)}
         />
       )}
-      
+
       {/* Sidebar */}
       <aside className={`bg-white/95 border-r border-slate-200/80 transition-all duration-300 fixed left-0 z-50 md:z-40 shadow-sm ${
         isMobileOpen ? 'translate-x-0' : '-translate-x-full'
@@ -257,9 +257,11 @@ const Sidebar = ({
               Check leave dashboard & department dashboard under Leave Management!
             </p>
           </div>
-        )}
-      </div>
-    </aside>
+
+          
+          )}
+        </div>
+      </aside>
     </>
   );
 };
