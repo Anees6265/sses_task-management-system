@@ -7,42 +7,38 @@ try {
 const mongoose = require('mongoose');
 const User = require('./models/User');
 
-const defaultAdminPassword = process.env.SEED_ADMIN_PASSWORD || 'AdminPassword123!';
-const defaultHodPassword = process.env.SEED_HOD_PASSWORD || 'HodPassword123!';
-const defaultFacultyPassword = process.env.SEED_FACULTY_PASSWORD || 'FacultyPassword123!';
-
 const seedUsers = [
   {
     name: 'System Administrator',
     email: 'admin@ssism.org',
-    password: defaultAdminPassword,
+    password: 'AdminPassword123!',
     role: 'admin'
   },
   {
     name: 'Dr. Alan Turing (HOD CS)',
     email: 'hod.cs@ssism.org',
-    password: defaultHodPassword,
+    password: 'HodPassword123!',
     role: 'hod',
     department: 'Computer Science'
   },
   {
     name: 'Dr. Grace Hopper (HOD IT)',
     email: 'hod.it@ssism.org',
-    password: defaultHodPassword,
+    password: 'HodPassword123!',
     role: 'hod',
     department: 'Information Technology'
   },
   {
     name: 'Prof. John Von Neumann',
     email: 'faculty.cs@ssism.org',
-    password: defaultFacultyPassword,
+    password: 'FacultyPassword123!',
     role: 'user',
     department: 'Computer Science'
   },
   {
     name: 'Prof. Ada Lovelace',
     email: 'faculty.it@ssism.org',
-    password: defaultFacultyPassword,
+    password: 'FacultyPassword123!',
     role: 'user',
     department: 'Information Technology'
   }

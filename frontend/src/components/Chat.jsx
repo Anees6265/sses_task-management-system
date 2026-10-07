@@ -45,21 +45,32 @@ const Chat = () => {
     if (!socket) return;
 
     const handleReceiveMessage = (message) => {
-      if (selectedUser && (message.sender._id === selectedUser._id || message.receiver._id === selectedUser._id)) {
-        setMessages(prev => [...prev, message]);
-        socket.emit('mark-read', { sender: message.sender._id });
+      const senderId = typeof message.sender === 'object' ? (message.sender?._id || message.sender?.id) : message.sender;
+      const receiverId = typeof message.receiver === 'object' ? (message.receiver?._id || message.receiver?.id) : message.receiver;
+      const selectedId = String(selectedUser?._id);
+
+      if (selectedUser && (String(senderId) === selectedId || String(receiverId) === selectedId)) {
+        setMessages(prev => {
+          if (message._id && prev.some(m => m._id === message._id)) return prev;
+          return [...prev, message];
+        });
+        socket.emit('mark-read', { sender: senderId });
       } else {
-        showNotification(`New message from ${message.sender.name}`, message.message);
+        showNotification(`New message from ${message.sender?.name || 'Team Member'}`, message.message);
       }
       fetchConversations();
     };
 
     const handleMessageSent = (message) => {
-      setMessages(prev => [...prev, message]);
+      setMessages(prev => {
+        if (message._id && prev.some(m => m._id === message._id)) return prev;
+        return [...prev, message];
+      });
+      fetchConversations();
     };
     
     const handleMessageError = (error) => {
-      alert('Failed to send message: ' + error.error);
+      console.error('Socket message error:', error);
     };
     
     const handleMessageDelivered = ({ messageId }) => {
@@ -69,11 +80,11 @@ const Chat = () => {
     };
 
     const handleUserTyping = ({ userId }) => {
-      if (selectedUser && userId === selectedUser._id) setTyping(true);
+      if (selectedUser && String(userId) === String(selectedUser._id)) setTyping(true);
     };
 
     const handleUserStopTyping = ({ userId }) => {
-      if (selectedUser && userId === selectedUser._id) setTyping(false);
+      if (selectedUser && String(userId) === String(selectedUser._id)) setTyping(false);
     };
 
     socket.on('receive-message', handleReceiveMessage);
@@ -104,7 +115,7 @@ const Chat = () => {
   const fetchConversations = async () => {
     try {
       const { data } = await chatAPI.getConversations();
-      setConversations(data);
+      setConversations(data || []);
     } catch (error) {
       console.error('Error fetching conversations:', error.response?.data || error.message);
     }
@@ -115,8 +126,10 @@ const Chat = () => {
       setLoading(true);
       setSelectedUser(user);
       const { data } = await chatAPI.getMessages(user._id);
-      setMessages(data);
-      socket?.emit('mark-read', { sender: user._id });
+      setMessages(data || []);
+      if (socket && connected) {
+        socket.emit('mark-read', { sender: user._id });
+      }
     } catch (error) {
       console.error('Error fetching messages:', error);
     } finally {
@@ -128,12 +141,12 @@ const Chat = () => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedUser) return;
 
+    const messageContent = newMessage.trim();
     const messageData = {
       receiver: selectedUser._id,
-      message: newMessage.trim()
+      message: messageContent
     };
 
-    const originalMessage = newMessage;
     setNewMessage('');
 
     if (socket && connected) {
@@ -142,10 +155,13 @@ const Chat = () => {
     } else {
       try {
         const { data } = await chatAPI.sendMessage(messageData);
-        setMessages(prev => [...prev, data]);
+        setMessages(prev => {
+          if (data._id && prev.some(m => m._id === data._id)) return prev;
+          return [...prev, data];
+        });
         fetchConversations();
       } catch (error) {
-        setNewMessage(originalMessage);
+        setNewMessage(messageContent);
         alert('Failed to send message. Please try again.');
       }
     }
@@ -153,7 +169,7 @@ const Chat = () => {
 
   const handleTyping = (e) => {
     setNewMessage(e.target.value);
-    if (!socket || !selectedUser) return;
+    if (!socket || !selectedUser || !connected) return;
     socket.emit('typing', { receiver: selectedUser._id });
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
@@ -161,16 +177,21 @@ const Chat = () => {
     }, 1000);
   };
 
-  const isOnline = (userId) => onlineUsers.includes(userId);
+  const isOnline = (userId) => {
+    if (!onlineUsers || !Array.isArray(onlineUsers)) return false;
+    return onlineUsers.some(id => String(id) === String(userId));
+  };
 
   const formatTime = (date) => {
+    if (!date) return '';
     const d = new Date(date);
     return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
   const filteredConversations = conversations.filter(c => 
     c.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.user?.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    c.user?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.user?.department?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -300,9 +321,10 @@ const Chat = () => {
               ) : (
                 <>
                   {messages.map((msg) => {
-                    const isSent = msg.sender._id !== selectedUser._id;
+                    const senderId = typeof msg.sender === 'object' ? (msg.sender?._id || msg.sender?.id) : msg.sender;
+                    const isSent = String(senderId) !== String(selectedUser._id);
                     return (
-                      <div key={msg._id} className={`flex ${isSent ? 'justify-end' : 'justify-start'}`}>
+                      <div key={msg._id || Math.random()} className={`flex ${isSent ? 'justify-end' : 'justify-start'}`}>
                         <div
                           className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-xs md:text-sm font-medium shadow-xs ${
                             isSent

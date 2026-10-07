@@ -4,7 +4,6 @@ import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { toast } from 'react-toastify';
 import FacultyProfileModal from './FacultyProfileModal.jsx';
-import Modal from './Modal.jsx';
 import { 
   FiArrowLeft, 
   FiBriefcase, 
@@ -21,8 +20,7 @@ import {
   FiCheck, 
   FiX,
   FiTrendingUp,
-  FiAlertCircle,
-  FiPhone
+  FiAlertCircle
 } from 'react-icons/fi';
 
 const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) => {
@@ -39,8 +37,7 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
   const [reviewComment, setReviewComment] = useState('');
   const [selectedFacultyProfile, setSelectedFacultyProfile] = useState(null);
 
-  const isAdmin = user?.role === 'admin';
-  const activeDeptName = (!isAdmin && user?.department) ? user.department : departmentName;
+  const activeDeptName = (user?.role === 'user' && user?.department) ? user.department : departmentName;
 
   useEffect(() => {
     fetchDepartmentDetail();
@@ -142,7 +139,14 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
   };
 
   if (loading) {
-    return null;
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-slate-600 font-bold text-sm">Loading Department Details...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -265,12 +269,6 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
                     <div>
                       <h4 className="font-extrabold text-slate-900 text-sm">{leave.applicant?.name || 'Faculty Member'}</h4>
                       <p className="text-xs text-slate-500">{leave.applicant?.email}</p>
-                      {leave.applicant?.phoneNumber && (
-                        <p className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
-                          <FiPhone className="w-3 h-3" />
-                          <span>{leave.applicant.phoneNumber}</span>
-                        </p>
-                      )}
                       <div className="flex items-center gap-2 mt-2">
                         {getLeaveTypeBadge(leave.leaveType)}
                         <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
@@ -356,10 +354,6 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
                         <div>
                           <p className="font-extrabold text-slate-800 leading-tight group-hover:text-orange-600">{faculty.name}</p>
                           <p className="text-[11px] text-slate-400">{faculty.email}</p>
-                          <p className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
-                            <FiPhone className="w-3 h-3 text-emerald-500" />
-                            <span>{faculty.phoneNumber || 'No phone set'}</span>
-                          </p>
                         </div>
                       </div>
                     </td>
@@ -431,10 +425,6 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
                         <div>
                           <p className="font-extrabold text-slate-800 leading-tight">{faculty.name}</p>
                           <p className="text-[11px] text-slate-400">{faculty.email}</p>
-                          <p className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
-                            <FiPhone className="w-3 h-3 text-emerald-500" />
-                            <span>{faculty.phoneNumber || 'No phone set'}</span>
-                          </p>
                         </div>
                       </div>
                     </td>
@@ -594,8 +584,8 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
       </div>
 
       {/* Review Modal (HOD / Admin Approval Dialog) */}
-      <Modal isOpen={!!reviewModal} onClose={() => setReviewModal(null)}>
-        {reviewModal && (
+      {reviewModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 text-center fade-in">
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
               reviewModal.action === 'approved' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
@@ -635,8 +625,8 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
               </button>
             </div>
           </div>
-        )}
-      </Modal>
+        </div>
+      )}
 
       {/* Faculty Profile Modal */}
       {selectedFacultyProfile && (

@@ -223,7 +223,7 @@ exports.updateLeaveStatus = async (req, res) => {
       await leave.save();
       updatedResult = await Leave.findById(id)
         .populate('applicant', 'name email department role phoneNumber')
-        .populate('reviewedBy', 'name email phoneNumber');
+        .populate('reviewedBy', 'name email');
     } else {
       leave.status = status;
       leave.reviewComment = reviewComment || (status === 'approved' ? 'Approved' : 'Rejected');
@@ -408,12 +408,22 @@ exports.getDailyAttendance = async (req, res) => {
         }
       });
 
-      return res.json(Object.values(departmentMap));
+      let results = Object.values(departmentMap);
+      if (req.user.role !== 'admin' && req.user.department) {
+        results = results.filter(d => d.department.toLowerCase() === req.user.department.toLowerCase());
+      }
+
+      return res.json(results);
     } else {
       // Mock code mode
       const departmentMap = {};
 
-      demoUsers.filter(u => u.role !== 'admin').forEach(u => {
+      let filteredDemoUsers = demoUsers.filter(u => u.role !== 'admin');
+      if (req.user.role !== 'admin' && req.user.department) {
+        filteredDemoUsers = filteredDemoUsers.filter(u => u.department === req.user.department);
+      }
+
+      filteredDemoUsers.forEach(u => {
         const dept = u.department || 'General';
         if (!departmentMap[dept]) {
           departmentMap[dept] = {
@@ -428,12 +438,13 @@ exports.getDailyAttendance = async (req, res) => {
           };
         }
 
-        const activeLeave = demoLeaves.find(l => 
-          l.applicant._id === u._id && 
-          l.status === 'approved' &&
-          new Date(l.startDate) <= endOfToday &&
-          new Date(l.endDate) >= startOfToday
-        );
+        const activeLeave = demoLeaves.find(l => {
+          const applicantId = typeof l.applicant === 'object' ? (l.applicant?._id ? String(l.applicant._id) : '') : String(l.applicant || '');
+          const applicantEmail = typeof l.applicant === 'object' ? l.applicant?.email : '';
+          const isUserMatch = (applicantId && applicantId === String(u._id)) || (applicantEmail && applicantEmail === u.email);
+          const isDateMatch = new Date(l.startDate) <= endOfToday && new Date(l.endDate) >= startOfToday;
+          return isUserMatch && (l.status === 'approved' || l.status === 'pending') && isDateMatch;
+        });
 
         const isAbsentToday = !!activeLeave;
         const userMonthLeaves = demoLeaves.filter(l => l.applicant._id === u._id && l.status === 'approved');

@@ -18,7 +18,7 @@ const generateOTP = () => {
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, department, role, phoneNumber } = req.body;
+    const { name, email, password, department, role } = req.body;
 
     if (!email.endsWith('@ssism.org')) {
       return res.status(400).json({ message: 'Only @ssism.org email addresses are allowed' });
@@ -30,7 +30,7 @@ exports.register = async (req, res) => {
         return res.status(400).json({ message: 'User already exists' });
       }
 
-      const userData = { name, email, password, role: role || 'user', phoneNumber };
+      const userData = { name, email, password, role: role || 'user' };
       if (role !== 'admin') {
         userData.department = department;
       }
@@ -62,7 +62,7 @@ exports.register = async (req, res) => {
         department,
         role: role || 'user'
       };
-      demoUsers.push({ ...newUser });
+      demoUsers.push({ ...newUser, passwordRaw: password });
       const accessToken = generateAccessToken(newUser._id);
       const refreshToken = generateRefreshToken(newUser._id);
       return res.status(201).json({ ...newUser, accessToken, refreshToken });
@@ -103,13 +103,7 @@ exports.login = async (req, res) => {
       console.log('⚡ Handling login via Code Mock Fallback for:', email);
       const demoUser = demoUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
 
-      const validPasswords = [
-        process.env.SEED_ADMIN_PASSWORD || 'AdminPassword123!',
-        process.env.SEED_HOD_PASSWORD || 'HodPassword123!',
-        process.env.SEED_FACULTY_PASSWORD || 'FacultyPassword123!'
-      ];
-
-      if (!demoUser || !password || !validPasswords.includes(password)) {
+      if (!demoUser || (password && demoUser.passwordRaw !== password)) {
         return res.status(401).json({ message: 'Invalid email or password' });
       }
 
@@ -154,9 +148,9 @@ exports.sendOTP = async (req, res) => {
         await sendOTPEmail(email, user.name, otp);
         return res.json({ message: 'OTP sent to your email', success: true });
       } catch (emailError) {
-        return res.status(500).json({ 
+        return res.status(500).json({
           message: 'Failed to send OTP email.',
-          error: emailError.message 
+          error: emailError.message
         });
       }
     } else {

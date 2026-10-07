@@ -55,12 +55,23 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   });
   const [announcing, setAnnouncing] = useState(false);
 
+  const [submitting, setSubmitting] = useState(false);
+
   const [formData, setFormData] = useState({
     leaveType: 'casual',
     startDate: '',
     endDate: '',
     reason: ''
   });
+
+  const calculateTotalDays = (start, end) => {
+    if (!start || !end) return 0;
+    const s = new Date(start);
+    const e = new Date(end);
+    if (isNaN(s.getTime()) || isNaN(e.getTime()) || e < s) return 0;
+    const diffTime = Math.abs(e.getTime() - s.getTime());
+    return Math.ceil(diffTime / (1000 * 3600 * 24)) + 1;
+  };
 
   useEffect(() => {
     fetchLeaveData();
@@ -69,16 +80,17 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   const fetchLeaveData = async () => {
     setLoading(true);
     try {
-      const [leavesRes, statsRes, attendanceRes, holidaysRes] = await Promise.all([
+      const results = await Promise.allSettled([
         leaveAPI.getLeaves(),
         leaveAPI.getLeaveStats(),
         leaveAPI.getDailyAttendance(),
         leaveAPI.getHolidays()
       ]);
-      setLeaves(leavesRes.data || []);
-      setStats(statsRes.data || null);
-      setAttendanceData(attendanceRes.data || []);
-      setHolidays(holidaysRes.data || []);
+
+      if (results[0].status === 'fulfilled') setLeaves(results[0].value?.data || []);
+      if (results[1].status === 'fulfilled') setStats(results[1].value?.data || null);
+      if (results[2].status === 'fulfilled') setAttendanceData(results[2].value?.data || []);
+      if (results[3].status === 'fulfilled') setHolidays(results[3].value?.data || []);
     } catch (error) {
       console.error('Error fetching leave data:', error);
     } finally {
@@ -124,6 +136,12 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
       return;
     }
 
+    if (new Date(formData.endDate) < new Date(formData.startDate)) {
+      toast.error('End date cannot be earlier than start date');
+      return;
+    }
+
+    setSubmitting(true);
     try {
       await leaveAPI.applyLeave(formData);
       toast.success('Leave application submitted successfully!');
@@ -132,6 +150,8 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
       fetchLeaveData();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to apply for leave');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -234,8 +254,54 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
     }
   };
 
+  const getDepartmentOnLeaveList = (dept, deptLeaves) => {
+    const map = new Map();
+
+    if (dept.absentList && dept.absentList.length > 0) {
+      dept.absentList.forEach(a => {
+        const key = a._id || a.email || a.name;
+        map.set(key, {
+          name: a.name,
+          email: a.email,
+          leaveType: a.activeLeaveToday?.leaveType || 'casual',
+          status: 'approved',
+          reason: a.activeLeaveToday?.reason || ''
+        });
+      });
+    }
+
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    deptLeaves.forEach(l => {
+      if (l.status === 'approved' || l.status === 'pending') {
+        const endDate = new Date(l.endDate);
+        if (endDate >= startOfToday) {
+          const name = l.applicant?.name || 'Faculty';
+          const key = l.applicant?._id || l.applicant?.email || name;
+          if (!map.has(key)) {
+            map.set(key, {
+              name,
+              email: l.applicant?.email,
+              leaveType: l.leaveType,
+              status: l.status,
+              reason: l.reason
+            });
+          }
+        }
+      }
+    });
+
+    return Array.from(map.values());
+  };
+
   if (loading) {
-    return null;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4 fade-in">
+        <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-sm font-extrabold text-slate-700 tracking-wide">Loading Leave Management Dashboard...</p>
+      </div>
+    );
   }
 
   return (
@@ -266,15 +332,13 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
             </button>
           )}
 
-          {user?.role !== 'admin' && (
-            <button
-              onClick={() => setShowApplyModal(true)}
-              className="px-5 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-2xl font-bold transition shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 text-xs md:text-sm relative z-10 active:scale-95"
-            >
-              <FiPlus className="w-4 h-4" />
-              <span>Apply for Leave</span>
-            </button>
-          )}
+          <button
+            onClick={() => setShowApplyModal(true)}
+            className="px-5 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-2xl font-bold transition shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 text-xs md:text-sm relative z-10 active:scale-95 cursor-pointer"
+          >
+            <FiPlus className="w-4 h-4" />
+            <span>Apply for Leave</span>
+          </button>
         </div>
       </div>
 
@@ -424,43 +488,102 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
           {displayAttendanceData.map((dept) => {
             const deptLeaves = leaves.filter(l => l.department === dept.department || l.applicant?.department === dept.department);
             const isSelected = selectedDeptFilter === dept.department;
+            const onLeaveList = getDepartmentOnLeaveList(dept, deptLeaves);
 
             return (
               <div
                 key={dept.department}
                 onClick={() => onSelectDepartment ? onSelectDepartment(dept.department) : setSelectedDeptDetailModal(dept)}
-                className={`glass-card glass-card-hover rounded-2xl p-5 border cursor-pointer transition-all ${
+                className={`glass-card glass-card-hover rounded-2xl p-5 border cursor-pointer transition-all flex flex-col justify-between ${
                   isSelected ? 'border-orange-500 bg-orange-50/40 ring-2 ring-orange-400/20' : 'border-slate-200/80 hover:border-orange-400'
                 }`}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2.5 bg-gradient-to-tr from-orange-500 to-amber-500 text-white rounded-xl font-bold text-xs shadow-md shadow-orange-500/20">
-                      {dept.department.charAt(0)}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2.5 bg-gradient-to-tr from-orange-500 to-amber-500 text-white rounded-xl font-bold text-xs shadow-md shadow-orange-500/20">
+                        {dept.department.charAt(0)}
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-slate-800 text-sm">{dept.department}</h4>
+                        <p className="text-[11px] font-semibold text-slate-400">{dept.totalFaculty} Total Faculties</p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-extrabold text-slate-800 text-sm">{dept.department}</h4>
-                      <p className="text-[11px] font-semibold text-slate-400">{dept.totalFaculty} Total Faculties</p>
+                    <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-orange-500 text-white shadow-xs">
+                      View Details ➔
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-center my-2">
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase block">Total Leaves</span>
+                      <span className="text-base font-extrabold text-slate-800">{deptLeaves.length}</span>
+                    </div>
+                    <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
+                      <span className="text-[10px] font-extrabold text-emerald-600 uppercase block">Present Today</span>
+                      <span className="text-base font-extrabold text-emerald-700">{dept.presentCount}</span>
+                    </div>
+                    <div className="bg-rose-50 p-2.5 rounded-xl border border-rose-100">
+                      <span className="text-[10px] font-extrabold text-rose-600 uppercase block">On Leave Today</span>
+                      <span className="text-base font-extrabold text-rose-700">{dept.absentCount}</span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-orange-500 text-white shadow-xs">
-                    View Details ➔
-                  </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 text-center my-2">
-                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                    <span className="text-[10px] font-extrabold text-slate-400 uppercase block">Total Leaves</span>
-                    <span className="text-base font-extrabold text-slate-800">{deptLeaves.length}</span>
+                {/* Direct On-Leave Faculty Members List inside Department Card */}
+                <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span className="flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+                      <FiUser className="w-3.5 h-3.5 text-rose-500" />
+                      Faculties On Leave:
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
+                      onLeaveList.length > 0 ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    }`}>
+                      {onLeaveList.length} Member{onLeaveList.length !== 1 ? 's' : ''}
+                    </span>
                   </div>
-                  <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
-                    <span className="text-[10px] font-extrabold text-emerald-600 uppercase block">Present Today</span>
-                    <span className="text-base font-extrabold text-emerald-700">{dept.presentCount}</span>
-                  </div>
-                  <div className="bg-rose-50 p-2.5 rounded-xl border border-rose-100">
-                    <span className="text-[10px] font-extrabold text-rose-600 uppercase block">On Leave Today</span>
-                    <span className="text-base font-extrabold text-rose-700">{dept.absentCount}</span>
-                  </div>
+
+                  {onLeaveList.length > 0 ? (
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-0.5">
+                      {onLeaveList.map((f, idx) => (
+                        <div 
+                          key={idx} 
+                          className={`p-2 rounded-xl border flex items-center justify-between gap-2 text-xs transition ${
+                            f.status === 'approved' 
+                              ? 'bg-rose-50/70 border-rose-200/80 hover:bg-rose-100/70' 
+                              : 'bg-amber-50/70 border-amber-200/80 hover:bg-amber-100/70'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`w-7 h-7 rounded-xl font-extrabold text-[11px] flex items-center justify-center text-white flex-shrink-0 shadow-xs ${
+                              f.status === 'approved' ? 'bg-rose-600' : 'bg-amber-500'
+                            }`}>
+                              {f.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="truncate">
+                              <p className="font-extrabold text-slate-800 text-xs truncate leading-tight">{f.name}</p>
+                              <p className="text-[10px] font-semibold text-slate-500 truncate">
+                                {f.leaveType?.toUpperCase()} Leave • {f.reason ? f.reason : 'On Leave'}
+                              </p>
+                            </div>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase flex-shrink-0 border ${
+                            f.status === 'approved' 
+                              ? 'bg-rose-600 text-white border-rose-700' 
+                              : 'bg-amber-500 text-white border-amber-600'
+                          }`}>
+                            {f.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-emerald-50/70 border border-emerald-200/60 rounded-xl p-2 text-center text-[11px] font-extrabold text-emerald-700 flex items-center justify-center gap-1.5">
+                      <FiCheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Full Attendance! All Faculties Present Today</span>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -631,20 +754,23 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
                 <FiCalendar className="w-5 h-5 text-orange-500" />
                 <span>Apply for Leave</span>
               </h3>
-              <button onClick={() => setShowApplyModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button 
+                onClick={() => setShowApplyModal(false)} 
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition cursor-pointer"
+              >
                 <FiX className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleApplyLeave} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
                   Leave Type *
                 </label>
                 <select
                   value={formData.leaveType}
                   onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-semibold text-slate-800 bg-slate-50/50"
                 >
                   <option value="casual">Casual Leave (CL)</option>
                   <option value="sick">Sick Leave (SL)</option>
@@ -655,19 +781,19 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                  <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
                     Start Date *
                   </label>
                   <input
                     type="date"
                     value={formData.startDate}
                     onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-xs font-medium text-slate-800"
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-xs font-semibold text-slate-800 bg-slate-50/50"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                  <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
                     End Date *
                   </label>
                   <input
@@ -675,14 +801,23 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
                     value={formData.endDate}
                     onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                     min={formData.startDate}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-xs font-medium text-slate-800"
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-xs font-semibold text-slate-800 bg-slate-50/50"
                     required
                   />
                 </div>
               </div>
 
+              {formData.startDate && formData.endDate && (
+                <div className="bg-orange-50 border border-orange-200/80 rounded-2xl p-3 flex items-center justify-between text-xs font-bold text-orange-900 fade-in">
+                  <span className="flex items-center gap-1.5"><FiClock className="w-4 h-4 text-orange-500" /> Total Duration:</span>
+                  <span className="px-3 py-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl text-xs font-black shadow-xs">
+                    {calculateTotalDays(formData.startDate, formData.endDate)} {calculateTotalDays(formData.startDate, formData.endDate) > 1 ? 'Days' : 'Day'}
+                  </span>
+                </div>
+              )}
+
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
                   Reason for Leave *
                 </label>
                 <textarea
@@ -690,7 +825,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
                   placeholder="Provide details or reason for taking leave..."
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 resize-none"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-xs font-semibold text-slate-800 resize-none bg-slate-50/50"
                   required
                 />
               </div>
@@ -698,14 +833,23 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
               <div className="flex gap-3 pt-4 border-t border-slate-100">
                 <button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-sm"
+                  disabled={submitting}
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-lg shadow-orange-500/25 text-xs flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
-                  Submit Application
+                  {submitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Submitting Application...</span>
+                    </>
+                  ) : (
+                    <span>Submit Application</span>
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowApplyModal(false)}
-                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+                  disabled={submitting}
+                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-xs cursor-pointer"
                 >
                   Cancel
                 </button>

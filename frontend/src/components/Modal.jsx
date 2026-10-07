@@ -3,11 +3,8 @@ import { createPortal } from 'react-dom';
 
 const Modal = ({ isOpen = true, onClose, children, className = '' }) => {
   useEffect(() => {
-    if (!isOpen) return;
-
-    // Prevent body scrolling when modal is open
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    // Ensure body scroll is never locked
+    document.body.style.overflow = 'unset';
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && onClose) {
@@ -18,7 +15,7 @@ const Modal = ({ isOpen = true, onClose, children, className = '' }) => {
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.body.style.overflow = originalOverflow;
+      document.body.style.overflow = 'unset';
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, onClose]);
@@ -26,8 +23,17 @@ const Modal = ({ isOpen = true, onClose, children, className = '' }) => {
   if (!isOpen) return null;
 
   return createPortal(
-    <div className={`modal-backdrop-fixed flex items-center justify-center p-4 fade-in ${className}`}>
-      {children}
+    <div 
+      className={`modal-backdrop-fixed fixed inset-0 z-[9999] overflow-y-auto bg-slate-900/65 backdrop-blur-sm p-3 sm:p-6 flex justify-center items-start sm:items-center min-h-screen fade-in ${className}`}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && onClose) {
+          onClose();
+        }
+      }}
+    >
+      <div className="my-auto w-full max-w-full flex justify-center py-4">
+        {children}
+      </div>
     </div>,
     document.body
   );
