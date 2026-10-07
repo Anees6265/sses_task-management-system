@@ -19,8 +19,12 @@ const AppContent = () => {
       requestNotificationPermission();
       requestWebNotificationPermission();
       initPushNotifications();
+    } else if (!loading && !user) {
+      if (window.location.pathname !== '/login') {
+        window.history.replaceState(null, '', '/login');
+      }
     }
-  }, [user]);
+  }, [user, loading]);
 
   if (loading) {
     return <Loader />;

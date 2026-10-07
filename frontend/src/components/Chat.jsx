@@ -188,6 +188,12 @@ const Chat = () => {
     return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const formatMessageText = (text) => {
+    if (!text) return '';
+    if (typeof text !== 'string') return String(text);
+    return text.replace(/\uFFFD/g, '');
+  };
+
   const filteredConversations = conversations.filter(c => 
     c.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.user?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -260,7 +266,7 @@ const Chat = () => {
                     </div>
                     <div className="flex justify-between items-center">
                       <p className="text-xs text-slate-500 truncate leading-relaxed">
-                        {lastMessage?.message || 'Start conversation...'}
+                        {lastMessage ? formatMessageText(lastMessage.message) : 'Start conversation...'}
                       </p>
                       {unreadCount > 0 && (
                         <span className="bg-orange-500 text-white text-[10px] font-extrabold rounded-full px-2 py-0.5 ml-2">
@@ -332,7 +338,7 @@ const Chat = () => {
                               : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs'
                           }`}
                         >
-                          <p className="break-words leading-relaxed">{msg.message}</p>
+                          <p className="break-words leading-relaxed">{formatMessageText(msg.message)}</p>
                           <div className={`flex items-center justify-end gap-1 text-[10px] mt-1 ${isSent ? 'text-orange-100' : 'text-slate-400'}`}>
                             <span>{formatTime(msg.createdAt)}</span>
                             {isSent && (msg.read ? <FiCheckCircle className="w-3 h-3 text-white" /> : <FiCheck className="w-3 h-3 text-orange-200" />)}

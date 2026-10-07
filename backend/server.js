@@ -136,7 +136,11 @@ io.on('connection', (socket) => {
         io.to(receiverSocketId).emit('receive-message', decryptedMessage);
         await Message.findByIdAndUpdate(message._id, { delivered: true });
         socket.emit('message-delivered', { messageId: message._id });
-      } else {
+      }
+      
+      socket.emit('message-sent', decryptedMessage);
+
+      if (!receiverSocketId) {
         // Send push notification if user is offline
         const User = require('./src/models/User');
         const receiver = await User.findById(data.receiver);

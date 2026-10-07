@@ -41,6 +41,64 @@ import DepartmentDashboard from './DepartmentDashboard.jsx';
 import DepartmentDetailPage from './DepartmentDetailPage.jsx';
 import FacultyProfilePage from './FacultyProfilePage.jsx';
 import UserManagementPage from './UserManagementPage.jsx';
+import DepartmentManagement from './DepartmentManagement.jsx';
+import AllHODs from './AllHODs.jsx';
+
+const viewToPathMap = {
+  dashboard: '/dashboard',
+  board: '/board',
+  chats: '/chats',
+  users: '/users',
+  leaves: '/leaves',
+  departments: '/departments',
+  'departments-overview': '/departments-overview',
+  'dept-detail': '/dept-detail',
+  'faculty-profile': '/faculty-profile',
+  'all-hods': '/all-hods',
+};
+
+const pathToViewMap = {
+  '/dashboard': 'dashboard',
+  '/board': 'board',
+  '/chats': 'chats',
+  '/users': 'users',
+  '/leaves': 'leaves',
+  '/departments': 'departments',
+  '/departments-overview': 'departments-overview',
+  '/dept-detail': 'dept-detail',
+  '/faculty-profile': 'faculty-profile',
+  '/all-hods': 'all-hods',
+};
+
+const getViewFromUrl = () => {
+  const pathname = window.location.pathname.replace(/\/$/, '') || '/';
+  const searchParams = new URLSearchParams(window.location.search);
+
+  if (pathToViewMap[pathname]) {
+    return {
+      view: pathToViewMap[pathname],
+      deptName: searchParams.get('dept')
+    };
+  }
+
+  if (pathname.startsWith('/department/')) {
+    const deptName = decodeURIComponent(pathname.replace('/department/', ''));
+    return { view: deptName, deptName };
+  }
+
+  return null;
+};
+
+const getUrlFromView = (view, deptName) => {
+  if (viewToPathMap[view]) {
+    if (view === 'dept-detail' && deptName) {
+      return `/dept-detail?dept=${encodeURIComponent(deptName)}`;
+    }
+    return viewToPathMap[view];
+  }
+  if (!view) return '/board';
+  return `/department/${encodeURIComponent(view)}`;
+};
 
 const KanbanBoard = () => {
   const [tasks, setTasks] = useState({ todo: [], inprogress: [], completed: [] });
@@ -64,8 +122,28 @@ const KanbanBoard = () => {
   });
 
   const [userSearchQuery, setUserSearchQuery] = useState('');
-  const [activeView, setActiveView] = useState('board');
-  const [selectedDepartmentName, setSelectedDepartmentName] = useState(null);
+  const [activeView, setActiveViewRaw] = useState(() => {
+    const urlState = getViewFromUrl();
+    if (urlState) return urlState.view;
+    return 'board';
+  });
+  const [selectedDepartmentName, setSelectedDepartmentName] = useState(() => {
+    const urlState = getViewFromUrl();
+    return urlState?.deptName || null;
+  });
+
+  const setActiveView = (newView, deptName) => {
+    setActiveViewRaw(newView);
+    const targetDept = deptName !== undefined ? deptName : (newView === 'dept-detail' ? selectedDepartmentName : null);
+    if (deptName !== undefined) {
+      setSelectedDepartmentName(deptName);
+    }
+    const targetUrl = getUrlFromView(newView, targetDept);
+    if (window.location.pathname + window.location.search !== targetUrl) {
+      window.history.pushState({ view: newView, deptName: targetDept }, '', targetUrl);
+    }
+  };
+
   const [selectedFacultyForProfile, setSelectedFacultyForProfile] = useState(null);
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -92,8 +170,7 @@ const KanbanBoard = () => {
   const { t } = useLanguage();
 
   const handleSelectDepartment = (deptName) => {
-    setSelectedDepartmentName(deptName);
-    setActiveView('dept-detail');
+    setActiveView('dept-detail', deptName);
   };
 
   const handleOpenFacultyProfile = (facultyObj) => {
@@ -102,8 +179,39 @@ const KanbanBoard = () => {
   };
 
   useEffect(() => {
+    const handlePopState = () => {
+      const urlState = getViewFromUrl();
+      if (urlState) {
+        setActiveViewRaw(urlState.view);
+        if (urlState.deptName) {
+          setSelectedDepartmentName(urlState.deptName);
+        }
+      } else {
+        const defaultView = (user?.role === 'admin' || user?.role === 'hod') ? 'dashboard' : 'board';
+        setActiveViewRaw(defaultView);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [user]);
+
+  useEffect(() => {
+    const urlState = getViewFromUrl();
+    if (urlState) {
+      setActiveViewRaw(urlState.view);
+      if (urlState.deptName) {
+        setSelectedDepartmentName(urlState.deptName);
+      }
+    } else if (user?.role === 'admin' || user?.role === 'hod') {
+      setActiveViewRaw('dashboard');
+      window.history.replaceState({ view: 'dashboard' }, '', '/dashboard');
+    } else if (user) {
+      setActiveViewRaw('board');
+      window.history.replaceState({ view: 'board' }, '', '/board');
+    }
+
     if (user?.role === 'admin' || user?.role === 'hod') {
-      setActiveView('dashboard');
       fetchDepartments();
       fetchTemplates();
     }
@@ -656,7 +764,7 @@ const KanbanBoard = () => {
               <FacultyProfilePage targetUser={selectedFacultyForProfile || user} onBack={() => setActiveView('leaves')} />
             )}
 
-            {activeView !== 'dashboard' && activeView !== 'leaves' && activeView !== 'departments-overview' && activeView !== 'dept-detail' && activeView !== 'faculty-profile' && activeView !== 'chats' && activeView !== 'users' && activeView !== 'analytics' && activeView !== 'settings' && (
+            {activeView !== 'dashboard' && activeView !== 'leaves' && activeView !== 'departments-overview' && activeView !== 'dept-detail' && activeView !== 'faculty-profile' && activeView !== 'chats' && activeView !== 'users' && activeView !== 'analytics' && activeView !== 'settings' && activeView !== 'departments' && activeView !== 'all-hods' && (
               <>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 md:mb-6 gap-2 md:gap-3">
                   <div className="flex items-center gap-3">
@@ -724,6 +832,14 @@ const KanbanBoard = () => {
 
             {activeView === 'chats' && (
               <Chat />
+            )}
+
+            {activeView === 'departments' && (
+              <DepartmentManagement onSelectDepartment={handleSelectDepartment} />
+            )}
+
+            {activeView === 'all-hods' && (
+              <AllHODs onSelectDepartment={handleSelectDepartment} />
             )}
           </main>
         </div>
