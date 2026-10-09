@@ -143,7 +143,7 @@ const Login = () => {
                   <FiMail className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
                   <input
                     type="email"
-                    placeholder="name@ssism.org"
+                    placeholder="email@ssism.org"
                     className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -160,7 +160,7 @@ const Login = () => {
                   <FiLock className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
                   <input
                     type="password"
-                    placeholder="••••••••"
+                    placeholder="Enter your password"
                     className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -189,7 +189,7 @@ const Login = () => {
                       <FiMail className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
                       <input
                         type="email"
-                        placeholder="name@ssism.org"
+                        placeholder="email@ssism.org"
                         className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}

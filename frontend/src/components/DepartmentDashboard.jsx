@@ -70,6 +70,26 @@ const DepartmentDashboard = ({ onSelectDepartment }) => {
   const totalPresentCount = roleFilteredAttendanceData.reduce((acc, d) => acc + d.presentCount, 0);
   const totalAbsentCount = roleFilteredAttendanceData.reduce((acc, d) => acc + d.absentCount, 0);
 
+  const allPresentUsers = [];
+  const allLeaveUsers = [];
+
+  roleFilteredAttendanceData.forEach(dept => {
+    if (dept.presentList && dept.presentList.length > 0) {
+      dept.presentList.forEach(p => {
+        if (!allPresentUsers.some(u => String(u._id || u.email) === String(p._id || p.email))) {
+          allPresentUsers.push({ ...p, departmentName: dept.department });
+        }
+      });
+    }
+    if (dept.absentList && dept.absentList.length > 0) {
+      dept.absentList.forEach(a => {
+        if (!allLeaveUsers.some(u => String(u._id || u.email) === String(a._id || a.email))) {
+          allLeaveUsers.push({ ...a, departmentName: dept.department });
+        }
+      });
+    }
+  });
+
   return (
     <div className="space-y-6 fade-in pb-12">
       {/* Header Banner */}
@@ -147,6 +167,111 @@ const DepartmentDashboard = ({ onSelectDepartment }) => {
           </div>
           <p className="text-2xl md:text-3xl font-extrabold text-rose-600">{totalAbsentCount}</p>
           <p className="text-xs font-semibold text-slate-500 mt-1">On Leave Today Across Institute</p>
+        </div>
+      </div>
+
+      {/* 50%-50% HALF-HALF SCREEN SPLIT FOR PRESENT & ON LEAVE USERS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* LEFT HALF (50%): PRESENT FACULTY USERS */}
+        <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2.5">
+                <FiUserCheck className="text-emerald-500 w-6 h-6" />
+                <span>Present Users Today ({totalPresentCount})</span>
+              </h3>
+              <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                Faculty & staff active on duty today across departments
+              </p>
+            </div>
+            <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-extrabold rounded-full border border-emerald-200">
+              🟢 Present ({totalPresentCount})
+            </span>
+          </div>
+
+          <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+            {allPresentUsers.length > 0 ? (
+              allPresentUsers.map((faculty, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 bg-emerald-50/40 hover:bg-emerald-50/90 rounded-2xl border border-emerald-100 flex items-center justify-between gap-3 transition"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white font-extrabold flex items-center justify-center text-xs shadow-sm flex-shrink-0">
+                      {faculty.name?.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="truncate">
+                      <p className="font-extrabold text-slate-800 text-xs truncate">{faculty.name}</p>
+                      <p className="text-[11px] text-slate-400 truncate">{faculty.email || faculty.departmentName}</p>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold rounded-full inline-flex items-center gap-1 border border-emerald-200">
+                      <FiUserCheck className="w-3 h-3" /> Present
+                    </span>
+                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">{faculty.departmentName}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="bg-slate-50 rounded-2xl p-6 text-center text-slate-400">
+                <p className="text-xs font-semibold">No present users recorded today.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT HALF (50%): ON LEAVE FACULTY USERS */}
+        <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2.5">
+                <FiUserX className="text-rose-500 w-6 h-6" />
+                <span>On Leave Users Today ({totalAbsentCount})</span>
+              </h3>
+              <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                Faculty & staff absent or on approved leave today
+              </p>
+            </div>
+            <span className="px-3 py-1 bg-rose-50 text-rose-700 text-xs font-extrabold rounded-full border border-rose-200">
+              🔴 On Leave ({totalAbsentCount})
+            </span>
+          </div>
+
+          <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+            {allLeaveUsers.length > 0 ? (
+              allLeaveUsers.map((faculty, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 bg-rose-50/40 hover:bg-rose-50/90 rounded-2xl border border-rose-100 flex items-center justify-between gap-3 transition"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-500 text-white font-extrabold flex items-center justify-center text-xs shadow-sm flex-shrink-0">
+                      {faculty.name?.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="truncate">
+                      <p className="font-extrabold text-slate-800 text-xs truncate">{faculty.name}</p>
+                      <p className="text-[11px] text-slate-500 truncate italic">
+                        "{faculty.activeLeaveToday?.reason || 'On Leave'}"
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0 space-y-1">
+                    <span className="px-2.5 py-0.5 bg-rose-100 text-rose-800 text-[10px] font-extrabold rounded-full inline-flex items-center gap-1 border border-rose-200">
+                      <FiUserX className="w-3 h-3" /> {faculty.activeLeaveToday?.leaveType?.toUpperCase() || 'Leave'}
+                    </span>
+                    <p className="text-[10px] font-bold text-slate-400">{faculty.departmentName}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="bg-emerald-50/50 border border-emerald-200/60 rounded-2xl p-6 text-center">
+                <FiUserCheck className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                <p className="text-sm font-extrabold text-emerald-800">Full Attendance Today!</p>
+                <p className="text-xs text-emerald-600 mt-0.5">No faculties or staff members are on leave today.</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -229,7 +354,7 @@ const DepartmentDashboard = ({ onSelectDepartment }) => {
                         {dept.department.charAt(0)}
                       </div>
                       <div>
-                        <h4 className="font-extrabold text-slate-900 text-base group-hover:text-orange-600 transition-colors">
+                        <h4 className="font-extrabold text-slate-900 text-base group-hover:text-orange-600 transition-colors capitalize">
                           {dept.department}
                         </h4>
                         <p className="text-xs font-semibold text-slate-400">{dept.totalFaculty} Total Faculties</p>

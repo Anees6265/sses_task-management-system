@@ -565,7 +565,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                             {u.name?.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-800 leading-tight group-hover:text-orange-600 transition">
+                            <p className="font-bold text-slate-800 leading-tight group-hover:text-orange-600 transition capitalize">
                               {u.name}
                             </p>
                             <p className="text-[11px] text-slate-400">ID: {u._id ? String(u._id).slice(-6) : 'N/A'}</p>
@@ -586,7 +586,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                       </td>
                       <td className="p-3.5">{getRoleBadge(u.role)}</td>
                       <td className="p-3.5">
-                        <span className="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 inline-flex items-center gap-1.5">
+                        <span className="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 inline-flex items-center gap-1.5 capitalize">
                           <FiBriefcase className="w-3 h-3 text-slate-400" />
                           {u.department || 'Unassigned'}
                         </span>
@@ -1065,7 +1065,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                   <FiUser className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
                   <input
                     type="text"
-                    placeholder="Prof. John Von Neumann"
+                    placeholder="Full Name (e.g. Prof. Amit Sharma)"
                     className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                     value={createUserForm.name}
                     onChange={(e) => setCreateUserForm({ ...createUserForm, name: e.target.value })}
@@ -1080,7 +1080,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                   <FiMail className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
                   <input
                     type="email"
-                    placeholder="user@ssism.org"
+                    placeholder="email@ssism.org"
                     className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                     value={createUserForm.email}
                     onChange={(e) => setCreateUserForm({ ...createUserForm, email: e.target.value })}
@@ -1096,7 +1096,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                   <FiLock className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
                   <input
                     type="password"
-                    placeholder="Minimum 6 characters"
+                    placeholder="Password (min 6 characters)"
                     className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                     value={createUserForm.password}
                     onChange={(e) => setCreateUserForm({ ...createUserForm, password: e.target.value })}

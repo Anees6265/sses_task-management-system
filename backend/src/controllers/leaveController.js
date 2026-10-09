@@ -127,15 +127,21 @@ exports.applyLeave = async (req, res) => {
 
 exports.getLeaves = async (req, res) => {
   try {
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
     let mongoLeaves = [];
     if (mongoose.connection.readyState === 1) {
-      let filter = {};
+      let filter = {
+        endDate: { $gte: startOfToday }
+      };
+
       if (req.user.role === 'admin') {
-        filter = {};
+        // filter has endDate >= startOfToday
       } else if (req.user.role === 'hod') {
-        filter = { department: req.user.department };
+        filter.department = req.user.department;
       } else {
-        filter = { applicant: req.user._id };
+        filter.applicant = req.user._id;
       }
 
       mongoLeaves = await Leave.find(filter)
@@ -144,18 +150,23 @@ exports.getLeaves = async (req, res) => {
         .sort({ createdAt: -1 });
     }
 
+    let filtered = demoLeaves.filter(l => {
+      const end = new Date(l.endDate);
+      return end >= startOfToday;
+    });
+
+    if (req.user.role === 'hod') {
+      filtered = filtered.filter(l => l.department === req.user.department);
+    } else if (req.user.role === 'user') {
+      filtered = filtered.filter(l => 
+        (l.applicant?._id === req.user._id) || (l.applicant === req.user._id) || (l.applicant?.email === req.user.email)
+      );
+    }
+
     if (mongoLeaves && mongoLeaves.length > 0) {
       return res.json(mongoLeaves);
     }
 
-    let filtered = demoLeaves;
-    if (req.user.role === 'hod') {
-      filtered = demoLeaves.filter(l => l.department === req.user.department);
-    } else if (req.user.role === 'user') {
-      filtered = demoLeaves.filter(l => 
-        (l.applicant?._id === req.user._id) || (l.applicant === req.user._id) || (l.applicant?.email === req.user.email)
-      );
-    }
     return res.json(filtered);
   } catch (error) {
     res.status(500).json({ message: error.message });

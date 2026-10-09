@@ -59,9 +59,13 @@ const FacultyProfilePage = ({ faculty, facultyId, onBack, onRefresh }) => {
         leaveAPI.getDailyAttendance()
       ]);
 
+      const today = new Date();
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
       const allLeaves = leavesRes.data || [];
       const userLeaves = allLeaves.filter(l => 
-        (l.applicant?._id === targetId || l.applicant === targetId || (l.applicant?.email && l.applicant?.email === targetEmail))
+        (l.applicant?._id === targetId || l.applicant === targetId || (l.applicant?.email && l.applicant?.email === targetEmail)) &&
+        new Date(l.endDate) >= startOfToday
       );
       setFacultyLeaves(userLeaves);
 

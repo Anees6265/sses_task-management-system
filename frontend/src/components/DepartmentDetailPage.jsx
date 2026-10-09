@@ -110,7 +110,13 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
     }
   };
 
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
   const filteredLeavesList = deptLeaves.filter(leave => {
+    const endDate = new Date(leave.endDate);
+    if (endDate < startOfToday) return false;
+
     const matchesStatus = statusFilter === 'all' || leave.status === statusFilter;
     const applicantName = leave.applicant?.name || '';
     const matchesSearch = applicantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -168,7 +174,7 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
             </span>
             <h2 className="text-2xl md:text-4xl font-black tracking-tight mt-1 flex items-center gap-3">
               <FiBriefcase className="text-orange-400 w-8 h-8" />
-              <span>{activeDeptName} Department</span>
+              <span className="capitalize">{activeDeptName} Department</span>
             </h2>
             <p className="text-xs md:text-sm text-slate-300 mt-1">
               Complete faculty attendance, active leave applications & department task performance
@@ -310,151 +316,142 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
         </div>
       )}
 
-      {/* SECTION 2: PRESENT FACULTIES TODAY TABLE */}
-      <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-4">
-        <div className="flex items-center justify-between">
+      {/* 50%-50% HALF-HALF SCREEN GRID FOR PRESENT & ON LEAVE USERS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* LEFT HALF (50%): PRESENT FACULTIES TODAY */}
+        <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-4 flex flex-col justify-between">
           <div>
-            <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2.5">
-              <FiUserCheck className="text-emerald-500 w-6 h-6" />
-              <span>Present Faculties Today ({deptData?.presentCount || 0})</span>
-            </h3>
-            <p className="text-xs text-slate-500 font-semibold mt-0.5">
-              List of faculty members on active duty today in {departmentName}
-            </p>
-          </div>
-          <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-extrabold rounded-full border border-emerald-200">
-            🟢 Active On Duty
-          </span>
-        </div>
-
-        <div className="overflow-x-auto">
-          {deptData?.presentList && deptData.presentList.length > 0 ? (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
-                  <th className="p-3.5 rounded-l-2xl">Faculty Member</th>
-                  <th className="p-3.5">Role / Designation</th>
-                  <th className="p-3.5">Today Status</th>
-                  <th className="p-3.5 text-right rounded-r-2xl">Monthly Leaves Taken</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
-                {deptData.presentList.map((faculty) => (
-                  <tr 
-                    key={faculty._id} 
-                    onClick={() => onOpenFacultyProfile ? onOpenFacultyProfile(faculty) : setSelectedFacultyProfile(faculty)}
-                    className="hover:bg-emerald-50/50 transition cursor-pointer"
-                    title="Click to view complete faculty profile & leave info"
-                  >
-                    <td className="p-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white font-extrabold flex items-center justify-center text-xs shadow-md shadow-emerald-500/20">
-                          {faculty.name?.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-extrabold text-slate-800 leading-tight group-hover:text-orange-600">{faculty.name}</p>
-                          <p className="text-[11px] text-slate-400">{faculty.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-3.5 uppercase text-xs font-bold text-slate-600">{faculty.role}</td>
-                    <td className="p-3.5">
-                      <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-extrabold rounded-full inline-flex items-center gap-1 border border-emerald-300">
-                        <FiCheck className="w-3.5 h-3.5" /> Present Today
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-right">
-                      <span className="px-3 py-1 bg-slate-100 text-slate-800 font-extrabold rounded-xl border border-slate-200 text-xs">
-                        {faculty.monthlyLeavesTaken || 0} Days
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="bg-slate-50 rounded-2xl p-6 text-center text-slate-400">
-              <p className="text-xs font-semibold">No faculty present today in this department.</p>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2.5">
+                  <FiUserCheck className="text-emerald-500 w-6 h-6" />
+                  <span>Present Faculties ({deptData?.presentCount || 0})</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                  Faculty members on active duty today
+                </p>
+              </div>
+              <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-extrabold rounded-full border border-emerald-200">
+                🟢 Active ({deptData?.presentCount || 0})
+              </span>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* SECTION 3: ON LEAVE FACULTIES TODAY TABLE */}
-      <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-4">
-        <div className="flex items-center justify-between">
+            <div className="overflow-x-auto">
+              {deptData?.presentList && deptData.presentList.length > 0 ? (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
+                      <th className="p-3 rounded-l-xl">Faculty</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3 text-right rounded-r-xl">Leaves</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
+                    {deptData.presentList.map((faculty) => (
+                      <tr 
+                        key={faculty._id} 
+                        onClick={() => onOpenFacultyProfile ? onOpenFacultyProfile(faculty) : setSelectedFacultyProfile(faculty)}
+                        className="hover:bg-emerald-50/50 transition cursor-pointer"
+                        title="Click to view complete faculty profile"
+                      >
+                        <td className="p-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-600 to-teal-500 text-white font-extrabold flex items-center justify-center text-xs flex-shrink-0">
+                              {faculty.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-extrabold text-slate-800 leading-tight truncate">{faculty.name}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{faculty.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[11px] font-extrabold rounded-full inline-flex items-center gap-1 border border-emerald-200">
+                            <FiCheck className="w-3 h-3" /> Present
+                          </span>
+                        </td>
+                        <td className="p-3 text-right font-extrabold text-slate-800">
+                          {faculty.monthlyLeavesTaken || 0}d
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="bg-slate-50 rounded-2xl p-6 text-center text-slate-400">
+                  <p className="text-xs font-semibold">No faculty present today in this department.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT HALF (50%): ON LEAVE FACULTIES TODAY */}
+        <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-4 flex flex-col justify-between">
           <div>
-            <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2.5">
-              <FiUserX className="text-rose-500 w-6 h-6" />
-              <span>On Leave Faculties Today ({deptData?.absentCount || 0})</span>
-            </h3>
-            <p className="text-xs text-slate-500 font-semibold mt-0.5">
-              Faculty members absent or on approved leave today in {departmentName}
-            </p>
-          </div>
-          <span className="px-3 py-1 bg-rose-50 text-rose-700 text-xs font-extrabold rounded-full border border-rose-200">
-            🔴 Approved Leave
-          </span>
-        </div>
-
-        <div className="overflow-x-auto">
-          {deptData?.absentList && deptData.absentList.length > 0 ? (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
-                  <th className="p-3.5 rounded-l-2xl">Faculty Member</th>
-                  <th className="p-3.5">Leave Type</th>
-                  <th className="p-3.5">Leave Reason</th>
-                  <th className="p-3.5">Today Status</th>
-                  <th className="p-3.5 text-right rounded-r-2xl">Monthly Leaves Taken</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
-                {deptData.absentList.map((faculty) => (
-                  <tr 
-                    key={faculty._id} 
-                    onClick={() => onOpenFacultyProfile ? onOpenFacultyProfile(faculty) : setSelectedFacultyProfile(faculty)}
-                    className="hover:bg-rose-50/50 transition cursor-pointer"
-                    title="Click to view complete faculty profile & leave info"
-                  >
-                    <td className="p-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-500 text-white font-extrabold flex items-center justify-center text-xs shadow-md shadow-rose-500/20">
-                          {faculty.name?.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-extrabold text-slate-800 leading-tight">{faculty.name}</p>
-                          <p className="text-[11px] text-slate-400">{faculty.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-3.5">
-                      {getLeaveTypeBadge(faculty.activeLeaveToday?.leaveType || 'casual')}
-                    </td>
-                    <td className="p-3.5 text-xs text-slate-600 italic max-w-xs truncate">
-                      "{faculty.activeLeaveToday?.reason || 'No details provided'}"
-                    </td>
-                    <td className="p-3.5">
-                      <span className="px-3 py-1 bg-rose-100 text-rose-800 text-xs font-extrabold rounded-full inline-flex items-center gap-1 border border-rose-300">
-                        <FiX className="w-3.5 h-3.5" /> On Leave Today
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-right">
-                      <span className="px-3 py-1 bg-slate-100 text-slate-800 font-extrabold rounded-xl border border-slate-200 text-xs">
-                        {faculty.monthlyLeavesTaken || 0} Days
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="bg-emerald-50/50 border border-emerald-200/60 rounded-2xl p-6 text-center">
-              <FiCheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-              <p className="text-sm font-extrabold text-emerald-800">100% Full Attendance Today!</p>
-              <p className="text-xs text-emerald-600 mt-0.5">No faculty members are on leave in {departmentName} today.</p>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2.5">
+                  <FiUserX className="text-rose-500 w-6 h-6" />
+                  <span>On Leave Faculties ({deptData?.absentCount || 0})</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                  Faculty members absent or on approved leave
+                </p>
+              </div>
+              <span className="px-3 py-1 bg-rose-50 text-rose-700 text-xs font-extrabold rounded-full border border-rose-200">
+                🔴 On Leave ({deptData?.absentCount || 0})
+              </span>
             </div>
-          )}
+
+            <div className="overflow-x-auto">
+              {deptData?.absentList && deptData.absentList.length > 0 ? (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
+                      <th className="p-3 rounded-l-xl">Faculty</th>
+                      <th className="p-3">Reason</th>
+                      <th className="p-3 text-right rounded-r-xl">Type</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
+                    {deptData.absentList.map((faculty) => (
+                      <tr 
+                        key={faculty._id} 
+                        onClick={() => onOpenFacultyProfile ? onOpenFacultyProfile(faculty) : setSelectedFacultyProfile(faculty)}
+                        className="hover:bg-rose-50/50 transition cursor-pointer"
+                        title="Click to view complete faculty profile"
+                      >
+                        <td className="p-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-rose-500 to-pink-500 text-white font-extrabold flex items-center justify-center text-xs flex-shrink-0">
+                              {faculty.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-extrabold text-slate-800 leading-tight truncate">{faculty.name}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{faculty.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 text-xs text-slate-600 italic truncate max-w-[120px]">
+                          "{faculty.activeLeaveToday?.reason || 'On Leave'}"
+                        </td>
+                        <td className="p-3 text-right">
+                          {getLeaveTypeBadge(faculty.activeLeaveToday?.leaveType || 'casual')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="bg-emerald-50/50 border border-emerald-200/60 rounded-2xl p-6 text-center">
+                  <FiCheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                  <p className="text-sm font-extrabold text-emerald-800">100% Full Attendance Today!</p>
+                  <p className="text-xs text-emerald-600 mt-0.5">No faculty members are on leave in {departmentName} today.</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

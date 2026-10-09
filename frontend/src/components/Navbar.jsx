@@ -123,7 +123,7 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
                         <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center text-white font-extrabold text-2xl mb-2.5 shadow-md shadow-orange-500/20">
                           {user?.name?.charAt(0).toUpperCase()}
                         </div>
-                        <h3 className="font-bold text-slate-800 text-center leading-tight">{user?.name}</h3>
+                        <h3 className="font-bold text-slate-800 text-center leading-tight capitalize">{user?.name}</h3>
                         <p className="text-xs text-slate-500 text-center mt-0.5">{user?.email}</p>
                         
                         {user?.role === 'admin' && (

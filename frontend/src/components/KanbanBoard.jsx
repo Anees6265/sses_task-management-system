@@ -100,6 +100,24 @@ const getUrlFromView = (view, deptName) => {
   return `/department/${encodeURIComponent(view)}`;
 };
 
+const StrictModeDroppable = ({ children, ...props }) => {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    const animation = requestAnimationFrame(() => setEnabled(true));
+    return () => {
+      cancelAnimationFrame(animation);
+      setEnabled(false);
+    };
+  }, []);
+
+  if (!enabled) {
+    return null;
+  }
+
+  return <Droppable {...props}>{children}</Droppable>;
+};
+
 const KanbanBoard = () => {
   const [tasks, setTasks] = useState({ todo: [], inprogress: [], completed: [] });
   const [showModal, setShowModal] = useState(false);
@@ -253,19 +271,24 @@ const KanbanBoard = () => {
         data = response.data;
       }
 
-      let filteredData = data;
+      let filteredData = data || [];
 
       if ((user?.role === 'admin' || user?.role === 'hod') && activeView !== 'dashboard' && activeView !== 'board' && !selectedFacultyId) {
-        filteredData = data.filter(task => task.department === activeView);
+        filteredData = filteredData.filter(task => task.department === activeView);
       }
 
       const grouped = { todo: [], inprogress: [], completed: [] };
       filteredData.forEach(task => {
-        if (grouped[task.status]) {
-          grouped[task.status].push(task);
-        } else {
-          grouped.todo.push(task);
+        const rawStatus = task.status ? String(task.status).toLowerCase().replace(/[-_ ]/g, '') : 'todo';
+        let key = 'todo';
+        if (rawStatus === 'inprogress' || rawStatus === 'in-progress' || rawStatus === 'in_progress') {
+          key = 'inprogress';
+        } else if (rawStatus === 'completed' || rawStatus === 'complete' || rawStatus === 'done') {
+          key = 'completed';
+        } else if (rawStatus === 'todo') {
+          key = 'todo';
         }
+        grouped[key].push(task);
       });
       setTasks(grouped);
     } catch (error) {
@@ -288,24 +311,31 @@ const KanbanBoard = () => {
     if (!result.destination) return;
 
     const { source, destination, draggableId } = result;
-    if (source.droppableId === destination.droppableId) return;
 
-    const sourceTasks = [...tasks[source.droppableId]];
-    const destTasks = [...tasks[destination.droppableId]];
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+
+    const sourceTasks = [...(tasks[source.droppableId] || [])];
+    const destTasks = source.droppableId === destination.droppableId
+      ? sourceTasks
+      : [...(tasks[destination.droppableId] || [])];
+
     const [movedTask] = sourceTasks.splice(source.index, 1);
-    
+    if (!movedTask) return;
+
     // Update task status optimistically so card status dropdown and object remain in sync
     const updatedTask = { ...movedTask, status: destination.droppableId };
     destTasks.splice(destination.index, 0, updatedTask);
 
-    setTasks({
+    const updatedState = {
       ...tasks,
       [source.droppableId]: sourceTasks,
       [destination.droppableId]: destTasks
-    });
+    };
+
+    setTasks(updatedState);
 
     try {
-      await taskAPI.updateTask(draggableId, { status: destination.droppableId });
+      await taskAPI.updateTask(String(draggableId), { status: destination.droppableId });
       await fetchTasks();
     } catch (error) {
       console.error('Error updating task status via drag:', error);
@@ -552,8 +582,8 @@ const KanbanBoard = () => {
 
   const Column = ({ title, tasks, droppableId, icon: IconComponent, badgeColor }) => {
     return (
-      <div className="w-full lg:flex-1 lg:min-w-[300px]">
-        <div className="bg-white/80 backdrop-blur-md rounded-3xl p-4 border border-slate-200/80 shadow-md flex flex-col min-h-[500px]">
+      <div className="w-full lg:flex-1 lg:min-w-[300px] relative">
+        <div className="bg-white rounded-3xl p-4 border border-slate-200/90 shadow-md flex flex-col min-h-[500px]">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 flex-shrink-0">
             <h3 className="font-extrabold text-sm md:text-base text-slate-800 flex items-center gap-2">
               <span className={`p-2 rounded-xl text-white ${badgeColor}`}>
@@ -566,7 +596,7 @@ const KanbanBoard = () => {
             </span>
           </div>
 
-          <Droppable droppableId={droppableId}>
+          <StrictModeDroppable droppableId={droppableId}>
             {(provided, snapshot) => (
               <div
                 ref={provided.innerRef}
@@ -574,13 +604,17 @@ const KanbanBoard = () => {
                 className={`space-y-3 flex-1 transition-colors rounded-2xl p-1 ${snapshot.isDraggingOver ? 'bg-orange-50/50 border-2 border-dashed border-orange-300' : ''}`}
               >
                 {tasks.map((task, index) => (
-                  <Draggable key={task._id} draggableId={task._id} index={index}>
+                  <Draggable key={String(task._id)} draggableId={String(task._id)} index={index}>
                     {(provided, snapshot) => (
                       <div
                         ref={provided.innerRef}
                         {...provided.draggableProps}
                         {...provided.dragHandleProps}
-                        className={`bg-white rounded-2xl border border-slate-200/90 p-4 hover:border-orange-300 transition-all duration-200 glass-card-hover ${snapshot.isDragging ? 'shadow-2xl rotate-2 scale-105 border-orange-500' : 'shadow-sm'}`}
+                        style={{
+                          ...provided.draggableProps.style,
+                          zIndex: snapshot.isDragging ? 99999 : 'auto',
+                        }}
+                        className={`bg-white rounded-2xl border border-slate-200/90 p-4 hover:border-orange-300 transition-all duration-200 glass-card-hover ${snapshot.isDragging ? 'shadow-2xl rotate-2 scale-105 border-orange-500 z-[99999]' : 'shadow-sm'}`}
                       >
                         <div className="flex justify-between items-start mb-2 gap-2">
                           <h4 className="font-bold text-slate-800 text-sm md:text-base leading-snug break-words flex-1">
@@ -703,7 +737,7 @@ const KanbanBoard = () => {
                 )}
               </div>
             )}
-          </Droppable>
+          </StrictModeDroppable>
         </div>
       </div>
     );

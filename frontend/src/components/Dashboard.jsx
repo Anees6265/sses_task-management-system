@@ -24,6 +24,7 @@ import {
 const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
   const [stats, setStats] = useState(null);
   const [attendanceData, setAttendanceData] = useState([]);
+  const [leaves, setLeaves] = useState([]);
   const [selectedDeptAttendance, setSelectedDeptAttendance] = useState(null);
   const [selectedFacultyProfile, setSelectedFacultyProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -33,6 +34,7 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
   useEffect(() => {
     fetchStats();
     fetchAttendance();
+    fetchLeaves();
   }, []);
 
   const fetchStats = async () => {
@@ -55,6 +57,15 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
     }
   };
 
+  const fetchLeaves = async () => {
+    try {
+      const { data } = await leaveAPI.getLeaves();
+      setLeaves(data || []);
+    } catch (error) {
+      console.error('Error fetching leaves:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -71,6 +82,29 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
   };
 
   const overallProgress = calculateProgress(stats?.completedTasks, stats?.totalTasks);
+  const totalPresentCount = attendanceData.reduce((acc, d) => acc + (d.presentCount || 0), 0);
+  const totalAbsentCount = attendanceData.reduce((acc, d) => acc + (d.absentCount || 0), 0);
+  const pendingLeavesCount = leaves.filter(l => l.status === 'pending').length;
+
+  const allPresentUsers = [];
+  const allLeaveUsers = [];
+
+  attendanceData.forEach(dept => {
+    if (dept.presentList && dept.presentList.length > 0) {
+      dept.presentList.forEach(p => {
+        if (!allPresentUsers.some(u => String(u._id || u.email) === String(p._id || p.email))) {
+          allPresentUsers.push({ ...p, departmentName: dept.department });
+        }
+      });
+    }
+    if (dept.absentList && dept.absentList.length > 0) {
+      dept.absentList.forEach(a => {
+        if (!allLeaveUsers.some(u => String(u._id || u.email) === String(a._id || a.email))) {
+          allLeaveUsers.push({ ...a, departmentName: dept.department });
+        }
+      });
+    }
+  });
 
   return (
     <div className="space-y-6 fade-in">
@@ -81,14 +115,14 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
           <div className="flex items-center space-x-2 mb-1">
             <span className="px-3 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-bold rounded-full uppercase tracking-wider border border-orange-500/30 flex items-center gap-1.5">
               <FiActivity className="w-3.5 h-3.5" />
-              Real-Time Metrics
+              Real-Time Metrics & Overview
             </span>
           </div>
           <h2 className="text-2xl md:text-3xl font-extrabold flex items-center gap-3 tracking-tight">
             <FiPieChart className="text-orange-400 w-8 h-8" />
             <span>{t('adminDashboard')}</span>
           </h2>
-          <p className="text-xs md:text-sm text-slate-300 mt-1">{t('overviewDepartments')}</p>
+          <p className="text-xs md:text-sm text-slate-300 mt-1">Overview of Tasks, Department Performance, Attendance & Leaves</p>
         </div>
         <div className="bg-white/10 backdrop-blur-md px-6 py-3.5 rounded-2xl border border-white/10 flex items-center gap-4 relative z-10">
           <div>
@@ -101,68 +135,198 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
         </div>
       </div>
 
-      {/* Main Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Tasks */}
-        <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-3 bg-slate-100 text-slate-700 rounded-2xl">
-              <FiList className="w-6 h-6" />
+      {/* Task Summary Stat Cards */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 px-1">
+          <FiBriefcase className="w-4 h-4 text-orange-500" /> Task Overview Metrics
+        </h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Total Tasks */}
+          <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-slate-100 text-slate-700 rounded-2xl">
+                <FiList className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total</span>
             </div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total</span>
+            <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{stats?.totalTasks || 0}</p>
+            <p className="text-xs font-semibold text-slate-500 mt-1">{t('totalTasks')}</p>
+            <div className="w-full bg-slate-100 h-2 rounded-full mt-3 overflow-hidden">
+              <div className="bg-slate-800 h-full rounded-full" style={{ width: '100%' }}></div>
+            </div>
           </div>
-          <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{stats?.totalTasks || 0}</p>
-          <p className="text-xs font-semibold text-slate-500 mt-1">{t('totalTasks')}</p>
-          <div className="w-full bg-slate-100 h-2 rounded-full mt-3 overflow-hidden">
-            <div className="bg-slate-800 h-full rounded-full" style={{ width: '100%' }}></div>
-          </div>
-        </div>
 
-        {/* To Do */}
-        <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
-              <FiClock className="w-6 h-6" />
+          {/* To Do */}
+          <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                <FiClock className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider">Pending</span>
             </div>
-            <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider">Pending</span>
+            <p className="text-2xl md:text-3xl font-extrabold text-indigo-600">{stats?.todoTasks || 0}</p>
+            <p className="text-xs font-semibold text-slate-500 mt-1">{t('todo')}</p>
+            <div className="w-full bg-indigo-50 h-2 rounded-full mt-3 overflow-hidden">
+              <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${calculateProgress(stats?.todoTasks, stats?.totalTasks)}%` }}></div>
+            </div>
           </div>
-          <p className="text-2xl md:text-3xl font-extrabold text-indigo-600">{stats?.todoTasks || 0}</p>
-          <p className="text-xs font-semibold text-slate-500 mt-1">{t('todo')}</p>
-          <div className="w-full bg-indigo-50 h-2 rounded-full mt-3 overflow-hidden">
-            <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${calculateProgress(stats?.todoTasks, stats?.totalTasks)}%` }}></div>
-          </div>
-        </div>
 
-        {/* In Progress */}
-        <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
-              <FiTrendingUp className="w-6 h-6" />
+          {/* In Progress */}
+          <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
+                <FiTrendingUp className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">Active</span>
             </div>
-            <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">Active</span>
+            <p className="text-2xl md:text-3xl font-extrabold text-amber-600">{stats?.inprogressTasks || 0}</p>
+            <p className="text-xs font-semibold text-slate-500 mt-1">{t('inProgress')}</p>
+            <div className="w-full bg-amber-50 h-2 rounded-full mt-3 overflow-hidden">
+              <div className="bg-amber-500 h-full rounded-full" style={{ width: `${calculateProgress(stats?.inprogressTasks, stats?.totalTasks)}%` }}></div>
+            </div>
           </div>
-          <p className="text-2xl md:text-3xl font-extrabold text-amber-600">{stats?.inprogressTasks || 0}</p>
-          <p className="text-xs font-semibold text-slate-500 mt-1">{t('inProgress')}</p>
-          <div className="w-full bg-amber-50 h-2 rounded-full mt-3 overflow-hidden">
-            <div className="bg-amber-500 h-full rounded-full" style={{ width: `${calculateProgress(stats?.inprogressTasks, stats?.totalTasks)}%` }}></div>
-          </div>
-        </div>
 
-        {/* Completed */}
-        <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
-              <FiCheckCircle className="w-6 h-6" />
+          {/* Completed */}
+          <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+                <FiCheckCircle className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Done</span>
             </div>
-            <span className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Done</span>
-          </div>
-          <p className="text-2xl md:text-3xl font-extrabold text-emerald-600">{stats?.completedTasks || 0}</p>
-          <p className="text-xs font-semibold text-slate-500 mt-1">{t('completed')}</p>
-          <div className="w-full bg-emerald-50 h-2 rounded-full mt-3 overflow-hidden">
-            <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${calculateProgress(stats?.completedTasks, stats?.totalTasks)}%` }}></div>
+            <p className="text-2xl md:text-3xl font-extrabold text-emerald-600">{stats?.completedTasks || 0}</p>
+            <p className="text-xs font-semibold text-slate-500 mt-1">{t('completed')}</p>
+            <div className="w-full bg-emerald-50 h-2 rounded-full mt-3 overflow-hidden">
+              <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${calculateProgress(stats?.completedTasks, stats?.totalTasks)}%` }}></div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Leave & Attendance Summary Cards */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 px-1">
+          <FiCalendar className="w-4 h-4 text-orange-500" /> Leave & Attendance Metrics
+        </h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+                <FiUserCheck className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Present</span>
+            </div>
+            <p className="text-2xl md:text-3xl font-extrabold text-emerald-600">{totalPresentCount}</p>
+            <p className="text-xs font-semibold text-slate-500 mt-1">Present Today Across Institute</p>
+          </div>
+
+          <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl">
+                <FiUserX className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-bold text-rose-500 uppercase tracking-wider">On Leave</span>
+            </div>
+            <p className="text-2xl md:text-3xl font-extrabold text-rose-600">{totalAbsentCount}</p>
+            <p className="text-xs font-semibold text-slate-500 mt-1">On Leave Today Across Institute</p>
+          </div>
+
+          <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
+                <FiClock className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">Pending</span>
+            </div>
+            <p className="text-2xl md:text-3xl font-extrabold text-amber-600">{pendingLeavesCount}</p>
+            <p className="text-xs font-semibold text-slate-500 mt-1">Pending Leave Approvals</p>
+          </div>
+
+          <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
+                <FiCalendar className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider">Applications</span>
+            </div>
+            <p className="text-2xl md:text-3xl font-extrabold text-indigo-600">{leaves.length}</p>
+            <p className="text-xs font-semibold text-slate-500 mt-1">Total Active Leave Requests</p>
+          </div>
+        </div>
+      </div>
+
+      {/* DEPARTMENT ATTENDANCE & LEAVE SUMMARY */}
+      <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg md:text-xl font-extrabold text-slate-800 flex items-center gap-2.5">
+              <FiCalendar className="text-orange-500 w-6 h-6" />
+              <span>Department Attendance & Leave Summary</span>
+            </h3>
+            <p className="text-xs text-slate-500 font-semibold mt-0.5">
+              Summary overview: Total faculty, present count, and active leave count by department
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-extrabold rounded-full border border-emerald-200">
+              🟢 Total Present: {totalPresentCount}
+            </span>
+            <span className="px-3 py-1 bg-rose-50 text-rose-700 text-xs font-extrabold rounded-full border border-rose-200">
+              🔴 Total On Leave: {totalAbsentCount}
+            </span>
+          </div>
+        </div>
+
+        {attendanceData && attendanceData.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {attendanceData.map((dept, idx) => {
+              const total = dept.totalFaculty || ((dept.presentCount || 0) + (dept.absentCount || 0));
+              const present = dept.presentCount || 0;
+              const leave = dept.absentCount || 0;
+              const presentPercentage = total > 0 ? Math.round((present / total) * 100) : 0;
+
+              return (
+                <div 
+                  key={idx} 
+                  onClick={() => onSelectDepartment && onSelectDepartment(dept.department)}
+                  className="glass-card glass-card-hover rounded-2xl p-4 border border-slate-200/80 hover:border-orange-500 cursor-pointer transition-all shadow-xs hover:shadow-lg space-y-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <h4 className="font-extrabold text-slate-900 text-sm md:text-base truncate capitalize">{dept.department}</h4>
+                      <p className="text-[11px] font-semibold text-slate-400">Total Staff: <span className="font-bold text-slate-700">{total}</span></p>
+                    </div>
+                    <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 flex-shrink-0 border border-slate-200/60">
+                      {presentPercentage}% Present
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-100/80 text-center">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700">Present</p>
+                      <p className="text-lg font-black text-emerald-600 mt-0.5">{present}</p>
+                    </div>
+                    <div className="bg-rose-50/80 p-2.5 rounded-xl border border-rose-100/80 text-center">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700">On Leave</p>
+                      <p className="text-lg font-black text-rose-600 mt-0.5">{leave}</p>
+                    </div>
+                  </div>
+
+                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden flex">
+                    <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${presentPercentage}%` }} />
+                    <div className="bg-rose-500 h-full transition-all duration-500" style={{ width: `${100 - presentPercentage}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200/60 text-slate-400 text-xs font-semibold">
+            No department attendance data recorded today.
+          </div>
+        )}
+      </div>
+
 
       {/* Task Performance Grid */}
       <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100">
@@ -190,7 +354,7 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
                         {faculty.name?.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <h4 className="text-sm font-bold text-slate-800 truncate">{faculty.name}</h4>
+                        <h4 className="text-sm font-bold text-slate-800 truncate capitalize">{faculty.name}</h4>
                         <p className="text-[11px] text-slate-400 truncate">{faculty.email}</p>
                       </div>
                     </div>
@@ -240,17 +404,12 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
                   className="glass-card glass-card-hover rounded-2xl p-5 border border-slate-200/80 hover:border-orange-500 cursor-pointer transition-all group shadow-sm hover:shadow-xl flex flex-col justify-between"
                 >
                   <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 text-white font-extrabold flex items-center justify-center text-sm shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
-                          {dept._id.charAt(0)}
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-extrabold text-slate-900 group-hover:text-orange-600 transition-colors">{dept._id}</h4>
-                          <p className="text-[11px] font-semibold text-slate-400">Department Performance</p>
-                        </div>
+                    <div className="flex items-center justify-between mb-4 gap-3">
+                      <div className="min-w-0">
+                        <h4 className="text-base font-extrabold text-slate-900 group-hover:text-orange-600 transition-colors truncate capitalize">{dept._id}</h4>
+                        <p className="text-[11px] font-semibold text-slate-400">Task Performance</p>
                       </div>
-                      <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-2.5 py-0.5 rounded-full text-xs font-black flex-shrink-0 shadow-xs">
+                      <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-3 py-1 rounded-full text-xs font-black flex-shrink-0 shadow-xs">
                         {deptProgress}%
                       </div>
                     </div>

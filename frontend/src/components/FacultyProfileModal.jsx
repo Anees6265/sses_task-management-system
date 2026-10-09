@@ -51,9 +51,13 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
         leaveAPI.getDailyAttendance()
       ]);
 
+      const today = new Date();
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
       const allLeaves = leavesRes.data || [];
       const userLeaves = allLeaves.filter(l => 
-        (l.applicant?._id === targetId || l.applicant === targetId || (l.applicant?.email && l.applicant?.email === targetEmail))
+        (l.applicant?._id === targetId || l.applicant === targetId || (l.applicant?.email && l.applicant?.email === targetEmail)) &&
+        new Date(l.endDate) >= startOfToday
       );
       setFacultyLeaves(userLeaves);
 
@@ -178,7 +182,7 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-xl md:text-2xl font-black text-white">{profileData?.name}</h2>
+                <h2 className="text-xl md:text-2xl font-black text-white capitalize">{profileData?.name}</h2>
                 <span className="px-3 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-extrabold rounded-full border border-orange-500/30 uppercase tracking-wider">
                   {profileData?.role === 'hod' ? 'HOD' : 'Faculty Member'}
                 </span>
@@ -189,7 +193,7 @@ const FacultyProfileModal = ({ faculty, facultyId, onClose, onRefresh }) => {
               </p>
               <p className="text-xs text-slate-300 flex items-center gap-2">
                 <FiBriefcase className="w-4 h-4 text-amber-400" />
-                <span>{profileData?.department} Department</span>
+                <span className="capitalize">{profileData?.department} Department</span>
               </p>
             </div>
           </div>

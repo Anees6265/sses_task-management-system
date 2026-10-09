@@ -79,7 +79,7 @@ const Register = ({ onClose, isModal = false }) => {
               <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Full Name</label>
               <input
                 type="text"
-                placeholder="Enter name"
+                placeholder="Full Name (e.g. Rahul Sharma)"
                 className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-xs md:text-sm"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -91,7 +91,7 @@ const Register = ({ onClose, isModal = false }) => {
               <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Email</label>
               <input
                 type="email"
-                placeholder="Enter @ssism.org email"
+                placeholder="email@ssism.org"
                 className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-xs md:text-sm"
                 value={formData.email}
                 onChange={(e) => {
@@ -113,7 +113,7 @@ const Register = ({ onClose, isModal = false }) => {
               <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Phone (Signal)</label>
               <input
                 type="tel"
-                placeholder="+91XXXXXXXXXX"
+                placeholder="+91 9876543210"
                 className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-xs md:text-sm"
                 value={formData.phoneNumber}
                 onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
@@ -124,7 +124,7 @@ const Register = ({ onClose, isModal = false }) => {
               <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Password</label>
               <input
                 type="password"
-                placeholder="Min 6 characters"
+                placeholder="Password (min 6 characters)"
                 className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-xs md:text-sm"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}

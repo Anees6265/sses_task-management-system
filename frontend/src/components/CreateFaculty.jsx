@@ -60,7 +60,7 @@ const CreateFaculty = ({ onClose, isModal }) => {
               <FiUser className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Prof. John Von Neumann"
+                placeholder="Full Name (e.g. Dr. Rajesh Kumar)"
                 className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -75,7 +75,7 @@ const CreateFaculty = ({ onClose, isModal }) => {
               <FiMail className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
               <input
                 type="email"
-                placeholder="faculty@ssism.org"
+                placeholder="email@ssism.org"
                 className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -91,7 +91,7 @@ const CreateFaculty = ({ onClose, isModal }) => {
               <FiLock className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
               <input
                 type="password"
-                placeholder="Minimum 6 characters"
+                placeholder="Password (min 6 characters)"
                 className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}

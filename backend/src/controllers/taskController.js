@@ -68,9 +68,12 @@ exports.getTasks = async (req, res) => {
       console.log('⚡ Serving tasks from Mock Store');
       let tasks = demoTasks;
       if (req.user.role === 'hod') {
-        tasks = demoTasks.filter(t => t.department === req.user.department);
+        tasks = demoTasks.filter(t => !t.department || t.department === req.user.department);
       } else if (req.user.role === 'user') {
-        tasks = demoTasks.filter(t => t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(req.user._id)));
+        tasks = demoTasks.filter(t => 
+          (t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(req.user._id))) ||
+          (t.createdBy && String(t.createdBy._id || t.createdBy) === String(req.user._id))
+        );
       }
       return res.json(tasks);
     }
@@ -82,7 +85,12 @@ exports.getTasks = async (req, res) => {
     } else if (req.user.role === 'hod') {
       filter = { department: req.user.department };
     } else {
-      filter = { assignedTo: req.user._id };
+      filter = {
+        $or: [
+          { assignedTo: req.user._id },
+          { createdBy: req.user._id }
+        ]
+      };
     }
     
     const tasks = await Task.find(filter)
@@ -95,9 +103,12 @@ exports.getTasks = async (req, res) => {
       console.log('⚡ Serving tasks fallback from Mock Store');
       let tasks = demoTasks;
       if (req.user.role === 'hod') {
-        tasks = demoTasks.filter(t => t.department === req.user.department);
+        tasks = demoTasks.filter(t => !t.department || t.department === req.user.department);
       } else if (req.user.role === 'user') {
-        tasks = demoTasks.filter(t => t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(req.user._id)));
+        tasks = demoTasks.filter(t => 
+          (t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(req.user._id))) ||
+          (t.createdBy && String(t.createdBy._id || t.createdBy) === String(req.user._id))
+        );
       }
       return res.json(tasks);
     }
@@ -274,8 +285,16 @@ exports.updateTask = async (req, res) => {
       console.log('⚡ Updating task in Mock Store');
       const index = demoTasks.findIndex(t => String(t._id) === String(req.params.id));
       if (index !== -1) {
-        if (req.user.role === 'hod' && demoTasks[index].department !== req.user.department) {
+        const task = demoTasks[index];
+        if (req.user.role === 'hod' && task.department && req.user.department && task.department !== req.user.department) {
           return res.status(403).json({ message: 'Access denied. Task belongs to another department.' });
+        }
+        if (req.user.role === 'user') {
+          const isAssigned = (task.assignedTo || []).some(id => String(id._id || id) === String(req.user._id));
+          const isCreator = String(task.createdBy._id || task.createdBy) === String(req.user._id);
+          if (!isAssigned && !isCreator) {
+            return res.status(403).json({ message: 'Access denied. You can only update your assigned tasks.' });
+          }
         }
         demoTasks[index] = { ...demoTasks[index], ...req.body };
         return res.json(demoTasks[index]);
@@ -289,11 +308,12 @@ exports.updateTask = async (req, res) => {
     }
 
     // RBAC Security Check
-    if (req.user.role === 'hod' && existingTask.department !== req.user.department) {
+    if (req.user.role === 'hod' && existingTask.department && req.user.department && existingTask.department !== req.user.department) {
       return res.status(403).json({ message: 'Access denied. You can only edit tasks in your department.' });
     } else if (req.user.role === 'user') {
-      const isAssigned = existingTask.assignedTo.some(id => String(id) === String(req.user._id));
-      if (!isAssigned && String(existingTask.createdBy) !== String(req.user._id)) {
+      const isAssigned = (existingTask.assignedTo || []).some(id => String(id._id || id) === String(req.user._id));
+      const isCreator = String(existingTask.createdBy._id || existingTask.createdBy) === String(req.user._id);
+      if (!isAssigned && !isCreator) {
         return res.status(403).json({ message: 'Access denied. You can only update your assigned tasks.' });
       }
     }

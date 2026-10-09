@@ -200,7 +200,13 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   const isFaculty = user?.role === 'user';
   const userDept = user?.department;
 
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
   const filteredLeaves = leaves.filter(leave => {
+    const endDate = new Date(leave.endDate);
+    if (endDate < startOfToday) return false;
+
     const matchesStatus = statusFilter === 'all' || leave.status === statusFilter;
     const matchesDept = selectedDeptFilter === 'all' || leave.department === selectedDeptFilter || leave.applicant?.department === selectedDeptFilter;
     const applicantName = leave.applicant?.name || '';
