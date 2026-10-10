@@ -14,9 +14,20 @@ const chatRoutes = require('./src/routes/chatRoutes');
 const notificationRoutes = require('./src/routes/notificationRoutes');
 const Message = require('./src/models/Message');
 const jwt = require('jsonwebtoken');
-const { encrypt, decrypt } = require('./src/utils/encryption');
+const helmet = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
 
 const app = express();
+
+// 1. Security HTTP Headers via Helmet
+app.use(helmet({
+  contentSecurityPolicy: false, // Disabled for static upload serving & socket connections; customize as needed
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
+
+// 2. Prevent NoSQL Injection attacks (strips $ and . from req.body, req.query, req.params)
+app.use(mongoSanitize());
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -144,13 +155,11 @@ io.on('connection', (socket) => {
         // Send push notification if user is offline
         const User = require('./src/models/User');
         const receiver = await User.findById(data.receiver);
-        if (receiver && receiver.fcmToken && receiver.notificationPreferences.chat) {
+        if (receiver && receiver.fcmToken && receiver.notificationPreferences?.chat) {
           console.log('📨 Sending push notification to offline user');
           // TODO: Send via FCM when integrated
         }
       }
-      
-      socket.emit('message-sent', decryptedMessage);
     } catch (error) {
       socket.emit('message-error', { error: error.message });
     }
