@@ -815,5 +815,53 @@ exports.getUnassignedFaculty = async (req, res) => {
   }
 };
 
+exports.getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
 
+    let targetUser = null;
+    if (mongoose.connection.readyState === 1) {
+      try {
+        targetUser = await User.findById(id).select('name email department role status phoneNumber');
+      } catch (err) {
+        // Not a standard 24-hex ObjectId, try demoUsers below
+      }
+    }
 
+    if (!targetUser) {
+      targetUser = demoUsers.find(u => String(u._id) === String(id) || u.email === id);
+    }
+
+    if (!targetUser) {
+      return res.status(404).json({ message: 'Faculty user not found' });
+    }
+
+    // Access control:
+    // Admin has access to view any faculty profile across all departments
+    // HOD has access to view any faculty in their department
+    // Faculty can view their own profile
+    if (req.user.role === 'admin') {
+      // Full access granted
+    } else if (req.user.role === 'hod') {
+      if (targetUser.department !== req.user.department && String(targetUser._id) !== String(req.user._id)) {
+        return res.status(403).json({ message: 'Access denied: You can only view profiles of faculty in your department' });
+      }
+    } else {
+      if (String(targetUser._id) !== String(req.user._id) && targetUser.email !== req.user.email) {
+        return res.status(403).json({ message: 'Access denied: You can only view your own profile' });
+      }
+    }
+
+    return res.json({
+      _id: targetUser._id,
+      name: targetUser.name,
+      email: targetUser.email,
+      department: targetUser.department,
+      role: targetUser.role,
+      status: targetUser.status || 'active',
+      phoneNumber: targetUser.phoneNumber || ''
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

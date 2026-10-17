@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { departmentAPI } from '../services/api.jsx';
 import { toast } from 'react-toastify';
 
-const AllHODs = ({ onSelectDepartment }) => {
+const AllHODs = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   const [hods, setHods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -133,13 +133,20 @@ const AllHODs = ({ onSelectDepartment }) => {
               <tbody className="divide-y divide-gray-200 text-sm">
                 {filteredHods.map((hod) => (
                   <tr key={hod._id} className="hover:bg-orange-50/40 transition">
-                    <td className="py-3.5 px-4">
+                    <td 
+                      className="py-3.5 px-4 cursor-pointer group"
+                      onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(hod)}
+                      title="Click to view complete profile"
+                    >
                       <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 bg-gradient-to-r from-orange-400 to-amber-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                        <div className="w-9 h-9 bg-gradient-to-r from-orange-400 to-amber-500 rounded-full flex items-center justify-center text-white font-bold text-sm group-hover:scale-105 transition shadow-sm">
                           {hod.name?.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <div className="font-bold text-gray-900">{hod.name}</div>
+                          <div className="font-bold text-gray-900 group-hover:text-orange-600 transition flex items-center gap-2">
+                            <span>{hod.name}</span>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-md">Profile</span>
+                          </div>
                           <div className="text-xs text-gray-500">{hod.email}</div>
                         </div>
                       </div>

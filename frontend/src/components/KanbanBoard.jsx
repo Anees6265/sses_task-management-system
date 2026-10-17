@@ -187,11 +187,16 @@ const KanbanBoard = () => {
   const { user } = useContext(AuthContext);
   const { t } = useLanguage();
 
+  const [previousViewBeforeProfile, setPreviousViewBeforeProfile] = useState('dashboard');
+
   const handleSelectDepartment = (deptName) => {
     setActiveView('dept-detail', deptName);
   };
 
   const handleOpenFacultyProfile = (facultyObj) => {
+    if (activeView !== 'faculty-profile') {
+      setPreviousViewBeforeProfile(activeView);
+    }
     setSelectedFacultyForProfile(facultyObj || user);
     setActiveView('faculty-profile');
   };
@@ -665,14 +670,52 @@ const KanbanBoard = () => {
                           </p>
                         )}
 
-                        {task.assignedTo && task.assignedTo.length > 0 && (
+                        {task.assignedTo && (Array.isArray(task.assignedTo) ? task.assignedTo.length > 0 : !!task.assignedTo) && (
                           <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-slate-600">
-                            <FiUser className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="truncate">
-                              {Array.isArray(task.assignedTo)
-                                ? task.assignedTo.map(u => u.name || u).join(', ')
-                                : (task.assignedTo.name || task.assignedTo)}
-                            </span>
+                            <FiUser className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            <div className="truncate">
+                              {Array.isArray(task.assignedTo) ? (
+                                task.assignedTo.map((u, i) => {
+                                  const name = typeof u === 'object' ? (u.name || u.email || 'Faculty') : u;
+                                  return (
+                                    <span key={i}>
+                                      {i > 0 && ', '}
+                                      {(user?.role === 'admin' || user?.role === 'hod') && typeof u === 'object' ? (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleOpenFacultyProfile(u);
+                                          }}
+                                          className="hover:text-orange-600 hover:underline font-bold transition inline"
+                                          title="Click to view faculty profile"
+                                        >
+                                          {name}
+                                        </button>
+                                      ) : (
+                                        <span>{name}</span>
+                                      )}
+                                    </span>
+                                  );
+                                })
+                              ) : (
+                                (user?.role === 'admin' || user?.role === 'hod') && typeof task.assignedTo === 'object' ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenFacultyProfile(task.assignedTo);
+                                    }}
+                                    className="hover:text-orange-600 hover:underline font-bold transition inline"
+                                    title="Click to view faculty profile"
+                                  >
+                                    {task.assignedTo.name || task.assignedTo.email || 'Faculty'}
+                                  </button>
+                                ) : (
+                                  <span>{task.assignedTo.name || task.assignedTo}</span>
+                                )
+                              )}
+                            </div>
                           </div>
                         )}
 
@@ -775,11 +818,16 @@ const KanbanBoard = () => {
               setIsSidebarCollapsed(collapsed);
               localStorage.setItem('sidebar_collapsed', String(collapsed));
             }}
+            onOpenProfile={() => handleOpenFacultyProfile(user)}
           />
 
           <main className={`flex-1 p-4 md:p-6 overflow-x-hidden transition-all duration-300 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
             {(activeView === 'dashboard' && (user?.role === 'admin' || user?.role === 'hod')) && (
-              <Dashboard onFacultyClick={handleFacultyClick} onSelectDepartment={handleSelectDepartment} />
+              <Dashboard
+                onFacultyClick={handleFacultyClick}
+                onSelectDepartment={handleSelectDepartment}
+                onOpenFacultyProfile={handleOpenFacultyProfile}
+              />
             )}
 
             {activeView === 'leaves' && (
@@ -787,7 +835,10 @@ const KanbanBoard = () => {
             )}
 
             {activeView === 'departments-overview' && (
-              <DepartmentDashboard onSelectDepartment={handleSelectDepartment} />
+              <DepartmentDashboard
+                onSelectDepartment={handleSelectDepartment}
+                onOpenFacultyProfile={handleOpenFacultyProfile}
+              />
             )}
 
             {activeView === 'dept-detail' && (
@@ -795,7 +846,14 @@ const KanbanBoard = () => {
             )}
 
             {activeView === 'faculty-profile' && (
-              <FacultyProfilePage targetUser={selectedFacultyForProfile || user} onBack={() => setActiveView('leaves')} />
+              <FacultyProfilePage
+                faculty={selectedFacultyForProfile || user}
+                targetUser={selectedFacultyForProfile || user}
+                onBack={() => {
+                  const fallback = (user?.role === 'admin' || user?.role === 'hod') ? 'dashboard' : 'board';
+                  setActiveView(previousViewBeforeProfile || fallback);
+                }}
+              />
             )}
 
             {activeView !== 'dashboard' && activeView !== 'leaves' && activeView !== 'departments-overview' && activeView !== 'dept-detail' && activeView !== 'faculty-profile' && activeView !== 'chats' && activeView !== 'users' && activeView !== 'analytics' && activeView !== 'settings' && activeView !== 'departments' && activeView !== 'all-hods' && (
@@ -869,11 +927,11 @@ const KanbanBoard = () => {
             )}
 
             {activeView === 'departments' && (
-              <DepartmentManagement onSelectDepartment={handleSelectDepartment} />
+              <DepartmentManagement onSelectDepartment={handleSelectDepartment} onOpenFacultyProfile={handleOpenFacultyProfile} />
             )}
 
             {activeView === 'all-hods' && (
-              <AllHODs onSelectDepartment={handleSelectDepartment} />
+              <AllHODs onSelectDepartment={handleSelectDepartment} onOpenFacultyProfile={handleOpenFacultyProfile} />
             )}
           </main>
         </div>

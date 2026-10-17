@@ -23,7 +23,8 @@ const Sidebar = ({
   setIsMobileOpen,
   refreshTrigger,
   isCollapsed: controlledIsCollapsed,
-  setIsCollapsed: controlledSetIsCollapsed
+  setIsCollapsed: controlledSetIsCollapsed,
+  onOpenProfile
 }) => {
   const [internalIsCollapsed, setInternalIsCollapsed] = useState(false);
   const isCollapsed = controlledIsCollapsed !== undefined ? controlledIsCollapsed : internalIsCollapsed;
@@ -215,7 +216,11 @@ const Sidebar = ({
 
                     <button
                       onClick={() => {
-                        setActiveView('faculty-profile');
+                        if (onOpenProfile) {
+                          onOpenProfile();
+                        } else {
+                          setActiveView('faculty-profile');
+                        }
                         setIsMobileOpen(false);
                       }}
                       className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${activeView === 'faculty-profile'

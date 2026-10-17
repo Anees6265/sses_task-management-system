@@ -28,9 +28,11 @@ exports.applyLeave = async (req, res) => {
     }
 
     let resultLeave = null;
+    const isAdminUser = req.user.role === 'admin';
+    const initialStatus = isAdminUser ? 'approved' : 'pending';
 
     if (mongoose.connection.readyState === 1) {
-      const leave = await Leave.create({
+      const leaveData = {
         applicant: req.user._id,
         leaveType: leaveType || 'casual',
         startDate: start,
@@ -38,11 +40,20 @@ exports.applyLeave = async (req, res) => {
         totalDays,
         reason,
         department: req.user.department || 'General',
-        status: 'pending'
-      });
+        status: initialStatus
+      };
+
+      if (isAdminUser) {
+        leaveData.reviewedBy = req.user._id;
+        leaveData.reviewedAt = new Date();
+        leaveData.reviewComment = 'Auto-approved (Admin Leave Application)';
+      }
+
+      const leave = await Leave.create(leaveData);
 
       resultLeave = await Leave.findById(leave._id)
-        .populate('applicant', 'name email department role phoneNumber');
+        .populate('applicant', 'name email department role phoneNumber')
+        .populate('reviewedBy', 'name email');
     } else {
       const newLeave = {
         _id: '64l' + Date.now().toString(16),
@@ -60,7 +71,10 @@ exports.applyLeave = async (req, res) => {
         totalDays,
         reason,
         department: req.user.department || 'General',
-        status: 'pending',
+        status: initialStatus,
+        reviewedBy: isAdminUser ? { _id: req.user._id, name: req.user.name, email: req.user.email } : null,
+        reviewedAt: isAdminUser ? new Date() : null,
+        reviewComment: isAdminUser ? 'Auto-approved (Admin Leave Application)' : null,
         createdAt: new Date()
       };
 
@@ -129,37 +143,69 @@ exports.getLeaves = async (req, res) => {
   try {
     const today = new Date();
     const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const includePast = req.query.includePast === 'true' || req.query.all === 'true';
+    const targetUserId = req.query.userId || req.query.facultyId;
 
     let mongoLeaves = [];
     if (mongoose.connection.readyState === 1) {
-      let filter = {
-        endDate: { $gte: startOfToday }
-      };
+      let filter = {};
+      if (!includePast) {
+        filter.endDate = { $gte: startOfToday };
+      }
 
       if (req.user.role === 'admin') {
-        // filter has endDate >= startOfToday
+        if (targetUserId) {
+          filter.applicant = targetUserId;
+        }
       } else if (req.user.role === 'hod') {
         filter.department = req.user.department;
+        if (targetUserId) {
+          filter.applicant = targetUserId;
+        }
       } else {
         filter.applicant = req.user._id;
       }
 
-      mongoLeaves = await Leave.find(filter)
-        .populate('applicant', 'name email department role phoneNumber')
-        .populate('reviewedBy', 'name email phoneNumber')
-        .sort({ createdAt: -1 });
+      try {
+        mongoLeaves = await Leave.find(filter)
+          .populate('applicant', 'name email department role phoneNumber')
+          .populate('reviewedBy', 'name email phoneNumber')
+          .sort({ createdAt: -1 });
+      } catch (mongoErr) {
+        console.warn('MongoDB Leave.find failed:', mongoErr.message);
+      }
     }
 
-    let filtered = demoLeaves.filter(l => {
-      const end = new Date(l.endDate);
-      return end >= startOfToday;
-    });
+    let filtered = demoLeaves;
+    if (!includePast) {
+      filtered = filtered.filter(l => {
+        const end = new Date(l.endDate);
+        return end >= startOfToday;
+      });
+    }
 
-    if (req.user.role === 'hod') {
-      filtered = filtered.filter(l => l.department === req.user.department);
+    if (req.user.role === 'admin') {
+      if (targetUserId) {
+        filtered = filtered.filter(l => 
+          String(l.applicant?._id || l.applicant) === String(targetUserId) || 
+          l.applicant?.email === targetUserId
+        );
+      }
+    } else if (req.user.role === 'hod') {
+      filtered = filtered.filter(l => 
+        l.department === req.user.department || 
+        l.applicant?.department === req.user.department
+      );
+      if (targetUserId) {
+        filtered = filtered.filter(l => 
+          String(l.applicant?._id || l.applicant) === String(targetUserId) || 
+          l.applicant?.email === targetUserId
+        );
+      }
     } else if (req.user.role === 'user') {
       filtered = filtered.filter(l => 
-        (l.applicant?._id === req.user._id) || (l.applicant === req.user._id) || (l.applicant?.email === req.user.email)
+        (String(l.applicant?._id || l.applicant) === String(req.user._id)) || 
+        (l.applicant?.email === req.user.email)
       );
     }
 

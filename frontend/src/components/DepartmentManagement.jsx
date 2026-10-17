@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { departmentAPI, userAPI } from '../services/api.jsx';
 import { toast } from 'react-toastify';
 
-const DepartmentManagement = () => {
+const DepartmentManagement = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -696,7 +696,24 @@ const DepartmentManagement = () => {
                           <tbody className="divide-y">
                             {deptDetailsData?.faculty?.map((fac) => (
                               <tr key={fac._id} className="hover:bg-gray-50">
-                                <td className="py-2.5 px-3 font-semibold text-gray-800">{fac.name}</td>
+                                <td className="py-2.5 px-3 font-semibold text-gray-800">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setViewDetailsDept(null);
+                                      if (onOpenFacultyProfile) {
+                                        onOpenFacultyProfile(fac);
+                                      }
+                                    }}
+                                    className="text-left font-bold text-slate-800 hover:text-orange-600 transition flex items-center gap-2 group"
+                                    title="Click to view complete faculty profile"
+                                  >
+                                    <span>{fac.name}</span>
+                                    <span className="text-[10px] px-2 py-0.5 bg-orange-100 group-hover:bg-orange-500 text-orange-700 group-hover:text-white rounded-full font-bold transition">
+                                      View Profile
+                                    </span>
+                                  </button>
+                                </td>
                                 <td className="py-2.5 px-3 text-gray-600">{fac.email}</td>
                                 <td className="py-2.5 px-3 text-center font-bold">{fac.totalTasks}</td>
                                 <td className="py-2.5 px-3 text-center text-green-600 font-bold">{fac.completedTasks}</td>

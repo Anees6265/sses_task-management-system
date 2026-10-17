@@ -120,9 +120,23 @@ exports.getTasksByFaculty = async (req, res) => {
   try {
     const { facultyId } = req.params;
     
-    // Only HOD and Admin can view faculty tasks
-    if (req.user.role !== 'admin' && req.user.role !== 'hod') {
+    // Admin and HOD can view faculty tasks; user can view their own tasks
+    if (req.user.role !== 'admin' && req.user.role !== 'hod' && String(req.user._id) !== String(facultyId)) {
       return res.status(403).json({ message: 'Access denied' });
+    }
+
+    let targetFaculty = null;
+    if (mongoose.connection.readyState === 1) {
+      try {
+        targetFaculty = await User.findById(facultyId);
+      } catch (err) {}
+    }
+    if (!targetFaculty) {
+      targetFaculty = demoUsers.find(u => String(u._id) === String(facultyId));
+    }
+
+    if (req.user.role === 'hod' && targetFaculty && targetFaculty.department && targetFaculty.department !== req.user.department) {
+      return res.status(403).json({ message: 'Access denied. You can only view tasks for faculty in your department.' });
     }
 
     if (mongoose.connection.readyState !== 1) {
@@ -135,25 +149,33 @@ exports.getTasksByFaculty = async (req, res) => {
       }
       return res.json(tasks);
     }
-
-    const targetFaculty = await User.findById(facultyId);
-    if (!targetFaculty) {
-      return res.status(404).json({ message: 'Faculty member not found' });
-    }
-
-    if (req.user.role === 'hod' && targetFaculty.department !== req.user.department) {
-      return res.status(403).json({ message: 'Access denied. You can only view tasks for faculty in your department.' });
-    }
     
     let filter = { assignedTo: facultyId };
     if (req.user.role === 'hod') {
       filter.department = req.user.department;
     }
     
-    const tasks = await Task.find(filter)
-      .populate('assignedTo', 'name email department')
-      .populate('createdBy', 'name email department')
-      .sort({ createdAt: -1 });
+    let tasks = [];
+    try {
+      tasks = await Task.find(filter)
+        .populate('assignedTo', 'name email department')
+        .populate('createdBy', 'name email department')
+        .sort({ createdAt: -1 });
+    } catch (dbErr) {
+      console.warn('MongoDB Task.find error in getTasksByFaculty:', dbErr.message);
+    }
+
+    if (!tasks || tasks.length === 0) {
+      let mockFacultyTasks = demoTasks.filter(t => 
+        t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(facultyId))
+      );
+      if (req.user.role === 'hod') {
+        mockFacultyTasks = mockFacultyTasks.filter(t => t.department === req.user.department);
+      }
+      if (mockFacultyTasks.length > 0) {
+        return res.json(mockFacultyTasks);
+      }
+    }
     
     res.json(tasks);
   } catch (error) {

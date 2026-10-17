@@ -15,7 +15,7 @@ import {
   FiActivity
 } from 'react-icons/fi';
 
-const DepartmentDashboard = ({ onSelectDepartment }) => {
+const DepartmentDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   const { user } = useContext(AuthContext);
   const { t } = useLanguage();
 
@@ -194,14 +194,16 @@ const DepartmentDashboard = ({ onSelectDepartment }) => {
               allPresentUsers.map((faculty, idx) => (
                 <div
                   key={idx}
-                  className="p-3 bg-emerald-50/40 hover:bg-emerald-50/90 rounded-2xl border border-emerald-100 flex items-center justify-between gap-3 transition"
+                  onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(faculty)}
+                  className="p-3 bg-emerald-50/40 hover:bg-emerald-50/90 rounded-2xl border border-emerald-100 flex items-center justify-between gap-3 transition cursor-pointer group shadow-xs hover:shadow-md"
+                  title="Click to view complete faculty profile"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white font-extrabold flex items-center justify-center text-xs shadow-sm flex-shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white font-extrabold flex items-center justify-center text-xs shadow-sm flex-shrink-0 group-hover:scale-105 transition">
                       {faculty.name?.charAt(0).toUpperCase()}
                     </div>
                     <div className="truncate">
-                      <p className="font-extrabold text-slate-800 text-xs truncate">{faculty.name}</p>
+                      <p className="font-extrabold text-slate-800 text-xs truncate group-hover:text-emerald-700 transition">{faculty.name}</p>
                       <p className="text-[11px] text-slate-400 truncate">{faculty.email || faculty.departmentName}</p>
                     </div>
                   </div>
@@ -243,14 +245,16 @@ const DepartmentDashboard = ({ onSelectDepartment }) => {
               allLeaveUsers.map((faculty, idx) => (
                 <div
                   key={idx}
-                  className="p-3 bg-rose-50/40 hover:bg-rose-50/90 rounded-2xl border border-rose-100 flex items-center justify-between gap-3 transition"
+                  onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(faculty)}
+                  className="p-3 bg-rose-50/40 hover:bg-rose-50/90 rounded-2xl border border-rose-100 flex items-center justify-between gap-3 transition cursor-pointer group shadow-xs hover:shadow-md"
+                  title="Click to view complete faculty profile"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-500 text-white font-extrabold flex items-center justify-center text-xs shadow-sm flex-shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-500 text-white font-extrabold flex items-center justify-center text-xs shadow-sm flex-shrink-0 group-hover:scale-105 transition">
                       {faculty.name?.charAt(0).toUpperCase()}
                     </div>
                     <div className="truncate">
-                      <p className="font-extrabold text-slate-800 text-xs truncate">{faculty.name}</p>
+                      <p className="font-extrabold text-slate-800 text-xs truncate group-hover:text-rose-700 transition">{faculty.name}</p>
                       <p className="text-[11px] text-slate-500 truncate italic">
                         "{faculty.activeLeaveToday?.reason || 'On Leave'}"
                       </p>

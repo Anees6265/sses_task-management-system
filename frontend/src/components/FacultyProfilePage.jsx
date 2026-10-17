@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { leaveAPI, taskAPI } from '../services/api.jsx';
+import { leaveAPI, taskAPI, userAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { toast } from 'react-toastify';
@@ -21,10 +21,11 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiX,
-  FiInfo
+  FiInfo,
+  FiPhone
 } from 'react-icons/fi';
 
-const FacultyProfilePage = ({ faculty, facultyId, onBack, onRefresh }) => {
+const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh }) => {
   const { user: currentUser } = useContext(AuthContext);
   const { t } = useLanguage();
 
@@ -42,49 +43,78 @@ const FacultyProfilePage = ({ faculty, facultyId, onBack, onRefresh }) => {
 
   useEffect(() => {
     fetchFacultyFullDetails();
-  }, [faculty, facultyId]);
+  }, [faculty, targetUser, facultyId]);
 
   const fetchFacultyFullDetails = async () => {
     setLoading(true);
     try {
-      const targetId = faculty?._id || facultyId || currentUser?._id;
-      const targetName = faculty?.name || currentUser?.name || 'Faculty Member';
-      const targetEmail = faculty?.email || currentUser?.email;
-      const targetDept = faculty?.department || currentUser?.department || 'General';
-      const targetRole = faculty?.role || currentUser?.role || 'user';
+      const initialTarget = faculty || targetUser || {};
+      const targetId = initialTarget._id || facultyId || (typeof initialTarget === 'string' ? initialTarget : currentUser?._id);
+
+      // Attempt to fetch full user info if viewing another user or missing fields
+      let fetchedUser = null;
+      if (targetId && targetId !== currentUser?._id) {
+        try {
+          const userRes = await userAPI.getUserById(targetId);
+          if (userRes?.data) {
+            fetchedUser = userRes.data;
+          }
+        } catch (err) {
+          console.warn('Could not fetch user by ID:', err.message);
+        }
+      }
+
+      const effectiveUser = fetchedUser ? { ...initialTarget, ...fetchedUser } : initialTarget;
+      const targetName = effectiveUser?.name || (targetId === currentUser?._id ? currentUser?.name : 'Faculty Member');
+      const targetEmail = effectiveUser?.email || (targetId === currentUser?._id ? currentUser?.email : '');
+      const targetDept = effectiveUser?.department || (targetId === currentUser?._id ? currentUser?.department : 'General');
+      const targetRole = effectiveUser?.role || (targetId === currentUser?._id ? currentUser?.role : 'user');
+      const targetPhone = effectiveUser?.phoneNumber || (targetId === currentUser?._id ? currentUser?.phoneNumber : '');
 
       const [leavesRes, tasksRes, attendanceRes] = await Promise.all([
-        leaveAPI.getLeaves(),
-        taskAPI.getTasks(),
+        leaveAPI.getLeaves({ includePast: 'true', userId: targetId }),
+        (currentUser?.role === 'admin' || currentUser?.role === 'hod' || currentUser?._id === targetId)
+          ? taskAPI.getTasksByFaculty(targetId).catch(() => taskAPI.getTasks())
+          : taskAPI.getTasks(),
         leaveAPI.getDailyAttendance()
       ]);
 
-      const today = new Date();
-      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
       const allLeaves = leavesRes.data || [];
-      const userLeaves = allLeaves.filter(l => 
-        (l.applicant?._id === targetId || l.applicant === targetId || (l.applicant?.email && l.applicant?.email === targetEmail)) &&
-        new Date(l.endDate) >= startOfToday
-      );
+      const userLeaves = allLeaves.filter(l => {
+        const applicantId = String(l.applicant?._id || l.applicant || '');
+        const applicantEmail = l.applicant?.email;
+        return (targetId && applicantId === String(targetId)) ||
+               (targetEmail && applicantEmail && applicantEmail.toLowerCase() === targetEmail.toLowerCase());
+      });
       setFacultyLeaves(userLeaves);
 
       const allTasks = tasksRes.data || [];
       const userTasks = allTasks.filter(t => {
         if (!t.assignedTo) return false;
         if (Array.isArray(t.assignedTo)) {
-          return t.assignedTo.some(u => (u._id === targetId || u === targetId || u.email === targetEmail));
+          return t.assignedTo.some(u => {
+            const uId = String(u?._id || u || '');
+            const uEmail = u?.email;
+            return (targetId && uId === String(targetId)) ||
+                   (targetEmail && uEmail && uEmail.toLowerCase() === targetEmail.toLowerCase());
+          });
         }
-        return (t.assignedTo._id === targetId || t.assignedTo === targetId || t.assignedTo.email === targetEmail);
+        const aId = String(t.assignedTo?._id || t.assignedTo || '');
+        const aEmail = t.assignedTo?.email;
+        return (targetId && aId === String(targetId)) ||
+               (targetEmail && aEmail && aEmail.toLowerCase() === targetEmail.toLowerCase());
       });
       setFacultyTasks(userTasks);
 
       // Find active today attendance info
       const allDepts = attendanceRes.data || [];
-      const deptInfo = allDepts.find(d => d.department === targetDept);
+      const deptInfo = allDepts.find(d => d.department?.toLowerCase() === targetDept?.toLowerCase());
       let activeFacultyItem = null;
       if (deptInfo && deptInfo.facultyList) {
-        activeFacultyItem = deptInfo.facultyList.find(f => f._id === targetId || f.email === targetEmail);
+        activeFacultyItem = deptInfo.facultyList.find(f => 
+          (targetId && String(f._id) === String(targetId)) ||
+          (targetEmail && f.email && f.email.toLowerCase() === targetEmail.toLowerCase())
+        );
       }
 
       // Calculate leave balances & metrics
@@ -123,6 +153,7 @@ const FacultyProfilePage = ({ faculty, facultyId, onBack, onRefresh }) => {
         email: activeFacultyItem?.email || targetEmail,
         department: targetDept,
         role: targetRole,
+        phoneNumber: targetPhone || activeFacultyItem?.phoneNumber || '',
         isPresentToday: activeFacultyItem ? activeFacultyItem.isPresentToday : true,
         activeLeaveToday: activeFacultyItem?.activeLeaveToday || null,
         monthlyLeavesTaken: currentMonthDays,
@@ -295,12 +326,25 @@ const FacultyProfilePage = ({ faculty, facultyId, onBack, onRefresh }) => {
                   {profileData?.role === 'hod' ? 'HOD' : 'Faculty Profile'}
                 </span>
               </div>
-              <p className="text-xs md:text-sm text-slate-300 flex items-center gap-2 mt-1">
-                <FiMail className="w-4 h-4 text-orange-400" />
-                <span>{profileData?.email}</span>
+              <p className="text-xs md:text-sm text-slate-300 flex items-center gap-2 mt-1 flex-wrap">
+                <span className="flex items-center gap-1.5">
+                  <FiMail className="w-4 h-4 text-orange-400" />
+                  <span>{profileData?.email}</span>
+                </span>
+                {profileData?.phoneNumber && (
+                  <>
+                    <span className="text-slate-500">•</span>
+                    <span className="flex items-center gap-1.5 text-emerald-400">
+                      <FiPhone className="w-4 h-4" />
+                      <span>{profileData.phoneNumber}</span>
+                    </span>
+                  </>
+                )}
                 <span className="text-slate-500">•</span>
-                <FiBriefcase className="w-4 h-4 text-amber-400" />
-                <span>{profileData?.department} Department</span>
+                <span className="flex items-center gap-1.5">
+                  <FiBriefcase className="w-4 h-4 text-amber-400" />
+                  <span>{profileData?.department} Department</span>
+                </span>
               </p>
             </div>
           </div>
@@ -658,7 +702,7 @@ const FacultyProfilePage = ({ faculty, facultyId, onBack, onRefresh }) => {
                                 <FiX className="w-3.5 h-3.5" /> Reject
                               </button>
                             </div>
-                          ) : (((leave.applicant?._id === user?._id) || (leave.applicant === user?._id) || (leave.applicant?.email === user?.email) || (profileData?._id === user?._id)) && (leave.status === 'pending' || leave.status === 'approved')) ? (
+                          ) : (((leave.applicant?._id === currentUser?._id) || (leave.applicant === currentUser?._id) || (leave.applicant?.email === currentUser?.email) || (profileData?._id === currentUser?._id)) && (leave.status === 'pending' || leave.status === 'approved')) ? (
                             <button
                               onClick={() => handleCancelLeave(leave._id)}
                               className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition"

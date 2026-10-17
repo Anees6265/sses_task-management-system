@@ -11,7 +11,8 @@ const {
   getFacultyTaskHistory,
   assignFacultyDepartment,
   removeFacultyDepartment,
-  getUnassignedFaculty
+  getUnassignedFaculty,
+  getUserById
 } = require('../controllers/userController');
 const { protect, admin } = require('../middleware/auth');
 
@@ -20,6 +21,7 @@ router.get('/workload', protect, getFacultyWorkload);
 router.get('/performance', protect, getFacultyPerformance);
 router.get('/unassigned', protect, getUnassignedFaculty);
 router.get('/:id/history', protect, getFacultyTaskHistory);
+router.get('/:id', protect, getUserById);
 
 router.post('/', protect, admin, createUser);
 router.put('/:id/department', protect, updateUserDepartment);

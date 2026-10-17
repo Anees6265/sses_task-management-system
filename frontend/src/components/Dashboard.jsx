@@ -21,7 +21,7 @@ import {
   FiMessageSquare
 } from 'react-icons/fi';
 
-const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
+const Dashboard = ({ onFacultyClick, onSelectDepartment, onOpenFacultyProfile }) => {
   const [stats, setStats] = useState(null);
   const [attendanceData, setAttendanceData] = useState([]);
   const [leaves, setLeaves] = useState([]);
@@ -388,6 +388,26 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
                       style={{ width: `${facultyProgress}%` }}
                     />
                   </div>
+
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onOpenFacultyProfile) {
+                          onOpenFacultyProfile(faculty);
+                        } else {
+                          setSelectedFacultyProfile(faculty);
+                        }
+                      }}
+                      className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1.5 hover:underline py-0.5"
+                      title="View complete faculty profile, attendance & leave history"
+                    >
+                      <FiUsers className="w-3.5 h-3.5" />
+                      <span>View Profile</span>
+                    </button>
+                    <span className="text-[10px] text-slate-400 font-medium">Click card for tasks →</span>
+                  </div>
                 </div>
               );
             })}
@@ -579,6 +599,23 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment }) => {
                         <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Monthly Leaves</span>
                         <span className="text-xs font-extrabold text-slate-800">{faculty.monthlyLeavesTaken} Days</span>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDeptAttendance(null);
+                          if (onOpenFacultyProfile) {
+                            onOpenFacultyProfile(faculty);
+                          } else {
+                            setSelectedFacultyProfile(faculty);
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+                        title="View Faculty Profile"
+                      >
+                        <FiUsers className="w-3.5 h-3.5" />
+                        <span>Profile</span>
+                      </button>
                     </div>
                   </div>
                 ))}

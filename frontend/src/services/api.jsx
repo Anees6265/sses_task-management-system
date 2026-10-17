@@ -194,7 +194,7 @@ export const taskAPI = {
 
 export const leaveAPI = {
   applyLeave: (data) => api.post('/leaves', data),
-  getLeaves: () => api.get('/leaves'),
+  getLeaves: (params) => api.get('/leaves', { params }),
   getLeaveStats: () => api.get('/leaves/stats'),
   getDailyAttendance: () => api.get('/leaves/attendance'),
   getSundayAttendance: (params) => api.get('/leaves/sunday-attendance', { params }),
@@ -208,6 +208,7 @@ export const leaveAPI = {
 
 export const userAPI = {
   getAllUsers: () => api.get('/users'),
+  getUserById: (id) => api.get(`/users/${id}`),
   createUser: (data) => api.post('/users', data),
   updateUserDepartment: (id, department) => api.put(`/users/${id}/department`, { department }),
   assignFacultyDepartment: (id, department) => api.put(`/users/${id}/assign-department`, { department }),
