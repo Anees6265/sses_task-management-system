@@ -14,6 +14,7 @@ import {
   FiSend,
   FiRefreshCw
 } from 'react-icons/fi';
+import { validateEmail } from '../utils/validation.js';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -26,6 +27,16 @@ const Login = () => {
 
   const handlePasswordLogin = async (e) => {
     e.preventDefault();
+    const emailCheck = validateEmail(formData.email);
+    if (!emailCheck.isValid) {
+      setError(emailCheck.error);
+      return;
+    }
+    if (!formData.password) {
+      setError('Password is required');
+      return;
+    }
+
     setError('');
     setLoading(true);
     try {
@@ -40,8 +51,9 @@ const Login = () => {
 
   const handleSendOTP = async (e) => {
     e.preventDefault();
-    if (!formData.email.endsWith('@ssism.org')) {
-      setError('Only @ssism.org email addresses are allowed');
+    const emailCheck = validateEmail(formData.email);
+    if (!emailCheck.isValid) {
+      setError(emailCheck.error);
       return;
     }
     setError('');
@@ -143,13 +155,15 @@ const Login = () => {
                   <FiMail className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
                   <input
                     type="email"
-                    placeholder="email@ssism.org"
+                    placeholder="username@ssism.org"
+                    pattern="[a-zA-Z0-9._%+\-]+@ssism\.org"
                     className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required
                   />
                 </div>
+                <p className="text-[11px] text-slate-400 font-semibold mt-1">Must be an official @ssism.org email</p>
               </div>
               
               <div>
@@ -189,13 +203,15 @@ const Login = () => {
                       <FiMail className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
                       <input
                         type="email"
-                        placeholder="email@ssism.org"
+                        placeholder="username@ssism.org"
+                        pattern="[a-zA-Z0-9._%+\-]+@ssism\.org"
                         className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         required
                       />
                     </div>
+                    <p className="text-[11px] text-slate-400 font-semibold mt-1">Must be an official @ssism.org email</p>
                   </div>
                   
                   <button 

@@ -18,19 +18,45 @@ const generateOTP = () => {
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, department, role } = req.body;
+    const { name, email, password, department, role, phoneNumber, telegramChatId } = req.body;
 
-    if (!email.endsWith('@ssism.org')) {
-      return res.status(400).json({ message: 'Only @ssism.org email addresses are allowed' });
+    if (!name || name.trim().length < 2) {
+      return res.status(400).json({ message: 'Name must be at least 2 characters long' });
+    }
+
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@ssism\.org$/i;
+    if (!email || !emailRegex.test(email.trim())) {
+      return res.status(400).json({ message: 'Only valid @ssism.org email addresses are allowed' });
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!password || password.length < 8 || password.length > 18) {
+      return res.status(400).json({ message: 'Password must be between 8 and 18 characters long' });
+    }
+
+    let formattedPhone = '';
+    if (phoneNumber && phoneNumber.trim()) {
+      const cleanPhone = phoneNumber.replace(/[\s-]/g, '');
+      if (!/^\+91[0-9]{10}$/.test(cleanPhone)) {
+        return res.status(400).json({ message: 'Mobile number must include +91 country code and 10 digits (e.g. +91 9876543210)' });
+      }
+      formattedPhone = `+91 ${cleanPhone.slice(3)}`;
     }
 
     if (mongoose.connection.readyState === 1) {
-      const userExists = await User.findOne({ email });
+      const userExists = await User.findOne({ email: normalizedEmail });
       if (userExists) {
         return res.status(400).json({ message: 'User already exists' });
       }
 
-      const userData = { name, email, password, role: role || 'user' };
+      const userData = { 
+        name: name.trim(), 
+        email: normalizedEmail, 
+        password, 
+        role: role || 'user',
+        phoneNumber: formattedPhone,
+        telegramChatId: telegramChatId ? telegramChatId.trim() : undefined
+      };
       if (role !== 'admin') {
         userData.department = department;
       }
@@ -44,12 +70,26 @@ exports.register = async (req, res) => {
       user.refreshTokenExpiry = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
       await user.save();
 
+      const demoIndex = demoUsers.findIndex(u => u.email.toLowerCase() === normalizedEmail);
+      if (demoIndex === -1) {
+        demoUsers.push({
+          _id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          passwordRaw: password,
+          role: user.role,
+          department: user.department,
+          phoneNumber: user.phoneNumber || ''
+        });
+      }
+
       return res.status(201).json({
         _id: user._id,
         name: user.name,
         email: user.email,
         department: user.department,
         role: user.role,
+        phoneNumber: user.phoneNumber,
         accessToken,
         refreshToken
       });
@@ -57,10 +97,11 @@ exports.register = async (req, res) => {
       // Offline mock fallback
       const newUser = {
         _id: '64e' + Date.now().toString(16),
-        name,
-        email,
+        name: name.trim(),
+        email: normalizedEmail,
         department,
-        role: role || 'user'
+        role: role || 'user',
+        phoneNumber: formattedPhone
       };
       demoUsers.push({ ...newUser, passwordRaw: password });
       const accessToken = generateAccessToken(newUser._id);
@@ -76,8 +117,17 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    if (!email || !email.trim().toLowerCase().endsWith('@ssism.org')) {
+      return res.status(400).json({ message: 'Only @ssism.org email addresses are allowed' });
+    }
+    if (!password) {
+      return res.status(400).json({ message: 'Password is required' });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
     if (mongoose.connection.readyState === 1) {
-      const user = await User.findOne({ email });
+      const user = await User.findOne({ email: normalizedEmail });
       if (!user || !(await user.comparePassword(password))) {
         return res.status(401).json({ message: 'Invalid email or password' });
       }
@@ -100,8 +150,8 @@ exports.login = async (req, res) => {
       });
     } else {
       // Offline code fallback mode
-      console.log('⚡ Handling login via Code Mock Fallback for:', email);
-      const demoUser = demoUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+      console.log('⚡ Handling login via Code Mock Fallback for:', normalizedEmail);
+      const demoUser = demoUsers.find(u => u.email.toLowerCase() === normalizedEmail);
 
       if (!demoUser || (password && demoUser.passwordRaw !== password)) {
         return res.status(401).json({ message: 'Invalid email or password' });
@@ -129,9 +179,11 @@ exports.sendOTP = async (req, res) => {
   try {
     const { email } = req.body;
 
-    if (!email.endsWith('@ssism.org')) {
-      return res.status(400).json({ message: 'Only @ssism.org email addresses are allowed' });
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@ssism\.org$/i;
+    if (!email || !emailRegex.test(email.trim())) {
+      return res.status(400).json({ message: 'Only valid @ssism.org email addresses are allowed' });
     }
+    const normalizedEmail = email.trim().toLowerCase();
 
     if (mongoose.connection.readyState === 1) {
       const user = await User.findOne({ email });

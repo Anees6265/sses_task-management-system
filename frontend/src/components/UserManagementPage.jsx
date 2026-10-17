@@ -28,6 +28,13 @@ import {
   FiBarChart2,
   FiTrendingUp
 } from 'react-icons/fi';
+import { 
+  validateEmail, 
+  validatePhoneNumber, 
+  validatePassword, 
+  validateName, 
+  formatPhoneInput 
+} from '../utils/validation.js';
 
 const UserManagementPage = ({ onOpenFacultyProfile }) => {
   const { user } = useContext(AuthContext);
@@ -147,12 +154,21 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
     e.preventDefault();
     if (!editingFaculty) return;
 
-    if (!editForm.name.trim()) {
-      toast.error('Name is required');
+    const nameCheck = validateName(editForm.name);
+    if (!nameCheck.isValid) {
+      toast.error(nameCheck.error);
       return;
     }
-    if (editForm.email && !editForm.email.toLowerCase().endsWith('@ssism.org')) {
-      toast.error('Only @ssism.org email addresses are allowed');
+
+    const emailCheck = validateEmail(editForm.email);
+    if (!emailCheck.isValid) {
+      toast.error(emailCheck.error);
+      return;
+    }
+
+    const phoneCheck = validatePhoneNumber(editForm.phoneNumber, false);
+    if (!phoneCheck.isValid) {
+      toast.error(phoneCheck.error);
       return;
     }
 
@@ -161,7 +177,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
       const { data } = await userAPI.updateUser(editingFaculty._id, {
         name: editForm.name.trim(),
         email: editForm.email.toLowerCase().trim(),
-        phoneNumber: editForm.phoneNumber.trim()
+        phoneNumber: phoneCheck.formatted
       });
       toast.success(`Faculty profile updated for ${data.name}`);
       setEditingFaculty(null);
@@ -262,17 +278,27 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
   const handleCreateUserSubmit = async (e) => {
     e.preventDefault();
 
-    if (!createUserForm.name.trim()) {
-      toast.error('Please enter a user name');
+    const nameCheck = validateName(createUserForm.name);
+    if (!nameCheck.isValid) {
+      toast.error(nameCheck.error);
       return;
     }
-    const emailVal = createUserForm.email.toLowerCase().trim();
-    if (!emailVal.endsWith('@ssism.org')) {
-      toast.error('Only @ssism.org email domain is allowed');
+
+    const emailCheck = validateEmail(createUserForm.email);
+    if (!emailCheck.isValid) {
+      toast.error(emailCheck.error);
       return;
     }
-    if (!createUserForm.password || createUserForm.password.length < 6) {
-      toast.error('Password must be at least 6 characters long');
+
+    const passCheck = validatePassword(createUserForm.password);
+    if (!passCheck.isValid) {
+      toast.error(passCheck.error);
+      return;
+    }
+
+    const phoneCheck = validatePhoneNumber(createUserForm.phoneNumber, false);
+    if (!phoneCheck.isValid) {
+      toast.error(phoneCheck.error);
       return;
     }
 
@@ -286,10 +312,10 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
     try {
       const payload = {
         name: createUserForm.name.trim(),
-        email: emailVal,
+        email: createUserForm.email.toLowerCase().trim(),
         password: createUserForm.password,
         role: createUserForm.role,
-        phoneNumber: createUserForm.phoneNumber.trim()
+        phoneNumber: phoneCheck.formatted
       };
       if (createUserForm.role !== 'admin') {
         payload.department = finalDept;
@@ -331,7 +357,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
 
     if (isHOD) {
-      const isSameDept = u.department === user?.department;
+      const isSameDept = (u.department || '').trim().toLowerCase() === (user?.department || '').trim().toLowerCase();
       return matchesSearch && matchesRole && isSameDept;
     }
 
@@ -769,6 +795,8 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Email Address *</label>
                 <input
                   type="email"
+                  placeholder="faculty@ssism.org"
+                  pattern="[a-zA-Z0-9._%+\-]+@ssism\.org"
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
@@ -782,10 +810,12 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                 <input
                   type="tel"
                   placeholder="+91 9876543210"
+                  maxLength={15}
                   value={editForm.phoneNumber}
-                  onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
+                  onChange={(e) => setEditForm({ ...editForm, phoneNumber: formatPhoneInput(e.target.value) })}
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                 />
+                <p className="text-[11px] text-slate-400 font-semibold mt-1">+91 country code & 10 digits (e.g. +91 9876543210)</p>
               </div>
 
               <div className="flex gap-3 pt-4 border-t border-slate-100">
@@ -1080,7 +1110,8 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                   <FiMail className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
                   <input
                     type="email"
-                    placeholder="email@ssism.org"
+                    placeholder="user@ssism.org"
+                    pattern="[a-zA-Z0-9._%+\-]+@ssism\.org"
                     className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                     value={createUserForm.email}
                     onChange={(e) => setCreateUserForm({ ...createUserForm, email: e.target.value })}
@@ -1096,14 +1127,16 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                   <FiLock className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
                   <input
                     type="password"
-                    placeholder="Password (min 6 characters)"
+                    placeholder="Password (8-18 characters)"
                     className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                     value={createUserForm.password}
                     onChange={(e) => setCreateUserForm({ ...createUserForm, password: e.target.value })}
                     required
-                    minLength={6}
+                    minLength={8}
+                    maxLength={18}
                   />
                 </div>
+                <p className="text-[11px] text-slate-400 font-semibold mt-1">Must be 8 to 18 characters</p>
               </div>
 
               <div>
@@ -1170,11 +1203,13 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                   <input
                     type="tel"
                     placeholder="+91 9876543210"
+                    maxLength={15}
                     className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                     value={createUserForm.phoneNumber}
-                    onChange={(e) => setCreateUserForm({ ...createUserForm, phoneNumber: e.target.value })}
+                    onChange={(e) => setCreateUserForm({ ...createUserForm, phoneNumber: formatPhoneInput(e.target.value) })}
                   />
                 </div>
+                <p className="text-[11px] text-slate-400 font-semibold mt-1">+91 country code & 10 digits (e.g. +91 9876543210)</p>
               </div>
 
               <div className="flex gap-3 pt-4 border-t border-slate-100">

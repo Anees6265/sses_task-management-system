@@ -135,7 +135,9 @@ exports.getTasksByFaculty = async (req, res) => {
       targetFaculty = demoUsers.find(u => String(u._id) === String(facultyId));
     }
 
-    if (req.user.role === 'hod' && targetFaculty && targetFaculty.department && targetFaculty.department !== req.user.department) {
+    const userDept = (targetFaculty?.department || '').trim().toLowerCase();
+    const hodDept = (req.user.department || '').trim().toLowerCase();
+    if (req.user.role === 'hod' && userDept && hodDept && userDept !== hodDept && String(targetFaculty?._id) !== String(req.user._id)) {
       return res.status(403).json({ message: 'Access denied. You can only view tasks for faculty in your department.' });
     }
 
@@ -165,19 +167,7 @@ exports.getTasksByFaculty = async (req, res) => {
       console.warn('MongoDB Task.find error in getTasksByFaculty:', dbErr.message);
     }
 
-    if (!tasks || tasks.length === 0) {
-      let mockFacultyTasks = demoTasks.filter(t => 
-        t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(facultyId))
-      );
-      if (req.user.role === 'hod') {
-        mockFacultyTasks = mockFacultyTasks.filter(t => t.department === req.user.department);
-      }
-      if (mockFacultyTasks.length > 0) {
-        return res.json(mockFacultyTasks);
-      }
-    }
-    
-    res.json(tasks);
+    return res.json(tasks || []);
   } catch (error) {
     if (mongoose.connection.readyState !== 1 || (error.message && error.message.includes('buffering timed out'))) {
       const tasks = demoTasks.filter(t => 

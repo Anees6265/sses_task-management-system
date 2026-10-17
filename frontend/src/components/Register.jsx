@@ -1,6 +1,13 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { departmentAPI } from '../services/api.jsx';
+import { 
+  validateEmail, 
+  validatePhoneNumber, 
+  validatePassword, 
+  validateName, 
+  formatPhoneInput 
+} from '../utils/validation.js';
 
 const Register = ({ onClose, isModal = false }) => {
   const [formData, setFormData] = useState({ name: '', email: '', password: '', department: '', role: 'user', phoneNumber: '', telegramChatId: '' });
@@ -28,8 +35,36 @@ const Register = ({ onClose, isModal = false }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const nameCheck = validateName(formData.name);
+    if (!nameCheck.isValid) {
+      setError(nameCheck.error);
+      return;
+    }
+
+    const emailCheck = validateEmail(formData.email);
+    if (!emailCheck.isValid) {
+      setError(emailCheck.error);
+      return;
+    }
+
+    const phoneCheck = validatePhoneNumber(formData.phoneNumber, true);
+    if (!phoneCheck.isValid) {
+      setError(phoneCheck.error);
+      return;
+    }
+
+    const passCheck = validatePassword(formData.password);
+    if (!passCheck.isValid) {
+      setError(passCheck.error);
+      return;
+    }
+
     try {
-      const submitData = { ...formData };
+      const submitData = { 
+        ...formData,
+        phoneNumber: phoneCheck.formatted
+      };
       if (showCustomInput && customDepartment) {
         submitData.department = customDepartment.trim();
       }
@@ -76,7 +111,7 @@ const Register = ({ onClose, isModal = false }) => {
         <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div>
-              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Full Name</label>
+              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Full Name *</label>
               <input
                 type="text"
                 placeholder="Full Name (e.g. Rahul Sharma)"
@@ -88,16 +123,17 @@ const Register = ({ onClose, isModal = false }) => {
             </div>
             
             <div>
-              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Email</label>
+              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Email *</label>
               <input
                 type="email"
-                placeholder="email@ssism.org"
+                placeholder="username@ssism.org"
+                pattern="[a-zA-Z0-9._%+\-]+@ssism\.org"
                 className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-xs md:text-sm"
                 value={formData.email}
                 onChange={(e) => {
                   const email = e.target.value;
                   setFormData({ ...formData, email });
-                  if (email && !email.endsWith('@ssism.org')) {
+                  if (email && !email.toLowerCase().endsWith('@ssism.org')) {
                     setError('Only @ssism.org email addresses are allowed');
                   } else {
                     setError('');
@@ -105,32 +141,38 @@ const Register = ({ onClose, isModal = false }) => {
                 }}
                 required
               />
+              <p className="text-[11px] text-gray-400 font-semibold mt-1">Must be an @ssism.org email address</p>
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div>
-              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Phone (Signal)</label>
+              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Mobile Number *</label>
               <input
                 type="tel"
                 placeholder="+91 9876543210"
+                maxLength={15}
                 className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-xs md:text-sm"
                 value={formData.phoneNumber}
-                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, phoneNumber: formatPhoneInput(e.target.value) })}
+                required
               />
+              <p className="text-[11px] text-gray-400 font-semibold mt-1">+91 country code & 10 digits required</p>
             </div>
             
             <div>
-              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Password</label>
+              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1 md:mb-2">Password *</label>
               <input
                 type="password"
-                placeholder="Password (min 6 characters)"
+                placeholder="Password (8-18 characters)"
                 className="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition text-xs md:text-sm"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required
-                minLength="6"
+                minLength={8}
+                maxLength={18}
               />
+              <p className="text-[11px] text-gray-400 font-semibold mt-1">Must be 8 to 18 characters</p>
             </div>
           </div>
           

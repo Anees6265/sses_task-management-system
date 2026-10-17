@@ -819,6 +819,7 @@ const KanbanBoard = () => {
               localStorage.setItem('sidebar_collapsed', String(collapsed));
             }}
             onOpenProfile={() => handleOpenFacultyProfile(user)}
+            selectedFacultyForProfile={selectedFacultyForProfile}
           />
 
           <main className={`flex-1 p-4 md:p-6 overflow-x-hidden transition-all duration-300 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>

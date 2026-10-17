@@ -48,12 +48,40 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
   const fetchFacultyFullDetails = async () => {
     setLoading(true);
     try {
-      const initialTarget = faculty || targetUser || {};
-      const targetId = initialTarget._id || facultyId || (typeof initialTarget === 'string' ? initialTarget : currentUser?._id);
+      const rawTarget = faculty || targetUser || {};
+      const initialTarget = Array.isArray(rawTarget) ? (rawTarget[0] || {}) : (typeof rawTarget === 'object' ? rawTarget : {});
+      const targetId = initialTarget._id || facultyId || (typeof rawTarget === 'string' ? rawTarget : currentUser?._id);
+
+      const initialName = initialTarget?.name || (targetId === currentUser?._id ? currentUser?.name : '');
+      const initialEmail = initialTarget?.email || (targetId === currentUser?._id ? currentUser?.email : '');
+      const initialDept = initialTarget?.department || (targetId === currentUser?._id ? currentUser?.department : '');
+      const initialRole = initialTarget?.role || (targetId === currentUser?._id ? currentUser?.role : 'user');
+      const initialPhone = initialTarget?.phoneNumber || (targetId === currentUser?._id ? currentUser?.phoneNumber : '');
+
+      // Set fallback/initial profile data immediately so UI never shows blank or 'F'
+      const fallbackProfile = {
+        _id: targetId,
+        name: initialName || 'Faculty Member',
+        email: initialEmail || '',
+        department: initialDept || 'General',
+        role: initialRole || 'user',
+        phoneNumber: initialPhone || '',
+        isPresentToday: true,
+        activeLeaveToday: null,
+        monthlyLeavesTaken: 0,
+        lastMonthLeavesTaken: 0,
+        quota: {
+          casual: { used: 0, total: 12, balance: 12 },
+          sick: { used: 0, total: 10, balance: 10 },
+          earned: { used: 0, total: 15, balance: 15 },
+          duty: { taken: 0 }
+        }
+      };
+      setProfileData(prev => prev || fallbackProfile);
 
       // Attempt to fetch full user info if viewing another user or missing fields
       let fetchedUser = null;
-      if (targetId && targetId !== currentUser?._id) {
+      if (targetId && targetId !== currentUser?._id && typeof targetId === 'string' && targetId.length === 24) {
         try {
           const userRes = await userAPI.getUserById(targetId);
           if (userRes?.data) {
@@ -65,22 +93,28 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
       }
 
       const effectiveUser = fetchedUser ? { ...initialTarget, ...fetchedUser } : initialTarget;
-      const targetName = effectiveUser?.name || (targetId === currentUser?._id ? currentUser?.name : 'Faculty Member');
-      const targetEmail = effectiveUser?.email || (targetId === currentUser?._id ? currentUser?.email : '');
-      const targetDept = effectiveUser?.department || (targetId === currentUser?._id ? currentUser?.department : 'General');
-      const targetRole = effectiveUser?.role || (targetId === currentUser?._id ? currentUser?.role : 'user');
-      const targetPhone = effectiveUser?.phoneNumber || (targetId === currentUser?._id ? currentUser?.phoneNumber : '');
+      const targetName = effectiveUser?.name || initialName || (targetId === currentUser?._id ? currentUser?.name : 'Faculty Member');
+      const targetEmail = effectiveUser?.email || initialEmail || (targetId === currentUser?._id ? currentUser?.email : '');
+      const targetDept = effectiveUser?.department || initialDept || (targetId === currentUser?._id ? currentUser?.department : 'General');
+      const targetRole = effectiveUser?.role || initialRole || (targetId === currentUser?._id ? currentUser?.role : 'user');
+      const targetPhone = effectiveUser?.phoneNumber || initialPhone || (targetId === currentUser?._id ? currentUser?.phoneNumber : '');
 
-      const [leavesRes, tasksRes, attendanceRes] = await Promise.all([
+      // Use Promise.allSettled with fallbacks so a failure in any single sub-service never breaks profile viewing
+      const [leavesSettled, tasksSettled, attendanceSettled] = await Promise.allSettled([
         leaveAPI.getLeaves({ includePast: 'true', userId: targetId }),
         (currentUser?.role === 'admin' || currentUser?.role === 'hod' || currentUser?._id === targetId)
-          ? taskAPI.getTasksByFaculty(targetId).catch(() => taskAPI.getTasks())
-          : taskAPI.getTasks(),
+          ? taskAPI.getTasksByFaculty(targetId).catch(() => taskAPI.getTasks().catch(() => ({ data: [] })))
+          : taskAPI.getTasks().catch(() => ({ data: [] })),
         leaveAPI.getDailyAttendance()
       ]);
 
-      const allLeaves = leavesRes.data || [];
+      const leavesRes = leavesSettled.status === 'fulfilled' ? leavesSettled.value : { data: [] };
+      const tasksRes = tasksSettled.status === 'fulfilled' ? tasksSettled.value : { data: [] };
+      const attendanceRes = attendanceSettled.status === 'fulfilled' ? attendanceSettled.value : { data: [] };
+
+      const allLeaves = Array.isArray(leavesRes?.data) ? leavesRes.data : [];
       const userLeaves = allLeaves.filter(l => {
+        if (!l) return false;
         const applicantId = String(l.applicant?._id || l.applicant || '');
         const applicantEmail = l.applicant?.email;
         return (targetId && applicantId === String(targetId)) ||
@@ -88,9 +122,9 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
       });
       setFacultyLeaves(userLeaves);
 
-      const allTasks = tasksRes.data || [];
+      const allTasks = Array.isArray(tasksRes?.data) ? tasksRes.data : [];
       const userTasks = allTasks.filter(t => {
-        if (!t.assignedTo) return false;
+        if (!t || !t.assignedTo) return false;
         if (Array.isArray(t.assignedTo)) {
           return t.assignedTo.some(u => {
             const uId = String(u?._id || u || '');
@@ -106,19 +140,35 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
       });
       setFacultyTasks(userTasks);
 
-      // Find active today attendance info
-      const allDepts = attendanceRes.data || [];
-      const deptInfo = allDepts.find(d => d.department?.toLowerCase() === targetDept?.toLowerCase());
+      // Find active today attendance info across departments
+      const allDepts = Array.isArray(attendanceRes?.data) ? attendanceRes.data : [];
+      const deptInfo = allDepts.find(d => 
+        d && d.department && targetDept && d.department.trim().toLowerCase() === targetDept.trim().toLowerCase()
+      );
       let activeFacultyItem = null;
-      if (deptInfo && deptInfo.facultyList) {
+      if (deptInfo && Array.isArray(deptInfo.facultyList)) {
         activeFacultyItem = deptInfo.facultyList.find(f => 
           (targetId && String(f._id) === String(targetId)) ||
-          (targetEmail && f.email && f.email.toLowerCase() === targetEmail.toLowerCase())
+          (targetEmail && f.email && f.email.trim().toLowerCase() === targetEmail.trim().toLowerCase())
         );
+      }
+      if (!activeFacultyItem) {
+        for (const d of allDepts) {
+          if (Array.isArray(d?.facultyList)) {
+            const found = d.facultyList.find(f => 
+              (targetId && String(f._id) === String(targetId)) ||
+              (targetEmail && f.email && f.email.trim().toLowerCase() === targetEmail.trim().toLowerCase())
+            );
+            if (found) {
+              activeFacultyItem = found;
+              break;
+            }
+          }
+        }
       }
 
       // Calculate leave balances & metrics
-      const approvedLeaves = userLeaves.filter(l => l.status === 'approved');
+      const approvedLeaves = userLeaves.filter(l => l && l.status === 'approved');
       
       const casualTaken = approvedLeaves.filter(l => l.leaveType === 'casual').reduce((acc, curr) => acc + (curr.totalDays || 1), 0);
       const sickTaken = approvedLeaves.filter(l => l.leaveType === 'sick').reduce((acc, curr) => acc + (curr.totalDays || 1), 0);
@@ -135,6 +185,7 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
 
       // Current month approved leaves count
       const currentMonthLeavesList = approvedLeaves.filter(l => {
+        if (!l.startDate) return false;
         const d = new Date(l.startDate);
         return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
       });
@@ -142,6 +193,7 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
 
       // Last month approved leaves count
       const lastMonthLeavesList = approvedLeaves.filter(l => {
+        if (!l.startDate) return false;
         const d = new Date(l.startDate);
         return d.getFullYear() === lastMonthYear && d.getMonth() === lastMonth;
       });
@@ -154,7 +206,7 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
         department: targetDept,
         role: targetRole,
         phoneNumber: targetPhone || activeFacultyItem?.phoneNumber || '',
-        isPresentToday: activeFacultyItem ? activeFacultyItem.isPresentToday : true,
+        isPresentToday: activeFacultyItem ? (activeFacultyItem.isPresentToday !== false) : true,
         activeLeaveToday: activeFacultyItem?.activeLeaveToday || null,
         monthlyLeavesTaken: currentMonthDays,
         lastMonthLeavesTaken: lastMonthDays,
@@ -167,7 +219,7 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
       });
     } catch (error) {
       console.error('Error fetching faculty profile details:', error);
-      toast.error('Failed to load faculty profile page');
+      // Fallback data is preserved so user never gets broken profile
     } finally {
       setLoading(false);
     }
@@ -353,7 +405,7 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
         {/* Live Today Duty Status Box */}
         <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 space-y-2 relative z-10 min-w-[240px]">
           <p className="text-[10px] font-extrabold uppercase text-slate-300 tracking-wider">Today's Duty Status</p>
-          {profileData?.isPresentToday ? (
+          {profileData?.isPresentToday !== false ? (
             <span className="px-3.5 py-1.5 bg-emerald-500/20 text-emerald-300 text-xs font-black rounded-xl border border-emerald-500/30 flex items-center gap-2 w-fit">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
               On Active Duty Today

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { departmentAPI } from '../services/api.jsx';
+import { AuthContext } from '../context/AuthContext.jsx';
 import {
   FiPieChart,
   FiCheckSquare,
@@ -24,8 +25,10 @@ const Sidebar = ({
   refreshTrigger,
   isCollapsed: controlledIsCollapsed,
   setIsCollapsed: controlledSetIsCollapsed,
-  onOpenProfile
+  onOpenProfile,
+  selectedFacultyForProfile
 }) => {
+  const { user: currentUser } = useContext(AuthContext);
   const [internalIsCollapsed, setInternalIsCollapsed] = useState(false);
   const isCollapsed = controlledIsCollapsed !== undefined ? controlledIsCollapsed : internalIsCollapsed;
   const setIsCollapsed = (value) => {
@@ -223,7 +226,7 @@ const Sidebar = ({
                         }
                         setIsMobileOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${activeView === 'faculty-profile'
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${(activeView === 'faculty-profile' && (!selectedFacultyForProfile || String(selectedFacultyForProfile?._id || '') === String(currentUser?._id || '')))
                           ? 'bg-orange-500 text-white shadow-xs'
                           : 'text-slate-600 hover:bg-slate-100'
                         }`}

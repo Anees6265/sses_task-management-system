@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useRef, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import CreateHOD from './CreateHOD.jsx';
@@ -29,6 +29,39 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showFacultyProfileModal, setShowFacultyProfileModal] = useState(false);
+
+  const userMenuRef = useRef(null);
+
+  // Close profile popup when clicking anywhere outside on the screen or pressing Escape
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setShowUserMenu(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setShowUserMenu(false);
+        setShowCreateHODModal(false);
+        setShowCreateFacultyModal(false);
+        setShowSettingsModal(false);
+        setShowLogoutConfirm(false);
+      }
+    };
+
+    if (showUserMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showUserMenu]);
 
   return (
     <>
@@ -103,7 +136,7 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
               </button>
             )}
             
-            <div className="relative">
+            <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-2 p-1 rounded-full hover:bg-slate-100 transition cursor-pointer"
@@ -115,75 +148,72 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
               </button>
 
               {showUserMenu && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                  <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden fade-in">
-                    <div className="p-4 bg-gradient-to-br from-orange-50/80 via-amber-50/50 to-white border-b border-slate-100">
-                      <div className="flex flex-col items-center">
-                        <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center text-white font-extrabold text-2xl mb-2.5 shadow-md shadow-orange-500/20">
-                          {user?.name?.charAt(0).toUpperCase()}
-                        </div>
-                        <h3 className="font-bold text-slate-800 text-center leading-tight capitalize">{user?.name}</h3>
-                        <p className="text-xs text-slate-500 text-center mt-0.5">{user?.email}</p>
-                        
-                        {user?.role === 'admin' && (
-                          <span className="mt-2.5 px-3 py-0.5 bg-orange-100 text-orange-700 text-[11px] rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
-                            <FiShield className="w-3 h-3" /> System Admin
-                          </span>
-                        )}
-                        {user?.role === 'hod' && (
-                          <span className="mt-2.5 px-3 py-0.5 bg-indigo-100 text-indigo-700 text-[11px] rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
-                            <FiBriefcase className="w-3 h-3" /> HOD ({user?.department})
-                          </span>
-                        )}
-                        {user?.role === 'user' && (
-                          <span className="mt-2.5 px-3 py-0.5 bg-emerald-100 text-emerald-700 text-[11px] rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
-                            <FiUser className="w-3 h-3" /> Faculty ({user?.department})
-                          </span>
-                        )}
+                <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden fade-in">
+                  <div className="p-4 bg-gradient-to-br from-orange-50/80 via-amber-50/50 to-white border-b border-slate-100">
+                    <div className="flex flex-col items-center">
+                      <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center text-white font-extrabold text-2xl mb-2.5 shadow-md shadow-orange-500/20">
+                        {user?.name?.charAt(0).toUpperCase()}
                       </div>
-                    </div>
-
-                    <div className="p-2 space-y-1">
-                      <button
-                        onClick={() => {
-                          setShowUserMenu(false);
-                          if (onOpenProfile) {
-                            onOpenProfile();
-                          } else {
-                            setShowFacultyProfileModal(true);
-                          }
-                        }}
-                        className="w-full flex items-center space-x-2.5 px-3.5 py-2.5 text-slate-700 hover:bg-slate-50 rounded-xl transition text-xs md:text-sm font-semibold"
-                      >
-                        <FiUser className="w-4 h-4 text-orange-500" />
-                        <span>My Profile & Leave Info</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setShowUserMenu(false);
-                          setShowSettingsModal(true);
-                        }}
-                        className="w-full flex items-center space-x-2.5 px-3.5 py-2.5 text-slate-700 hover:bg-slate-50 rounded-xl transition text-xs md:text-sm font-semibold"
-                      >
-                        <FiSettings className="w-4 h-4 text-slate-500" />
-                        <span>{t('settings')}</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setShowUserMenu(false);
-                          setShowLogoutConfirm(true);
-                        }}
-                        className="w-full flex items-center space-x-2.5 px-3.5 py-2.5 text-rose-600 hover:bg-rose-50 rounded-xl transition text-xs md:text-sm font-semibold"
-                      >
-                        <FiLogOut className="w-4 h-4" />
-                        <span>{t('logout')}</span>
-                      </button>
+                      <h3 className="font-bold text-slate-800 text-center leading-tight capitalize">{user?.name}</h3>
+                      <p className="text-xs text-slate-500 text-center mt-0.5">{user?.email}</p>
+                      
+                      {user?.role === 'admin' && (
+                        <span className="mt-2.5 px-3 py-0.5 bg-orange-100 text-orange-700 text-[11px] rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
+                          <FiShield className="w-3 h-3" /> System Admin
+                        </span>
+                      )}
+                      {user?.role === 'hod' && (
+                        <span className="mt-2.5 px-3 py-0.5 bg-indigo-100 text-indigo-700 text-[11px] rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
+                          <FiBriefcase className="w-3 h-3" /> HOD ({user?.department})
+                        </span>
+                      )}
+                      {user?.role === 'user' && (
+                        <span className="mt-2.5 px-3 py-0.5 bg-emerald-100 text-emerald-700 text-[11px] rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
+                          <FiUser className="w-3 h-3" /> Faculty ({user?.department})
+                        </span>
+                      )}
                     </div>
                   </div>
-                </>
+
+                  <div className="p-2 space-y-1">
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        if (onOpenProfile) {
+                          onOpenProfile();
+                        } else {
+                          setShowFacultyProfileModal(true);
+                        }
+                      }}
+                      className="w-full flex items-center space-x-2.5 px-3.5 py-2.5 text-slate-700 hover:bg-slate-50 rounded-xl transition text-xs md:text-sm font-semibold cursor-pointer"
+                    >
+                      <FiUser className="w-4 h-4 text-orange-500" />
+                      <span>My Profile & Leave Info</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        setShowSettingsModal(true);
+                      }}
+                      className="w-full flex items-center space-x-2.5 px-3.5 py-2.5 text-slate-700 hover:bg-slate-50 rounded-xl transition text-xs md:text-sm font-semibold cursor-pointer"
+                    >
+                      <FiSettings className="w-4 h-4 text-slate-500" />
+                      <span>{t('settings')}</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        setShowLogoutConfirm(true);
+                      }}
+                      className="w-full flex items-center space-x-2.5 px-3.5 py-2.5 text-rose-600 hover:bg-rose-50 rounded-xl transition text-xs md:text-sm font-semibold cursor-pointer"
+                    >
+                      <FiLogOut className="w-4 h-4" />
+                      <span>{t('logout')}</span>
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -200,8 +230,14 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
 
       {/* Create HOD Modal */}
       {showCreateHODModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md my-auto max-h-[90vh] overflow-y-auto relative border border-slate-100 fade-in">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowCreateHODModal(false); }}
+        >
+          <div 
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-md my-auto max-h-[90vh] overflow-y-auto relative border border-slate-100 fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setShowCreateHODModal(false)}
               className="absolute top-4 right-4 z-10 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition"
@@ -217,8 +253,14 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
 
       {/* Create Faculty Modal */}
       {showCreateFacultyModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md my-auto max-h-[90vh] overflow-y-auto relative border border-slate-100 fade-in">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowCreateFacultyModal(false); }}
+        >
+          <div 
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-md my-auto max-h-[90vh] overflow-y-auto relative border border-slate-100 fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setShowCreateFacultyModal(false)}
               className="absolute top-4 right-4 z-10 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition"
@@ -237,8 +279,14 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
 
       {/* Profile Settings Modal */}
       {showSettingsModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 overflow-y-auto">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 overflow-y-auto"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowSettingsModal(false); }}
+        >
+          <div 
+            className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg md:text-xl font-bold text-slate-800 flex items-center gap-2">
                 <FiSettings className="w-5 h-5 text-orange-500" />
@@ -271,9 +319,11 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
                   <input
                     type="email"
                     defaultValue={user?.email}
+                    pattern="[a-zA-Z0-9._%+\-]+@ssism\.org"
                     className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                   />
                 </div>
+                <p className="text-[11px] text-slate-400 font-semibold mt-1">Must be an @ssism.org email domain</p>
               </div>
               <div className="flex gap-3 pt-4">
                 <button
@@ -297,8 +347,14 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
 
       {/* Logout Confirmation */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 overflow-y-auto">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in">
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 overflow-y-auto"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowLogoutConfirm(false); }}
+        >
+          <div 
+            className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <FiLogOut className="w-6 h-6" />
             </div>

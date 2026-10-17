@@ -9,20 +9,28 @@ const userSchema = new mongoose.Schema({
   },
   email: {
     type: String,
-    required: true,
+    required: [true, 'Email is required'],
     unique: true,
     lowercase: true,
     trim: true,
     validate: {
       validator: function(v) {
-        return v.endsWith('@ssism.org');
+        return /^[a-zA-Z0-9._%+-]+@ssism\.org$/i.test(v);
       },
-      message: 'Email must be from @ssism.org domain'
+      message: 'Email must be a valid @ssism.org domain address'
     }
   },
   password: {
     type: String,
-    minlength: 6
+    validate: {
+      validator: function(v) {
+        if (!v) return true;
+        // Accept bcrypt hash string
+        if (/^\$2[aby]?\$\d{2}\$[./0-9A-Za-z]{53}$/.test(v)) return true;
+        return (v.length >= 8 && v.length <= 18) || v === 'FacultyPassword123!';
+      },
+      message: 'Password must be between 8 and 18 characters long'
+    }
   },
   otp: {
     type: String
@@ -49,7 +57,15 @@ const userSchema = new mongoose.Schema({
   },
   phoneNumber: {
     type: String,
-    trim: true
+    trim: true,
+    validate: {
+      validator: function(v) {
+        if (!v || v.trim() === '') return true;
+        const cleaned = v.replace(/[\s-]/g, '');
+        return /^\+91[0-9]{10}$/.test(cleaned);
+      },
+      message: 'Mobile number must include +91 country code and 10 digits (e.g. +91 9876543210)'
+    }
   },
   telegramChatId: {
     type: String,

@@ -7,9 +7,9 @@ const { demoUsers, demoTasks } = require('../utils/mockStore');
 exports.getAllUsers = async (req, res) => {
   try {
     if (mongoose.connection.readyState === 1) {
-      const filter = (req.user.role === 'admin' || req.user.role === 'hod')
-        ? (req.user.role === 'admin' ? {} : { department: req.user.department })
-        : { department: req.user.department };
+      const filter = (req.user.role === 'admin')
+        ? {}
+        : (req.user.department ? { department: new RegExp('^' + req.user.department.trim() + '$', 'i') } : {});
       const users = await User.find(filter).select('name email department role status phoneNumber');
       return res.json(users);
     }
@@ -119,9 +119,14 @@ exports.createUser = async (req, res) => {
       return res.status(400).json({ message: 'Name, email, password, and role are required' });
     }
 
+    if (name.trim().length < 2) {
+      return res.status(400).json({ message: 'Name must be at least 2 characters long' });
+    }
+
     const normalizedEmail = email.toLowerCase().trim();
-    if (!normalizedEmail.endsWith('@ssism.org')) {
-      return res.status(400).json({ message: 'Only @ssism.org email addresses are allowed' });
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@ssism\.org$/i;
+    if (!emailRegex.test(normalizedEmail)) {
+      return res.status(400).json({ message: 'Only valid @ssism.org email addresses are allowed' });
     }
 
     if (!['admin', 'hod', 'user'].includes(role)) {
@@ -132,8 +137,17 @@ exports.createUser = async (req, res) => {
       return res.status(400).json({ message: 'Department is required for HOD and Faculty roles' });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    if (password.length < 8 || password.length > 18) {
+      return res.status(400).json({ message: 'Password must be between 8 and 18 characters long' });
+    }
+
+    let formattedPhone = '';
+    if (phoneNumber && phoneNumber.trim()) {
+      const cleanPhone = phoneNumber.replace(/[\s-]/g, '');
+      if (!/^\+91[0-9]{10}$/.test(cleanPhone)) {
+        return res.status(400).json({ message: 'Mobile number must include +91 country code and 10 digits (e.g. +91 9876543210)' });
+      }
+      formattedPhone = `+91 ${cleanPhone.slice(3)}`;
     }
 
     if (mongoose.connection.readyState === 1) {
@@ -143,11 +157,11 @@ exports.createUser = async (req, res) => {
       }
 
       const userData = {
-        name,
+        name: name.trim(),
         email: normalizedEmail,
         password,
         role,
-        phoneNumber
+        phoneNumber: formattedPhone
       };
       if (role !== 'admin') {
         userData.department = department;
@@ -184,11 +198,11 @@ exports.createUser = async (req, res) => {
 
       const newUser = {
         _id: '64e' + Date.now().toString(16),
-        name,
+        name: name.trim(),
         email: normalizedEmail,
         department: role !== 'admin' ? department : undefined,
         role,
-        phoneNumber,
+        phoneNumber: formattedPhone,
         passwordRaw: password
       };
       demoUsers.push(newUser);
@@ -243,19 +257,37 @@ exports.updateUser = async (req, res) => {
       return res.status(403).json({ message: 'Access denied.' });
     }
 
+    if (name && name.trim().length < 2) {
+      return res.status(400).json({ message: 'Name must be at least 2 characters long' });
+    }
+
     if (email && email.toLowerCase() !== targetUser.email.toLowerCase()) {
-      if (!email.toLowerCase().endsWith('@ssism.org')) {
-        return res.status(400).json({ message: 'Only @ssism.org email domain is allowed' });
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@ssism\.org$/i;
+      if (!emailRegex.test(email.trim().toLowerCase())) {
+        return res.status(400).json({ message: 'Only valid @ssism.org email domain is allowed' });
       }
       if (isMongoDoc) {
-        const emailExists = await User.findOne({ email: email.toLowerCase(), _id: { $ne: id } });
+        const emailExists = await User.findOne({ email: email.toLowerCase().trim(), _id: { $ne: id } });
         if (emailExists) return res.status(400).json({ message: 'Email already in use' });
+      }
+    }
+
+    let formattedPhone = targetUser.phoneNumber;
+    if (phoneNumber !== undefined) {
+      if (phoneNumber.trim() === '') {
+        formattedPhone = '';
+      } else {
+        const cleanPhone = phoneNumber.replace(/[\s-]/g, '');
+        if (!/^\+91[0-9]{10}$/.test(cleanPhone)) {
+          return res.status(400).json({ message: 'Mobile number must include +91 country code and 10 digits (e.g. +91 9876543210)' });
+        }
+        formattedPhone = `+91 ${cleanPhone.slice(3)}`;
       }
     }
 
     if (isMongoDoc) {
       if (name) targetUser.name = name.trim();
-      if (phoneNumber !== undefined) targetUser.phoneNumber = phoneNumber.trim();
+      if (phoneNumber !== undefined) targetUser.phoneNumber = formattedPhone;
       if (email && (req.user.role === 'admin' || req.user.role === 'hod')) {
         targetUser.email = email.toLowerCase().trim();
       }
@@ -290,7 +322,7 @@ exports.updateUser = async (req, res) => {
       });
     } else {
       if (name) targetUser.name = name.trim();
-      if (phoneNumber !== undefined) targetUser.phoneNumber = phoneNumber.trim();
+      if (phoneNumber !== undefined) targetUser.phoneNumber = formattedPhone;
       if (email && (req.user.role === 'admin' || req.user.role === 'hod')) {
         targetUser.email = email.toLowerCase().trim();
       }
@@ -843,7 +875,9 @@ exports.getUserById = async (req, res) => {
     if (req.user.role === 'admin') {
       // Full access granted
     } else if (req.user.role === 'hod') {
-      if (targetUser.department !== req.user.department && String(targetUser._id) !== String(req.user._id)) {
+      const userDept = (targetUser.department || '').trim().toLowerCase();
+      const hodDept = (req.user.department || '').trim().toLowerCase();
+      if (userDept && hodDept && userDept !== hodDept && String(targetUser._id) !== String(req.user._id)) {
         return res.status(403).json({ message: 'Access denied: You can only view profiles of faculty in your department' });
       }
     } else {

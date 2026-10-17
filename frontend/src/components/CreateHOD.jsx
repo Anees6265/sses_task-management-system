@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { authAPI } from '../services/api.jsx';
 import { toast } from 'react-toastify';
 import { FiUserPlus, FiUser, FiMail, FiLock, FiBriefcase, FiPhone, FiCheckCircle } from 'react-icons/fi';
+import { 
+  validateEmail, 
+  validatePhoneNumber, 
+  validatePassword, 
+  validateName, 
+  formatPhoneInput 
+} from '../utils/validation.js';
 
 const CreateHOD = ({ onClose, isModal }) => {
   const [formData, setFormData] = useState({
@@ -15,11 +22,43 @@ const CreateHOD = ({ onClose, isModal }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const nameCheck = validateName(formData.name);
+    if (!nameCheck.isValid) {
+      toast.error(nameCheck.error, { position: 'top-center' });
+      return;
+    }
+
+    const emailCheck = validateEmail(formData.email);
+    if (!emailCheck.isValid) {
+      toast.error(emailCheck.error, { position: 'top-center' });
+      return;
+    }
+
+    const passCheck = validatePassword(formData.password);
+    if (!passCheck.isValid) {
+      toast.error(passCheck.error, { position: 'top-center' });
+      return;
+    }
+
+    if (!formData.department || !formData.department.trim()) {
+      toast.error('Department is required', { position: 'top-center' });
+      return;
+    }
+
+    const phoneCheck = validatePhoneNumber(formData.phoneNumber, false);
+    if (!phoneCheck.isValid) {
+      toast.error(phoneCheck.error, { position: 'top-center' });
+      return;
+    }
+
     setLoading(true);
 
     try {
       await authAPI.register({
         ...formData,
+        department: formData.department.trim(),
+        phoneNumber: phoneCheck.formatted,
         role: 'hod'
       });
       
@@ -71,7 +110,8 @@ const CreateHOD = ({ onClose, isModal }) => {
               <FiMail className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
               <input
                 type="email"
-                placeholder="email@ssism.org"
+                placeholder="hod.dept@ssism.org"
+                pattern="[a-zA-Z0-9._%+\-]+@ssism\.org"
                 className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -87,14 +127,16 @@ const CreateHOD = ({ onClose, isModal }) => {
               <FiLock className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
               <input
                 type="password"
-                placeholder="Password (min 6 characters)"
+                placeholder="Password (8-18 characters)"
                 className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required
-                minLength={6}
+                minLength={8}
+                maxLength={18}
               />
             </div>
+            <p className="text-[11px] text-slate-400 font-semibold mt-1">Must be 8 to 18 characters</p>
           </div>
 
           <div>
@@ -119,11 +161,13 @@ const CreateHOD = ({ onClose, isModal }) => {
               <input
                 type="tel"
                 placeholder="+91 9876543210"
+                maxLength={15}
                 className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                 value={formData.phoneNumber}
-                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, phoneNumber: formatPhoneInput(e.target.value) })}
               />
             </div>
+            <p className="text-[11px] text-slate-400 font-semibold mt-1">+91 country code & 10 digits (e.g. +91 9876543210)</p>
           </div>
 
           <button

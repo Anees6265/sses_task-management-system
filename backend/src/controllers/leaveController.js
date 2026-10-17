@@ -158,7 +158,9 @@ exports.getLeaves = async (req, res) => {
           filter.applicant = targetUserId;
         }
       } else if (req.user.role === 'hod') {
-        filter.department = req.user.department;
+        if (req.user.department) {
+          filter.department = new RegExp('^' + req.user.department.trim() + '$', 'i');
+        }
         if (targetUserId) {
           filter.applicant = targetUserId;
         }
@@ -174,46 +176,11 @@ exports.getLeaves = async (req, res) => {
       } catch (mongoErr) {
         console.warn('MongoDB Leave.find failed:', mongoErr.message);
       }
+
+      return res.json(mongoLeaves || []);
     }
 
     let filtered = demoLeaves;
-    if (!includePast) {
-      filtered = filtered.filter(l => {
-        const end = new Date(l.endDate);
-        return end >= startOfToday;
-      });
-    }
-
-    if (req.user.role === 'admin') {
-      if (targetUserId) {
-        filtered = filtered.filter(l => 
-          String(l.applicant?._id || l.applicant) === String(targetUserId) || 
-          l.applicant?.email === targetUserId
-        );
-      }
-    } else if (req.user.role === 'hod') {
-      filtered = filtered.filter(l => 
-        l.department === req.user.department || 
-        l.applicant?.department === req.user.department
-      );
-      if (targetUserId) {
-        filtered = filtered.filter(l => 
-          String(l.applicant?._id || l.applicant) === String(targetUserId) || 
-          l.applicant?.email === targetUserId
-        );
-      }
-    } else if (req.user.role === 'user') {
-      filtered = filtered.filter(l => 
-        (String(l.applicant?._id || l.applicant) === String(req.user._id)) || 
-        (l.applicant?.email === req.user.email)
-      );
-    }
-
-    if (mongoLeaves && mongoLeaves.length > 0) {
-      return res.json(mongoLeaves);
-    }
-
-    return res.json(filtered);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -406,7 +373,11 @@ exports.getDailyAttendance = async (req, res) => {
 
       const allLeaves = await Leave.find().populate('applicant', 'name email department role phoneNumber');
 
-      const activeUserIdsToday = new Set(activeLeavesToday.map(l => l.applicant._id.toString()));
+      const activeUserIdsToday = new Set(
+        activeLeavesToday
+          .filter(l => l && l.applicant && (l.applicant._id || l.applicant))
+          .map(l => (l.applicant._id ? l.applicant._id.toString() : l.applicant.toString()))
+      );
       const departmentMap = {};
 
       users.forEach(u => {
@@ -425,15 +396,24 @@ exports.getDailyAttendance = async (req, res) => {
         }
 
         const isAbsentToday = activeUserIdsToday.has(u._id.toString());
-        const activeLeave = activeLeavesToday.find(l => l.applicant._id.toString() === u._id.toString());
+        const activeLeave = activeLeavesToday.find(l => {
+          if (!l || !l.applicant) return false;
+          const aId = l.applicant._id ? l.applicant._id.toString() : l.applicant.toString();
+          return aId === u._id.toString();
+        });
         
-        const userMonthLeaves = monthLeaves.filter(l => l.applicant.toString() === u._id.toString());
+        const userMonthLeaves = monthLeaves.filter(l => {
+          if (!l || !l.applicant) return false;
+          const aId = l.applicant._id ? l.applicant._id.toString() : l.applicant.toString();
+          return aId === u._id.toString();
+        });
         const monthlyDays = userMonthLeaves.reduce((acc, curr) => acc + (curr.totalDays || 1), 0);
 
         const facultyItem = {
           _id: u._id,
           name: u.name,
           email: u.email,
+          department: u.department || dept,
           role: u.role,
           phoneNumber: u.phoneNumber,
           isPresentToday: !isAbsentToday,
