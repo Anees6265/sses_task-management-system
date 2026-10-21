@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
+import { getSocketUrl } from '../services/api';
 
 const SocketContext = createContext();
 
@@ -18,8 +19,7 @@ export const SocketProvider = ({ children }) => {
     }
 
     // Dynamic socket URL based on environment
-    const API_URL = import.meta.env.VITE_API_URL || 'https://sses-task-management-system.onrender.com/api';
-    const socketUrl = API_URL.replace('/api', '');
+    const socketUrl = getSocketUrl();
 
     console.log('🔌 Connecting to Socket.IO:', socketUrl);
     console.log('🔑 Using token:', token.substring(0, 20) + '...');

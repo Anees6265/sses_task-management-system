@@ -1,8 +1,10 @@
 import axios from 'axios';
 import { Capacitor } from '@capacitor/core';
 
-// PRODUCTION: Use your deployed backend URL
-const API_URL = import.meta.env.VITE_API_URL || 'https://sses-task-management-system.onrender.com/api';
+// Normalize API base URL: ensure it cleanly ends with /api regardless of trailing slash or missing /api in .env
+const rawApiUrl = (import.meta.env.VITE_API_URL || 'https://sses-task-management-system.onrender.com/api').trim().replace(/\/+$/, '');
+export const API_URL = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`;
+
 
 console.log('=== API Configuration ===');
 console.log('API_URL:', API_URL);
@@ -221,8 +223,7 @@ export const chatAPI = {
 
 // Socket.IO connection helper
 export const getSocketUrl = () => {
-  const API_URL = import.meta.env.VITE_API_URL || 'https://sses-task-management-system.onrender.com/api';
-  return API_URL.replace('/api', '');
+  return API_URL.replace(/\/api$/, '');
 };
 
 export const notificationAPI = {

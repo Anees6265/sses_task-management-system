@@ -2,8 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
 import { FiClock, FiCheckCircle, FiLogOut, FiRefreshCw } from 'react-icons/fi';
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://sses-task-management-system.onrender.com/api';
+import { API_URL } from '../services/api';
 
 const TokenExpiryWarning = () => {
   const [showWarning, setShowWarning] = useState(false);
