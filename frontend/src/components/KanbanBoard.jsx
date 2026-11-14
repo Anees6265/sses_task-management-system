@@ -33,7 +33,8 @@ import {
   FiLayers,
   FiSend,
   FiDownload,
-  FiFileText
+  FiFileText,
+  FiFilter
 } from 'react-icons/fi';
 
 import LeaveDashboard from './LeaveDashboard.jsx';
@@ -140,6 +141,27 @@ const KanbanBoard = () => {
   });
 
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [boardSearchQuery, setBoardSearchQuery] = useState('');
+  const [boardPriorityFilter, setBoardPriorityFilter] = useState('all');
+  const [boardDeptFilter, setBoardDeptFilter] = useState('all');
+
+  const filterTaskList = (taskList) => {
+    return (taskList || []).filter(task => {
+      const q = boardSearchQuery.trim().toLowerCase();
+      const matchesSearch = !q ||
+        task.title?.toLowerCase().includes(q) ||
+        task.description?.toLowerCase().includes(q) ||
+        (Array.isArray(task.assignedTo)
+          ? task.assignedTo.some(u => (typeof u === 'object' ? u.name || u.email : u)?.toLowerCase().includes(q))
+          : (typeof task.assignedTo === 'object' ? task.assignedTo?.name || task.assignedTo?.email : task.assignedTo)?.toLowerCase().includes(q));
+
+      const matchesPriority = boardPriorityFilter === 'all' || task.priority === boardPriorityFilter;
+      const matchesDept = boardDeptFilter === 'all' || (task.department || '').trim().toLowerCase() === boardDeptFilter.toLowerCase();
+
+      return matchesSearch && matchesPriority && matchesDept;
+    });
+  };
+
   const [activeView, setActiveViewRaw] = useState(() => {
     const urlState = getViewFromUrl();
     if (urlState) return urlState.view;
@@ -585,17 +607,20 @@ const KanbanBoard = () => {
     ? users.filter(u => u.role === 'user' && u.department === user.department)
     : users.filter(u => u.role === 'user');
 
-  const Column = ({ title, tasks, droppableId, icon: IconComponent, badgeColor }) => {
+  const Column = ({ title, subtitle, tasks, droppableId, icon: IconComponent, badgeColor }) => {
     return (
       <div className="w-full lg:flex-1 lg:min-w-[300px] relative">
         <div className="bg-white rounded-3xl p-4 border border-slate-200/90 shadow-md flex flex-col min-h-[500px]">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 flex-shrink-0">
-            <h3 className="font-extrabold text-sm md:text-base text-slate-800 flex items-center gap-2">
-              <span className={`p-2 rounded-xl text-white ${badgeColor}`}>
-                <IconComponent className="w-4 h-4" />
-              </span>
-              <span className="truncate">{title}</span>
-            </h3>
+            <div>
+              <h3 className="font-extrabold text-sm md:text-base text-slate-800 flex items-center gap-2">
+                <span className={`p-2 rounded-xl text-white ${badgeColor}`}>
+                  <IconComponent className="w-4 h-4" />
+                </span>
+                <span className="truncate">{title}</span>
+              </h3>
+              {subtitle && <p className="text-[11px] text-slate-400 font-medium mt-0.5">{subtitle}</p>}
+            </div>
             <span className="bg-slate-100 text-slate-700 text-xs font-extrabold px-2.5 py-1 rounded-full border border-slate-200">
               {tasks.length}
             </span>
@@ -622,9 +647,16 @@ const KanbanBoard = () => {
                         className={`bg-white rounded-2xl border border-slate-200/90 p-4 hover:border-orange-300 transition-all duration-200 glass-card-hover ${snapshot.isDragging ? 'shadow-2xl rotate-2 scale-105 border-orange-500 z-[99999]' : 'shadow-sm'}`}
                       >
                         <div className="flex justify-between items-start mb-2 gap-2">
-                          <h4 className="font-bold text-slate-800 text-sm md:text-base leading-snug break-words flex-1">
-                            {task.title}
-                          </h4>
+                          <div className="flex-1">
+                            {task.department && (
+                              <span className="inline-block px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-md border border-slate-200 mb-1">
+                                {task.department}
+                              </span>
+                            )}
+                            <h4 className="font-bold text-slate-800 text-sm md:text-base leading-snug break-words">
+                              {task.title}
+                            </h4>
+                          </div>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
                             <select
                               value={task.status}
@@ -632,12 +664,13 @@ const KanbanBoard = () => {
                                 e.stopPropagation();
                                 handleStatusChange(task._id, e.target.value);
                               }}
-                              className="text-[11px] font-semibold px-2 py-1 border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 cursor-pointer focus:outline-none"
+                              className="text-[11px] font-bold px-2 py-1 border border-slate-200 rounded-lg bg-slate-50 hover:bg-slate-100 cursor-pointer focus:outline-none"
                               onClick={(e) => e.stopPropagation()}
+                              title="Update workflow stage"
                             >
-                              <option value="todo">To Do</option>
-                              <option value="inprogress">In Progress</option>
-                              <option value="completed">Completed</option>
+                              <option value="todo">⏳ Pending (Queue)</option>
+                              <option value="inprogress">⚡ Active (In Progress)</option>
+                              <option value="completed">✓ Completed (Verified)</option>
                             </select>
                             <button
                               onClick={(e) => {
@@ -645,7 +678,7 @@ const KanbanBoard = () => {
                                 handleEditTask(task);
                               }}
                               className="p-1.5 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition"
-                              title="Edit / View Details"
+                              title="View & Edit Task Details"
                             >
                               <FiEdit3 className="w-4 h-4" />
                             </button>
@@ -656,7 +689,7 @@ const KanbanBoard = () => {
                                   setDeleteConfirm(task._id);
                                 }}
                                 className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                                title="Delete Task"
+                                title="Permanently Delete Task"
                               >
                                 <FiTrash2 className="w-4 h-4" />
                               </button>
@@ -674,6 +707,7 @@ const KanbanBoard = () => {
                           <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-slate-600">
                             <FiUser className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                             <div className="truncate">
+                              <span className="text-slate-400 font-normal mr-1">Faculty:</span>
                               {Array.isArray(task.assignedTo) ? (
                                 task.assignedTo.map((u, i) => {
                                   const name = typeof u === 'object' ? (u.name || u.email || 'Faculty') : u;
@@ -688,7 +722,7 @@ const KanbanBoard = () => {
                                             handleOpenFacultyProfile(u);
                                           }}
                                           className="hover:text-orange-600 hover:underline font-bold transition inline"
-                                          title="Click to view faculty profile"
+                                          title="View academic profile"
                                         >
                                           {name}
                                         </button>
@@ -707,7 +741,7 @@ const KanbanBoard = () => {
                                       handleOpenFacultyProfile(task.assignedTo);
                                     }}
                                     className="hover:text-orange-600 hover:underline font-bold transition inline"
-                                    title="Click to view faculty profile"
+                                    title="View academic profile"
                                   >
                                     {task.assignedTo.name || task.assignedTo.email || 'Faculty'}
                                   </button>
@@ -721,48 +755,57 @@ const KanbanBoard = () => {
 
                         {task.dueDate && (
                           <div className="flex items-center gap-1.5 mb-3 text-xs font-medium">
-                            <FiCalendar className="w-3.5 h-3.5 text-slate-400" />
-                            <span className={`${new Date(task.dueDate) < new Date() && task.status !== 'completed'
-                                ? 'text-rose-600 font-bold'
-                                : 'text-slate-600'
-                              }`}>
-                              {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                            </span>
+                            {new Date(task.dueDate) < new Date() && task.status !== 'completed' ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1">
+                                <FiAlertTriangle className="w-3 h-3 text-rose-600" />
+                                Overdue: {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </span>
+                            ) : (
+                              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                                <FiCalendar className="w-3.5 h-3.5 text-slate-400" />
+                                <span>Deadline: {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                              </div>
+                            )}
                           </div>
                         )}
 
                         {/* Priority Badge */}
                         <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={`px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] flex items-center gap-1 ${
+                            <span className={`px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider text-[10px] flex items-center gap-1 ${
                               task.priority === 'critical' ? 'bg-rose-600 text-white shadow-xs' :
                               task.priority === 'high' ? 'bg-rose-100 text-rose-700 border border-rose-200' :
                               task.priority === 'medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
                               'bg-emerald-100 text-emerald-700 border border-emerald-200'
                             }`}>
-                              <span>{task.priority}</span>
+                              <span>
+                                {task.priority === 'critical' ? '🚨 Critical / Statutory' :
+                                 task.priority === 'high' ? 'High Urgency' :
+                                 task.priority === 'medium' ? 'Standard Academic' :
+                                 'Routine Operational'}
+                              </span>
                             </span>
 
                             {task.isRecurring && (
-                              <span className="px-2 py-0.5 rounded-full font-extrabold text-[10px] bg-indigo-100 text-indigo-700 border border-indigo-200 inline-flex items-center gap-1">
+                              <span className="px-2 py-0.5 rounded-full font-extrabold text-[10px] bg-indigo-100 text-indigo-700 border border-indigo-200 inline-flex items-center gap-1" title="Recurring task schedule">
                                 <FiRepeat className="w-3 h-3" /> Recurring
                               </span>
                             )}
 
                             {task.comments && task.comments.length > 0 && (
-                              <span className="px-2 py-0.5 rounded-full font-extrabold text-[10px] bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center gap-1" title="Comments">
+                              <span className="px-2 py-0.5 rounded-full font-extrabold text-[10px] bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center gap-1" title="Faculty Comments">
                                 <FiMessageSquare className="w-3 h-3 text-slate-500" /> {task.comments.length}
                               </span>
                             )}
 
                             {task.attachments && task.attachments.length > 0 && (
-                              <span className="px-2 py-0.5 rounded-full font-extrabold text-[10px] bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center gap-1" title="Attachments">
+                              <span className="px-2 py-0.5 rounded-full font-extrabold text-[10px] bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center gap-1" title="Verified Attachments">
                                 <FiPaperclip className="w-3 h-3 text-slate-500" /> {task.attachments.length}
                               </span>
                             )}
                           </div>
 
-                          <span className="text-[11px] text-slate-400 font-semibold">
+                          <span className="text-[11px] text-slate-400 font-semibold" title="Creation Date">
                             {new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </span>
                         </div>
@@ -775,7 +818,8 @@ const KanbanBoard = () => {
                 {tasks.length === 0 && (
                   <div className="text-center py-12 text-slate-400">
                     <FiInbox className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-                    <p className="text-xs font-bold">{t('noTasks')}</p>
+                    <p className="text-xs font-bold text-slate-600">{t('noTasks')}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">No academic deliverables currently in this stage.</p>
                   </div>
                 )}
               </div>
@@ -857,67 +901,199 @@ const KanbanBoard = () => {
               />
             )}
 
-            {activeView !== 'dashboard' && activeView !== 'leaves' && activeView !== 'departments-overview' && activeView !== 'dept-detail' && activeView !== 'faculty-profile' && activeView !== 'chats' && activeView !== 'users' && activeView !== 'analytics' && activeView !== 'settings' && activeView !== 'departments' && activeView !== 'all-hods' && (
-              <>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 md:mb-6 gap-2 md:gap-3">
-                  <div className="flex items-center gap-3">
-                    {selectedFacultyId && (
-                      <button
-                        onClick={() => {
-                          setSelectedFacultyId(null);
-                          setActiveView('dashboard');
-                        }}
-                        className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded-lg transition flex items-center gap-2 text-sm font-medium shadow-sm"
-                      >
-                        <span className="text-lg">←</span>
-                        <span className="hidden sm:inline">Back</span>
-                      </button>
-                    )}
-                    <div>
-                      <h2 className="text-lg md:text-3xl font-bold text-gray-800">
-                        {activeView === 'board' ? (user?.role === 'hod' ? `${user?.department} Department Tasks` : t('sprintBoard')) : activeView}
-                      </h2>
-                      <p className="text-gray-600 mt-0.5 md:mt-1 text-xs md:text-base">{t('dragDrop')}</p>
+            {activeView !== 'dashboard' && activeView !== 'leaves' && activeView !== 'departments-overview' && activeView !== 'dept-detail' && activeView !== 'faculty-profile' && activeView !== 'chats' && activeView !== 'users' && activeView !== 'analytics' && activeView !== 'settings' && activeView !== 'departments' && activeView !== 'all-hods' && (() => {
+              const allBoardTasks = [...(tasks.todo || []), ...(tasks.inprogress || []), ...(tasks.completed || [])];
+              const overdueCount = allBoardTasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== 'completed').length;
+              const hasActiveFilters = boardSearchQuery.trim() !== '' || boardPriorityFilter !== 'all' || boardDeptFilter !== 'all';
+
+              return (
+                <div className="space-y-6 fade-in">
+                  {/* Institutional Board Header & Executive Controls */}
+                  <div className="bg-white rounded-3xl p-5 md:p-7 border border-slate-200/90 shadow-md">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
+                      <div className="flex items-start gap-3">
+                        {selectedFacultyId && (
+                          <button
+                            onClick={() => {
+                              setSelectedFacultyId(null);
+                              setActiveView('dashboard');
+                            }}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2.5 rounded-xl transition flex items-center gap-1.5 text-xs font-bold shadow-xs mt-1"
+                            title="Return to Executive Dashboard"
+                          >
+                            <FiArrowLeft className="w-4 h-4 text-orange-600" />
+                            <span>Return to Dashboard</span>
+                          </button>
+                        )}
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                            <span className="section-tag bg-orange-50 text-orange-700 border border-orange-200">
+                              {selectedFacultyId ? 'Faculty Assigned Duties' : activeView === 'board' ? 'Institutional Task Workflow' : `${activeView} Department`}
+                            </span>
+                            {overdueCount > 0 && (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1">
+                                <FiAlertTriangle className="w-3 h-3 text-rose-600" />
+                                {overdueCount} Overdue Deliverable{overdueCount > 1 ? 's' : ''}
+                              </span>
+                            )}
+                          </div>
+                          <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">
+                            {selectedFacultyId 
+                              ? 'Faculty Workload & Deliverables' 
+                              : activeView === 'board' 
+                                ? (user?.role === 'hod' ? `${user?.department} Academic Sprint Board` : 'Academic Task & Operations Board') 
+                                : `${activeView} Department Board`}
+                          </h2>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Track tasks, curriculum deliverables, and departmental milestones.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 flex-wrap flex-shrink-0">
+                        <button
+                          onClick={handleRefresh}
+                          className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition font-bold text-xs flex items-center gap-1.5 border border-slate-200/80 active:scale-95"
+                          title="Reload Tasks"
+                        >
+                          <FiRefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-orange-500' : ''}`} />
+                          <span>Refresh</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            resetTaskForm();
+                            setShowModal(true);
+                          }}
+                          className="px-4 md:px-5 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 transition shadow-md shadow-orange-500/20 text-xs md:text-sm flex items-center gap-2 active:scale-95"
+                        >
+                          <FiPlus className="w-4 h-4" />
+                          <span>{user?.role === 'user' ? '+ Create Task' : '+ Allocate Task'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick Metric Chips */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-slate-100 mb-5">
+                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/70">
+                        <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Total Scheduled</span>
+                        <span className="text-lg md:text-xl font-extrabold text-slate-900">{allBoardTasks.length}</span>
+                      </div>
+                      <div className="bg-indigo-50/60 p-3 rounded-2xl border border-indigo-100">
+                        <span className="text-[10px] font-extrabold text-indigo-500 uppercase tracking-wider block">To Do</span>
+                        <span className="text-lg md:text-xl font-extrabold text-indigo-700">{tasks.todo?.length || 0}</span>
+                      </div>
+                      <div className="bg-amber-50/60 p-3 rounded-2xl border border-amber-100">
+                        <span className="text-[10px] font-extrabold text-amber-600 uppercase tracking-wider block">In Progress</span>
+                        <span className="text-lg md:text-xl font-extrabold text-amber-700">{tasks.inprogress?.length || 0}</span>
+                      </div>
+                      <div className="bg-emerald-50/60 p-3 rounded-2xl border border-emerald-100">
+                        <span className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider block">Completed</span>
+                        <span className="text-lg md:text-xl font-extrabold text-emerald-700">{tasks.completed?.length || 0}</span>
+                      </div>
+                    </div>
+
+                    {/* Search and Filters Toolbar */}
+                    <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+                      <div className="relative flex-1">
+                        <FiSearch className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
+                        <input
+                          type="text"
+                          placeholder="Search tasks by title, instructions, or assigned faculty..."
+                          value={boardSearchQuery}
+                          onChange={(e) => setBoardSearchQuery(e.target.value)}
+                          className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs md:text-sm font-medium text-slate-800 focus:bg-white transition"
+                        />
+                        {boardSearchQuery && (
+                          <button
+                            onClick={() => setBoardSearchQuery('')}
+                            className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                          >
+                            <FiX className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
+                          <FiFilter className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                          <select
+                            value={boardPriorityFilter}
+                            onChange={(e) => setBoardPriorityFilter(e.target.value)}
+                            className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                          >
+                            <option value="all">All Priorities</option>
+                            <option value="critical">🚨 Critical / Statutory</option>
+                            <option value="high">High Urgency</option>
+                            <option value="medium">Standard Academic</option>
+                            <option value="low">Routine Operational</option>
+                          </select>
+                        </div>
+
+                        {user?.role === 'admin' && (
+                          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
+                            <FiBriefcase className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            <select
+                              value={boardDeptFilter}
+                              onChange={(e) => setBoardDeptFilter(e.target.value)}
+                              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                            >
+                              <option value="all">All Departments</option>
+                              {departments.map(dept => {
+                                const deptName = typeof dept === 'object' ? (dept.name || '') : String(dept || '');
+                                return <option key={deptName} value={deptName}>{deptName}</option>;
+                              })}
+                            </select>
+                          </div>
+                        )}
+
+                        {hasActiveFilters && (
+                          <button
+                            onClick={() => {
+                              setBoardSearchQuery('');
+                              setBoardPriorityFilter('all');
+                              setBoardDeptFilter('all');
+                            }}
+                            className="text-xs font-bold text-orange-600 hover:text-orange-700 px-2 py-1 underline"
+                          >
+                            Reset Filters
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      resetTaskForm();
-                      setShowModal(true);
-                    }}
-                    className="w-full sm:w-auto px-3 md:px-6 py-2 md:py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg font-semibold hover:from-orange-600 hover:to-amber-600 transition shadow-lg text-xs md:text-base"
-                  >
-                    + {user?.role === 'user' ? 'New Personal Task' : t('newTask')}
-                  </button>
-                </div>
 
-                <DragDropContext onDragEnd={handleDragEnd}>
-                  <div className="flex flex-col lg:grid lg:grid-cols-3 gap-5">
-                    <Column
-                      title={t('todo')}
-                      tasks={tasks.todo}
-                      droppableId="todo"
-                      icon={FiClock}
-                      badgeColor="bg-indigo-600"
-                    />
-                    <Column
-                      title={t('inProgress')}
-                      tasks={tasks.inprogress}
-                      droppableId="inprogress"
-                      icon={FiList}
-                      badgeColor="bg-amber-500"
-                    />
-                    <Column
-                      title={t('completed')}
-                      tasks={tasks.completed}
-                      droppableId="completed"
-                      icon={FiCheckCircle}
-                      badgeColor="bg-emerald-600"
-                    />
-                  </div>
-                </DragDropContext>
-              </>
-            )}
+                  {/* Drag and Drop Kanban Board */}
+                  <DragDropContext onDragEnd={handleDragEnd}>
+                    <div className="flex flex-col lg:grid lg:grid-cols-3 gap-5">
+                      <Column
+                        title={t('todo')}
+                        subtitle="Deliverables awaiting commencement"
+                        tasks={filterTaskList(tasks.todo)}
+                        droppableId="todo"
+                        icon={FiClock}
+                        badgeColor="bg-indigo-600"
+                      />
+                      <Column
+                        title={t('inProgress')}
+                        subtitle="Tasks actively under execution"
+                        tasks={filterTaskList(tasks.inprogress)}
+                        droppableId="inprogress"
+                        icon={FiList}
+                        badgeColor="bg-amber-500"
+                      />
+                      <Column
+                        title={t('completed')}
+                        subtitle="Fulfilled & documented deliverables"
+                        tasks={filterTaskList(tasks.completed)}
+                        droppableId="completed"
+                        icon={FiCheckCircle}
+                        badgeColor="bg-emerald-600"
+                      />
+                    </div>
+                  </DragDropContext>
+                </div>
+              );
+            })()}
 
             {activeView === 'users' && (
               <UserManagementPage onOpenFacultyProfile={handleOpenFacultyProfile} />
@@ -1025,54 +1201,58 @@ const KanbanBoard = () => {
                   )}
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{t('taskTitle')} *</label>
+                    <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">{t('taskTitle')} *</label>
                     <input
                       type="text"
                       placeholder={t('enterTitle')}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition"
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition bg-white"
                       value={newTask.title}
                       onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                       required
                     />
+                    <p className="field-hint">Provide an action-oriented title identifying the academic duty, syllabus milestone, or accreditation deliverable.</p>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{t('description')}</label>
+                    <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">{t('description')}</label>
                     <textarea
                       placeholder={t('enterDescription')}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition resize-none"
+                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition resize-none bg-white"
                       value={newTask.description}
                       onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                       rows="3"
                     />
+                    <p className="field-hint">Detail syllabus guidelines, meeting decisions, statutory benchmarks, and deliverable standards.</p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Priority Selector (Low, Medium, High, Critical) */}
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{t('priority')} *</label>
+                      <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">{t('priority')} *</label>
                       <select
                         className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-bold text-slate-800 transition bg-white"
                         value={newTask.priority}
                         onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
                       >
-                        <option value="low">Low Priority</option>
-                        <option value="medium">Medium Priority</option>
-                        <option value="high">High Priority</option>
-                        <option value="critical">🚨 Critical Priority</option>
+                        <option value="low">▫️ Routine Operational (Low)</option>
+                        <option value="medium">🔹 Standard Academic (Medium)</option>
+                        <option value="high">🔺 High Institutional Urgency (High)</option>
+                        <option value="critical">🚨 Statutory / Accreditation Deadline (Critical)</option>
                       </select>
+                      <p className="field-hint">Select urgency tier based on academic calendar and regulatory guidelines.</p>
                     </div>
 
                     {/* Due Date / Deadline Picker */}
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">{t('dueDate')}</label>
+                      <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">{t('dueDate')}</label>
                       <input
                         type="date"
-                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition"
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition bg-white"
                         value={newTask.dueDate}
                         onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
                         min={new Date().toISOString().split('T')[0]}
                       />
+                      <p className="field-hint">Target completion and submission deadline for verification.</p>
                     </div>
                   </div>
 

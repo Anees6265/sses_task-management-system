@@ -5,6 +5,7 @@ import { useLanguage } from '../context/LanguageContext.jsx';
 import { toast } from 'react-toastify';
 import FacultyProfileModal from './FacultyProfileModal.jsx';
 import Modal from './Modal.jsx';
+import Loader from './Loader.jsx';
 import { 
   FiCalendar, 
   FiPlus, 
@@ -302,39 +303,36 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   };
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4 fade-in">
-        <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm font-extrabold text-slate-700 tracking-wide">Loading Leave Management Dashboard...</p>
-      </div>
-    );
+    return <Loader message="Loading Leave Governance..." inline />;
   }
 
   return (
     <div className="space-y-6 fade-in">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-6 rounded-3xl text-white shadow-xl relative overflow-hidden">
-        <div className="relative z-10">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-6 md:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
+        <div className="relative z-10 space-y-1.5">
           <div className="flex items-center space-x-2 mb-1">
             <span className="px-3 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-bold rounded-full uppercase tracking-wider border border-orange-500/30 flex items-center gap-1.5">
               <FiCalendar className="w-3.5 h-3.5" />
-              {user?.role === 'admin' ? 'Institution Portal' : user?.role === 'hod' ? `${user?.department} HOD Portal` : 'Faculty Portal'}
+              {user?.role === 'admin' ? 'Sant Singaji Educational Society — Directorate Administration' : user?.role === 'hod' ? `${user?.department} Academic Directorate` : 'SSES Faculty Portal'}
             </span>
           </div>
           <h2 className="text-2xl md:text-3xl font-extrabold flex items-center gap-3 tracking-tight">
-            <span>Leave Management Dashboard</span>
+            <span>Faculty Leave & Absence Governance</span>
           </h2>
-          <p className="text-xs md:text-sm text-slate-300 mt-1">Apply for leave, track department leave counts & manage team leave approvals</p>
+          <p className="text-xs md:text-sm text-slate-300 max-w-xl leading-relaxed">
+            Statutory leave entitlements, absence requests, and daily faculty attendance.
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 relative z-10">
+        <div className="flex flex-wrap items-center gap-3 relative z-10">
           {user?.role === 'admin' && (
             <button
               onClick={() => setShowAnnounceHolidayModal(true)}
               className="px-5 py-3 bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-2xl font-extrabold transition shadow-lg shadow-purple-500/25 flex items-center justify-center gap-2 text-xs md:text-sm active:scale-95 cursor-pointer"
             >
               <FiVolume2 className="w-4 h-4 animate-pulse" />
-              <span>Announce Holiday / Leave</span>
+              <span>+ Announce Official Holiday</span>
             </button>
           )}
 
@@ -343,10 +341,11 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
             className="px-5 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-2xl font-bold transition shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 text-xs md:text-sm relative z-10 active:scale-95 cursor-pointer"
           >
             <FiPlus className="w-4 h-4" />
-            <span>Apply for Leave</span>
+            <span>+ Apply for Leave</span>
           </button>
         </div>
       </div>
+
 
       {/* Metrics & Quotas Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -756,10 +755,13 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
         {showApplyModal && (
           <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 fade-in">
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
-              <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
-                <FiCalendar className="w-5 h-5 text-orange-500" />
-                <span>Apply for Leave</span>
-              </h3>
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
+                  <FiCalendar className="w-5 h-5 text-orange-500" />
+                  <span>Submit Leave Application</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-semibold mt-0.5">Formal absence request for HOD & Directorate endorsement</p>
+              </div>
               <button 
                 onClick={() => setShowApplyModal(false)} 
                 className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition cursor-pointer"
@@ -771,24 +773,25 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
             <form onSubmit={handleApplyLeave} className="space-y-4">
               <div>
                 <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Leave Type *
+                  Statutory Leave Category *
                 </label>
                 <select
                   value={formData.leaveType}
                   onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-semibold text-slate-800 bg-slate-50/50"
                 >
-                  <option value="casual">Casual Leave (CL)</option>
-                  <option value="sick">Sick Leave (SL)</option>
-                  <option value="earned">Earned Leave (EL)</option>
-                  <option value="duty">On Duty (OD)</option>
+                  <option value="casual">Casual Leave (CL) — Routine Personal Matters</option>
+                  <option value="sick">Sick Leave (SL) — Medical & Health Recuperation</option>
+                  <option value="earned">Earned Leave (EL) — Accumulated Entitlement</option>
+                  <option value="duty">On Duty (OD) — Institutional Conference / External Academic Duty</option>
                 </select>
+                <p className="field-hint">Deducted from your annual quota subject to HOD verification</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                    Start Date *
+                    Commencement Date *
                   </label>
                   <input
                     type="date"
@@ -800,7 +803,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
                 </div>
                 <div>
                   <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                    End Date *
+                    Conclusion Date *
                   </label>
                   <input
                     type="date"
@@ -824,16 +827,17 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
 
               <div>
                 <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Reason for Leave *
+                  Reason for Absence & Lecture Handover Arrangement *
                 </label>
                 <textarea
                   rows="3"
-                  placeholder="Provide details or reason for taking leave..."
+                  placeholder="State academic reason and proxy faculty arrangements for scheduled classes/labs..."
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-xs font-semibold text-slate-800 resize-none bg-slate-50/50"
                   required
                 />
+                <p className="field-hint">Specify alternative teaching arrangements during your leave period</p>
               </div>
 
               <div className="flex gap-3 pt-4 border-t border-slate-100">
@@ -845,10 +849,10 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
                   {submitting ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Submitting Application...</span>
+                      <span>Submitting to Directorate...</span>
                     </>
                   ) : (
-                    <span>Submit Application</span>
+                    <span>Submit Leave Application</span>
                   )}
                 </button>
                 <button

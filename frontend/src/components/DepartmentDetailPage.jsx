@@ -4,6 +4,7 @@ import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { toast } from 'react-toastify';
 import FacultyProfileModal from './FacultyProfileModal.jsx';
+import Loader from './Loader.jsx';
 import { 
   FiArrowLeft, 
   FiBriefcase, 
@@ -145,14 +146,7 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-bold text-sm">Loading Department Details...</p>
-        </div>
-      </div>
-    );
+    return <Loader message="Loading Department Details..." inline />;
   }
 
   return (

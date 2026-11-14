@@ -124,14 +124,14 @@ const Sidebar = ({
                     setActiveView('dashboard');
                     setIsMobileOpen(false);
                   }}
-                  title={isCollapsed ? 'Dashboard' : undefined}
-                  className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-semibold text-xs md:text-sm ${activeView === 'dashboard'
+                  title={isCollapsed ? 'Institutional Dashboard' : undefined}
+                  className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-bold text-xs md:text-sm ${activeView === 'dashboard'
                       ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                 >
                   <FiPieChart className={`w-5 h-5 ${activeView === 'dashboard' ? 'text-white' : 'text-slate-500'}`} />
-                  {!isCollapsed && <span className="truncate">Dashboard</span>}
+                  {!isCollapsed && <span className="truncate">Executive Dashboard</span>}
                 </button>
               )}
 
@@ -141,14 +141,14 @@ const Sidebar = ({
                     setActiveView('users');
                     setIsMobileOpen(false);
                   }}
-                  title={isCollapsed ? 'User Directory' : undefined}
-                  className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-semibold text-xs md:text-sm ${activeView === 'users'
+                  title={isCollapsed ? (userRole === 'admin' ? 'Faculty & Staff Directory' : 'Department Faculty') : undefined}
+                  className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-bold text-xs md:text-sm ${activeView === 'users'
                       ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                 >
                   <FiUsers className={`w-5 h-5 ${activeView === 'users' ? 'text-white' : 'text-slate-500'}`} />
-                  {!isCollapsed && <span className="truncate">{userRole === 'admin' ? 'User & Faculty Directory' : 'Department Faculties'}</span>}
+                  {!isCollapsed && <span className="truncate">{userRole === 'admin' ? 'Faculty & Staff Directory' : 'Department Faculty'}</span>}
                 </button>
               )}
 
@@ -157,29 +157,63 @@ const Sidebar = ({
                   setActiveView('board');
                   setIsMobileOpen(false);
                 }}
-                title={isCollapsed ? 'Tasks' : undefined}
-                className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-semibold text-xs md:text-sm ${activeView === 'board'
+                title={isCollapsed ? 'Task Management Board' : undefined}
+                className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-bold text-xs md:text-sm ${activeView === 'board'
                     ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                   }`}
               >
                 <FiCheckSquare className={`w-5 h-5 ${activeView === 'board' ? 'text-white' : 'text-slate-500'}`} />
-                {!isCollapsed && <span className="truncate">{userRole === 'hod' ? 'My Department Tasks' : userRole === 'user' ? 'Kanban Board' : 'All Tasks'}</span>}
+                {!isCollapsed && <span className="truncate">{userRole === 'admin' ? 'Institutional Task Board' : userRole === 'hod' ? 'Department Task Board' : 'My Academic Tasks'}</span>}
               </button>
+
+              {userRole === 'admin' && (
+                <>
+                  <button
+                    onClick={() => {
+                      setActiveView('departments');
+                      setIsMobileOpen(false);
+                    }}
+                    title={isCollapsed ? 'Department Governance' : undefined}
+                    className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-bold text-xs md:text-sm ${activeView === 'departments'
+                        ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
+                  >
+                    <FiBriefcase className={`w-5 h-5 ${activeView === 'departments' ? 'text-white' : 'text-slate-500'}`} />
+                    {!isCollapsed && <span className="truncate">Department Governance</span>}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveView('all-hods');
+                      setIsMobileOpen(false);
+                    }}
+                    title={isCollapsed ? 'Heads of Department (HODs)' : undefined}
+                    className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-bold text-xs md:text-sm ${activeView === 'all-hods'
+                        ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
+                  >
+                    <FiBriefcase className={`w-5 h-5 ${activeView === 'all-hods' ? 'text-white' : 'text-slate-500'}`} />
+                    {!isCollapsed && <span className="truncate">Heads of Department (HODs)</span>}
+                  </button>
+                </>
+              )}
 
               {/* LEAVE MANAGEMENT DROPDOWN WITH SUBMENUS */}
               <div className="space-y-1">
                 <button
                   onClick={() => setIsLeaveDropdownOpen(!isLeaveDropdownOpen)}
-                  title={isCollapsed ? 'Leave Management' : undefined}
-                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition font-semibold text-xs md:text-sm ${isLeaveActive
+                  title={isCollapsed ? 'Leave & Absence Administration' : undefined}
+                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition font-bold text-xs md:text-sm ${isLeaveActive
                       ? 'bg-orange-50 text-orange-700 font-extrabold border border-orange-200/80'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                 >
                   <div className="flex items-center space-x-3">
                     <FiCalendar className={`w-5 h-5 ${isLeaveActive ? 'text-orange-600' : 'text-slate-500'}`} />
-                    {!isCollapsed && <span className="truncate">Leave Management</span>}
+                    {!isCollapsed && <span className="truncate">Leave & Attendance</span>}
                   </div>
                   {!isCollapsed && (
                     <FiChevronDown className={`w-4 h-4 transition-transform duration-200 ${isLeaveDropdownOpen ? 'rotate-180 text-orange-600' : 'text-slate-400'}`} />
@@ -200,7 +234,7 @@ const Sidebar = ({
                         }`}
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                      <span>Leave Dashboard</span>
+                      <span>Leave Applications & Approval</span>
                     </button>
 
                     <button
@@ -214,7 +248,7 @@ const Sidebar = ({
                         }`}
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                      <span>{userRole === 'user' ? 'My Department' : 'Department Dashboard'}</span>
+                      <span>{userRole === 'user' ? 'My Department Overview' : 'Department Attendance Overview'}</span>
                     </button>
 
                     <button
@@ -232,26 +266,26 @@ const Sidebar = ({
                         }`}
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                      <span>My Profile & Leave Info</span>
+                      <span>My Profile & Leave Ledger</span>
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* Chat & Extra Items */}
+              {/* Chat & Communications */}
               <button
                 onClick={() => {
                   setActiveView('chats');
                   setIsMobileOpen(false);
                 }}
-                title={isCollapsed ? 'Chats' : undefined}
-                className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-semibold text-xs md:text-sm ${activeView === 'chats'
+                title={isCollapsed ? 'Communications' : undefined}
+                className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-bold text-xs md:text-sm ${activeView === 'chats'
                     ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                   }`}
               >
                 <FiMessageSquare className={`w-5 h-5 ${activeView === 'chats' ? 'text-white' : 'text-slate-500'}`} />
-                {!isCollapsed && <span className="truncate">Chats</span>}
+                {!isCollapsed && <span className="truncate">Department Communications</span>}
               </button>
 
               {userRole === 'admin' && departments.map(dept => {
@@ -265,7 +299,7 @@ const Sidebar = ({
                       setIsMobileOpen(false);
                     }}
                     title={isCollapsed ? deptName : undefined}
-                    className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-semibold text-xs md:text-sm ${activeView === deptName
+                    className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-bold text-xs md:text-sm ${activeView === deptName
                         ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
                         : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                       }`}
@@ -278,15 +312,10 @@ const Sidebar = ({
             </nav>
           </div>
 
-          {!isCollapsed && userRole !== 'admin' && userRole !== 'hod' && (
-            <div className="mt-4 p-4 bg-gradient-to-br from-orange-50/80 to-amber-50/80 rounded-2xl border border-orange-200/60 flex-shrink-0">
-              <div className="flex items-center gap-2 text-orange-700 font-bold text-xs mb-1.5 uppercase tracking-wider">
-                <FiZap className="w-4 h-4 text-orange-500" />
-                <span>Quick Tip</span>
-              </div>
-              <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                Check leave dashboard & department dashboard under Leave Management!
-              </p>
+          {!isCollapsed && (
+            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between px-2 text-[11px] text-slate-400 font-semibold flex-shrink-0">
+              <span>SSES Academic Portal</span>
+              <span className="text-emerald-600 font-bold flex items-center gap-1">● Active</span>
             </div>
           )}
         </div>

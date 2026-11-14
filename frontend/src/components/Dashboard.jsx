@@ -3,6 +3,7 @@ import { taskAPI, leaveAPI } from '../services/api.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import FacultyProfileModal from './FacultyProfileModal.jsx';
+import Loader from './Loader.jsx';
 import { 
   FiPieChart, 
   FiCheckCircle, 
@@ -67,14 +68,7 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment, onOpenFacultyProfile })
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-bold text-sm">{t('loadingDashboard')}</p>
-        </div>
-      </div>
-    );
+    return <Loader message="Loading Institutional Dashboard..." inline />;
   }
 
   const calculateProgress = (completed, total) => {
@@ -107,27 +101,30 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment, onOpenFacultyProfile })
   });
 
   return (
-    <div className="space-y-6 fade-in">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gradient-to-r from-slate-900 to-slate-800 p-6 rounded-3xl text-white shadow-xl relative overflow-hidden">
+    <div className="space-y-6 fade-in pb-12">
+      {/* Executive Header Banner */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-6 md:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
         <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10">
+        <div className="relative z-10 space-y-1">
           <div className="flex items-center space-x-2 mb-1">
-            <span className="px-3 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-bold rounded-full uppercase tracking-wider border border-orange-500/30 flex items-center gap-1.5">
+            <span className="px-3 py-1 bg-orange-500/20 text-orange-400 text-xs font-extrabold rounded-full uppercase tracking-wider border border-orange-500/30 flex items-center gap-1.5">
               <FiActivity className="w-3.5 h-3.5" />
-              Real-Time Metrics & Overview
+              Institutional Metrics
             </span>
           </div>
           <h2 className="text-2xl md:text-3xl font-extrabold flex items-center gap-3 tracking-tight">
-            <FiPieChart className="text-orange-400 w-8 h-8" />
-            <span>{t('adminDashboard')}</span>
+            <FiPieChart className="text-orange-400 w-7 h-7" />
+            <span>{user?.role === 'admin' ? 'Executive Institutional Dashboard' : `${user?.department} Operations Dashboard`}</span>
           </h2>
-          <p className="text-xs md:text-sm text-slate-300 mt-1">Overview of Tasks, Department Performance, Attendance & Leaves</p>
+          <p className="text-xs md:text-sm text-slate-300 max-w-xl leading-relaxed">
+            Real-time analytics on academic deliverables, department velocity, and daily attendance.
+          </p>
         </div>
-        <div className="bg-white/10 backdrop-blur-md px-6 py-3.5 rounded-2xl border border-white/10 flex items-center gap-4 relative z-10">
+        <div className="bg-white/10 backdrop-blur-md px-6 py-4 rounded-2xl border border-white/15 flex items-center gap-4 relative z-10 flex-shrink-0">
           <div>
-            <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">{t('overallProgress')}</p>
+            <p className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">{t('overallProgress')}</p>
             <p className="text-2xl md:text-3xl font-extrabold text-white mt-0.5">{overallProgress}%</p>
+            <p className="text-[10px] text-orange-300 font-semibold">Institutional Fulfillment</p>
           </div>
           <div className="w-12 h-12 rounded-full border-4 border-orange-500 border-t-transparent animate-spin-slow flex items-center justify-center font-bold text-xs text-orange-400">
             <FiTrendingUp className="w-6 h-6 text-orange-400" />
@@ -136,10 +133,13 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment, onOpenFacultyProfile })
       </div>
 
       {/* Task Summary Stat Cards */}
-      <div className="space-y-2">
-        <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 px-1">
-          <FiBriefcase className="w-4 h-4 text-orange-500" /> Task Overview Metrics
-        </h3>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+            <FiBriefcase className="w-4 h-4 text-orange-500" /> Academic Deliverables Overview
+          </h3>
+          <span className="text-[11px] font-semibold text-slate-400">Real-time status tracking</span>
+        </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Total Tasks */}
           <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
@@ -147,10 +147,11 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment, onOpenFacultyProfile })
               <div className="p-3 bg-slate-100 text-slate-700 rounded-2xl">
                 <FiList className="w-6 h-6" />
               </div>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total</span>
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Aggregated</span>
             </div>
             <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{stats?.totalTasks || 0}</p>
-            <p className="text-xs font-semibold text-slate-500 mt-1">{t('totalTasks')}</p>
+            <p className="text-xs font-bold text-slate-700 mt-1">{t('totalTasks')}</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-0.5">Assigned across curriculum & committees</p>
             <div className="w-full bg-slate-100 h-2 rounded-full mt-3 overflow-hidden">
               <div className="bg-slate-800 h-full rounded-full" style={{ width: '100%' }}></div>
             </div>
@@ -162,10 +163,11 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment, onOpenFacultyProfile })
               <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
                 <FiClock className="w-6 h-6" />
               </div>
-              <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider">Pending</span>
+              <span className="text-[10px] font-extrabold text-indigo-500 uppercase tracking-wider">Pending Start</span>
             </div>
             <p className="text-2xl md:text-3xl font-extrabold text-indigo-600">{stats?.todoTasks || 0}</p>
-            <p className="text-xs font-semibold text-slate-500 mt-1">{t('todo')}</p>
+            <p className="text-xs font-bold text-slate-700 mt-1">{t('todo')}</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-0.5">Deliverables scheduled or awaiting initiation</p>
             <div className="w-full bg-indigo-50 h-2 rounded-full mt-3 overflow-hidden">
               <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${calculateProgress(stats?.todoTasks, stats?.totalTasks)}%` }}></div>
             </div>
@@ -177,10 +179,11 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment, onOpenFacultyProfile })
               <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
                 <FiTrendingUp className="w-6 h-6" />
               </div>
-              <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">Active</span>
+              <span className="text-[10px] font-extrabold text-amber-600 uppercase tracking-wider">In Progress</span>
             </div>
             <p className="text-2xl md:text-3xl font-extrabold text-amber-600">{stats?.inprogressTasks || 0}</p>
-            <p className="text-xs font-semibold text-slate-500 mt-1">{t('inProgress')}</p>
+            <p className="text-xs font-bold text-slate-700 mt-1">{t('inProgress')}</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-0.5">Tasks actively executed by assigned faculty</p>
             <div className="w-full bg-amber-50 h-2 rounded-full mt-3 overflow-hidden">
               <div className="bg-amber-500 h-full rounded-full" style={{ width: `${calculateProgress(stats?.inprogressTasks, stats?.totalTasks)}%` }}></div>
             </div>
@@ -192,10 +195,11 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment, onOpenFacultyProfile })
               <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
                 <FiCheckCircle className="w-6 h-6" />
               </div>
-              <span className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Done</span>
+              <span className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider">Verified</span>
             </div>
             <p className="text-2xl md:text-3xl font-extrabold text-emerald-600">{stats?.completedTasks || 0}</p>
-            <p className="text-xs font-semibold text-slate-500 mt-1">{t('completed')}</p>
+            <p className="text-xs font-bold text-slate-700 mt-1">{t('completed')}</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-0.5">Completed deliverables logged & verified</p>
             <div className="w-full bg-emerald-50 h-2 rounded-full mt-3 overflow-hidden">
               <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${calculateProgress(stats?.completedTasks, stats?.totalTasks)}%` }}></div>
             </div>
@@ -204,20 +208,24 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment, onOpenFacultyProfile })
       </div>
 
       {/* Leave & Attendance Summary Cards */}
-      <div className="space-y-2">
-        <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 px-1">
-          <FiCalendar className="w-4 h-4 text-orange-500" /> Leave & Attendance Metrics
-        </h3>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+            <FiCalendar className="w-4 h-4 text-orange-500" /> Daily Faculty Duty & Absence Roster
+          </h3>
+          <span className="text-[11px] font-semibold text-slate-400">Institutional daily attendance tracking</span>
+        </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
             <div className="flex items-center justify-between mb-3">
               <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
                 <FiUserCheck className="w-6 h-6" />
               </div>
-              <span className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Present</span>
+              <span className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider">Active Today</span>
             </div>
             <p className="text-2xl md:text-3xl font-extrabold text-emerald-600">{totalPresentCount}</p>
-            <p className="text-xs font-semibold text-slate-500 mt-1">Present Today Across Institute</p>
+            <p className="text-xs font-bold text-slate-700 mt-1">Faculty on Duty Today</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-0.5">Present across all departments</p>
           </div>
 
           <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
@@ -225,10 +233,11 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment, onOpenFacultyProfile })
               <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl">
                 <FiUserX className="w-6 h-6" />
               </div>
-              <span className="text-xs font-bold text-rose-500 uppercase tracking-wider">On Leave</span>
+              <span className="text-[10px] font-extrabold text-rose-600 uppercase tracking-wider">Authorized Leave</span>
             </div>
             <p className="text-2xl md:text-3xl font-extrabold text-rose-600">{totalAbsentCount}</p>
-            <p className="text-xs font-semibold text-slate-500 mt-1">On Leave Today Across Institute</p>
+            <p className="text-xs font-bold text-slate-700 mt-1">Faculty on Approved Leave</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-0.5">Documented academic absence</p>
           </div>
 
           <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
@@ -236,10 +245,11 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment, onOpenFacultyProfile })
               <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
                 <FiClock className="w-6 h-6" />
               </div>
-              <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">Pending</span>
+              <span className="text-[10px] font-extrabold text-amber-600 uppercase tracking-wider">In Review</span>
             </div>
             <p className="text-2xl md:text-3xl font-extrabold text-amber-600">{pendingLeavesCount}</p>
-            <p className="text-xs font-semibold text-slate-500 mt-1">Pending Leave Approvals</p>
+            <p className="text-xs font-bold text-slate-700 mt-1">Pending Leave Applications</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-0.5">Awaiting HOD or Dean approval</p>
           </div>
 
           <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
@@ -247,10 +257,11 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment, onOpenFacultyProfile })
               <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
                 <FiCalendar className="w-6 h-6" />
               </div>
-              <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider">Applications</span>
+              <span className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-wider">Session Total</span>
             </div>
             <p className="text-2xl md:text-3xl font-extrabold text-indigo-600">{leaves.length}</p>
-            <p className="text-xs font-semibold text-slate-500 mt-1">Total Active Leave Requests</p>
+            <p className="text-xs font-bold text-slate-700 mt-1">Total Leave Requests</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-0.5">Historical session ledger</p>
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { userAPI, departmentAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { toast } from 'react-toastify';
+import Loader from './Loader.jsx';
 import { 
   FiUsers, 
   FiSearch, 
@@ -383,14 +384,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-bold text-sm">Loading User Directory...</p>
-        </div>
-      </div>
-    );
+    return <Loader message="Loading Faculty Directory..." inline />;
   }
 
   return (
@@ -401,16 +395,16 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
           <div className="flex items-center space-x-2 mb-1">
             <span className="px-3 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-bold rounded-full uppercase tracking-wider border border-orange-500/30 flex items-center gap-1.5">
               <FiUsers className="w-3.5 h-3.5" />
-              {isAdmin ? 'Admin Control Center' : isHOD ? `${user?.department} Department Directory` : 'User Directory'}
+              {isAdmin ? 'Institutional Administration' : isHOD ? `${user?.department} Directorate` : 'SSES Directory'}
             </span>
           </div>
           <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3">
-            <span>Faculty & User Management</span>
+            <span>Faculty & Staff Directory</span>
           </h2>
-          <p className="text-xs md:text-sm text-slate-300">
+          <p className="text-xs md:text-sm text-slate-300 max-w-xl leading-relaxed">
             {isHOD 
-              ? `Manage faculty members in ${user?.department} department, track workloads & performance metrics.`
-              : 'View all institution faculties & staff across departments. Reassign departments or create new user accounts.'}
+              ? `Manage faculty appointments, deliverable workloads, and teaching metrics for ${user?.department}.`
+              : 'Official registry of academic faculty, departmental heads, and staff across all divisions.'}
           </p>
         </div>
 
@@ -422,7 +416,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
               className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-extrabold rounded-2xl transition border border-white/20 flex items-center gap-2 text-xs md:text-sm backdrop-blur-md active:scale-95"
             >
               <FiUserPlus className="w-4 h-4 text-orange-400" />
-              <span>+ Assign Faculty</span>
+              <span>+ Induct Faculty Member</span>
             </button>
           )}
 
@@ -432,7 +426,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
               className="px-5 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold rounded-2xl transition shadow-lg shadow-orange-500/30 flex items-center gap-2 text-xs md:text-sm active:scale-95"
             >
               <FiUserPlus className="w-4 h-4" />
-              <span>+ Create User</span>
+              <span>+ Register New Faculty</span>
             </button>
           )}
         </div>
@@ -445,10 +439,11 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
             <div className="p-2.5 bg-orange-50 text-orange-600 rounded-2xl">
               <FiUsers className="w-5 h-5" />
             </div>
-            <span className="text-[10px] font-extrabold text-orange-500 uppercase tracking-wider">Total</span>
+            <span className="text-[10px] font-extrabold text-orange-500 uppercase tracking-wider">Roster</span>
           </div>
           <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{filteredUsers.length}</p>
-          <p className="text-xs font-semibold text-slate-500 mt-0.5">Listed Users</p>
+          <p className="text-xs font-semibold text-slate-500 mt-0.5">Total Institutional Personnel</p>
+          <span className="text-[10px] text-slate-400">All registered profiles</span>
         </div>
 
         <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
@@ -456,12 +451,13 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
             <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl">
               <FiBriefcase className="w-5 h-5" />
             </div>
-            <span className="text-[10px] font-extrabold text-blue-500 uppercase tracking-wider">Faculty</span>
+            <span className="text-[10px] font-extrabold text-blue-500 uppercase tracking-wider">Teaching Cadre</span>
           </div>
           <p className="text-2xl md:text-3xl font-extrabold text-blue-600">
             {filteredUsers.filter(u => u.role === 'user').length}
           </p>
-          <p className="text-xs font-semibold text-slate-500 mt-0.5">Faculty Members</p>
+          <p className="text-xs font-semibold text-slate-500 mt-0.5">Active Teaching Faculty</p>
+          <span className="text-[10px] text-slate-400">Course & task instructors</span>
         </div>
 
         <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
@@ -469,12 +465,13 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
             <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-2xl">
               <FiUserCheck className="w-5 h-5" />
             </div>
-            <span className="text-[10px] font-extrabold text-emerald-500 uppercase tracking-wider">Active</span>
+            <span className="text-[10px] font-extrabold text-emerald-500 uppercase tracking-wider">Credentials</span>
           </div>
           <p className="text-2xl md:text-3xl font-extrabold text-emerald-600">
             {filteredUsers.filter(u => u.status !== 'inactive').length}
           </p>
-          <p className="text-xs font-semibold text-slate-500 mt-0.5">Active Accounts</p>
+          <p className="text-xs font-semibold text-slate-500 mt-0.5">Active Portal Accounts</p>
+          <span className="text-[10px] text-slate-400">Authorized login access</span>
         </div>
 
         <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
@@ -482,14 +479,16 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
             <div className="p-2.5 bg-amber-50 text-amber-600 rounded-2xl">
               <FiBriefcase className="w-5 h-5" />
             </div>
-            <span className="text-[10px] font-extrabold text-amber-500 uppercase tracking-wider">Dept</span>
+            <span className="text-[10px] font-extrabold text-amber-500 uppercase tracking-wider">Divisions</span>
           </div>
           <p className="text-2xl md:text-3xl font-extrabold text-amber-600">
             {isHOD ? user?.department : new Set(users.map(u => u.department)).size}
           </p>
-          <p className="text-xs font-semibold text-slate-500 mt-0.5">{isHOD ? 'My Department' : 'Active Depts'}</p>
+          <p className="text-xs font-semibold text-slate-500 mt-0.5">{isHOD ? 'Department Allocation' : 'Academic Departments'}</p>
+          <span className="text-[10px] text-slate-400">Operational divisions</span>
         </div>
       </div>
+
 
       {/* TABS NAVIGATION (Directory | Workload | Performance) */}
       <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-6">
@@ -502,7 +501,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
               }`}
             >
               <FiUsers className="w-4 h-4" />
-              <span>Faculty Directory ({filteredUsers.length})</span>
+              <span>Faculty & Staff Directory ({filteredUsers.length})</span>
             </button>
             {(isHOD || isAdmin) && (
               <>
@@ -513,7 +512,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                   }`}
                 >
                   <FiBarChart2 className="w-4 h-4" />
-                  <span>Faculty Workload</span>
+                  <span>Academic Workload Distribution</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('performance')}
@@ -522,7 +521,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                   }`}
                 >
                   <FiTrendingUp className="w-4 h-4" />
-                  <span>Faculty Performance</span>
+                  <span>Institutional Performance & On-Time Metrics</span>
                 </button>
               </>
             )}
@@ -534,7 +533,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
               <FiSearch className="absolute left-3.5 top-3 text-slate-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Search name or email..."
+                placeholder="Search by name or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-orange-400"
@@ -563,19 +562,19 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
             {filteredUsers.length === 0 ? (
               <div className="text-center py-16 text-slate-400">
                 <FiUsers className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                <p className="text-sm font-bold text-slate-700">No Faculty Found</p>
-                <p className="text-xs text-slate-400 mt-1">There are no records matching your criteria.</p>
+                <p className="text-sm font-bold text-slate-700">No Faculty Records Found</p>
+                <p className="text-xs text-slate-400 mt-1">There are no personnel records matching your search or departmental filter.</p>
               </div>
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
-                    <th className="p-3.5 rounded-l-2xl">Faculty Member</th>
-                    <th className="p-3.5">Email / Phone</th>
-                    <th className="p-3.5">Role</th>
-                    <th className="p-3.5">Department</th>
-                    <th className="p-3.5">Status</th>
-                    <th className="p-3.5 text-right rounded-r-2xl">Actions</th>
+                    <th className="p-3.5 rounded-l-2xl">Academician / Staff Member</th>
+                    <th className="p-3.5">Institutional Contact</th>
+                    <th className="p-3.5">Official Cadre</th>
+                    <th className="p-3.5">Academic Department</th>
+                    <th className="p-3.5">Access Status</th>
+                    <th className="p-3.5 text-right rounded-r-2xl">Administrative Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
@@ -1076,8 +1075,8 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                   <FiUserPlus className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg md:text-xl font-extrabold text-slate-800">Create User Account</h3>
-                  <p className="text-xs text-slate-500 font-semibold">Add a new Faculty, HOD, or Admin to SSES</p>
+                  <h3 className="text-lg md:text-xl font-extrabold text-slate-800">Register Institutional Personnel</h3>
+                  <p className="text-xs text-slate-500 font-semibold">Induct faculty member, department head, or system administrator into SSES</p>
                 </div>
               </div>
               <button 
@@ -1090,27 +1089,28 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
 
             <form onSubmit={handleCreateUserSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Full Name *</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Full Name & Title *</label>
                 <div className="relative">
                   <FiUser className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
                   <input
                     type="text"
-                    placeholder="Full Name (e.g. Prof. Amit Sharma)"
+                    placeholder="Full Name (e.g. Dr. Rajesh Verma / Prof. Amit Sharma)"
                     className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                     value={createUserForm.name}
                     onChange={(e) => setCreateUserForm({ ...createUserForm, name: e.target.value })}
                     required
                   />
                 </div>
+                <p className="field-hint">Official full name including academic prefixes (Dr., Prof., Er.)</p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Email Address *</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Institutional Email Address *</label>
                 <div className="relative">
                   <FiMail className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
                   <input
                     type="email"
-                    placeholder="user@ssism.org"
+                    placeholder="faculty.name@ssism.org"
                     pattern="[a-zA-Z0-9._%+\-]+@ssism\.org"
                     className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                     value={createUserForm.email}
@@ -1118,16 +1118,16 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                     required
                   />
                 </div>
-                <p className="text-[11px] text-slate-400 font-semibold mt-1">Must be an @ssism.org email domain</p>
+                <p className="field-hint">Must belong to the authorized institutional domain @ssism.org</p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Password *</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Temporary Initial Password *</label>
                 <div className="relative">
                   <FiLock className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
                   <input
                     type="password"
-                    placeholder="Password (8-18 characters)"
+                    placeholder="Secure password (8-18 characters)"
                     className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                     value={createUserForm.password}
                     onChange={(e) => setCreateUserForm({ ...createUserForm, password: e.target.value })}
@@ -1136,25 +1136,26 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                     maxLength={18}
                   />
                 </div>
-                <p className="text-[11px] text-slate-400 font-semibold mt-1">Must be 8 to 18 characters</p>
+                <p className="field-hint">Minimum 8 to 18 characters compliant with institutional IT security</p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">User Role *</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Institutional Role & Privilege Tier *</label>
                 <select
                   value={createUserForm.role}
                   onChange={(e) => setCreateUserForm({ ...createUserForm, role: e.target.value })}
                   className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-bold text-slate-800 bg-white"
                 >
-                  <option value="user">Faculty (user)</option>
-                  <option value="hod">Head of Department (hod)</option>
-                  <option value="admin">System Administrator (admin)</option>
+                  <option value="user">Teaching Faculty (Instructional & Course Delivery)</option>
+                  <option value="hod">Head of Department / HOD (Departmental Leadership)</option>
+                  <option value="admin">System Administrator (Institutional Dean / IT Directorate)</option>
                 </select>
+                <p className="field-hint">Determines workflow access, approval permissions, and system visibility</p>
               </div>
 
               {createUserForm.role !== 'admin' && (
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Department *</label>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Academic Department Allocation *</label>
                   {!isCustomCreateDept ? (
                     <div className="space-y-2">
                       <select
@@ -1171,14 +1172,14 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                         onClick={() => setIsCustomCreateDept(true)}
                         className="text-xs text-orange-600 font-extrabold hover:underline block"
                       >
-                        + Add Custom Department Name
+                        + Define New Department Division
                       </button>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       <input
                         type="text"
-                        placeholder="Enter custom department name"
+                        placeholder="Enter formal department title"
                         value={customCreateDeptName}
                         onChange={(e) => setCustomCreateDeptName(e.target.value)}
                         className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
@@ -1189,15 +1190,16 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                         onClick={() => setIsCustomCreateDept(false)}
                         className="text-xs text-slate-500 font-bold hover:underline block"
                       >
-                        ← Select from existing department list
+                        ← Select from registered departments list
                       </button>
                     </div>
                   )}
+                  <p className="field-hint">Department under which tasks, leave requests, and academic reviews are routed</p>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Phone Number (Optional)</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Official Mobile Number (Optional)</label>
                 <div className="relative">
                   <FiPhone className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
                   <input
@@ -1209,7 +1211,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                     onChange={(e) => setCreateUserForm({ ...createUserForm, phoneNumber: formatPhoneInput(e.target.value) })}
                   />
                 </div>
-                <p className="text-[11px] text-slate-400 font-semibold mt-1">+91 country code & 10 digits (e.g. +91 9876543210)</p>
+                <p className="field-hint">Used for SMS/WhatsApp institutional emergency alerts and leave updates (+91 with 10 digits)</p>
               </div>
 
               <div className="flex gap-3 pt-4 border-t border-slate-100">
@@ -1219,7 +1221,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                   className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-sm disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   <FiCheckCircle className="w-4 h-4" />
-                  <span>{creatingUser ? 'Creating User...' : 'Create User Account'}</span>
+                  <span>{creatingUser ? 'Registering...' : 'Register Faculty Account'}</span>
                 </button>
                 <button
                   type="button"
