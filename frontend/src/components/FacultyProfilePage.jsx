@@ -3,6 +3,7 @@ import { leaveAPI, taskAPI, userAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { toast } from 'react-toastify';
+import Loader from './Loader.jsx';
 import { 
   FiArrowLeft, 
   FiUser, 
@@ -438,14 +439,7 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-bold text-sm">Loading Faculty Profile Page...</p>
-        </div>
-      </div>
-    );
+    return <Loader message="Loading Faculty Profile..." inline />;
   }
 
   return (

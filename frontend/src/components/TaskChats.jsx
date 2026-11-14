@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { taskAPI } from '../services/api.jsx';
+import Loader from './Loader.jsx';
 
 const TaskChats = () => {
   const [tasks, setTasks] = useState([]);
@@ -62,11 +63,7 @@ const TaskChats = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-orange-500"></div>
-      </div>
-    );
+    return <Loader message="Loading Academic Conversations..." inline />;
   }
 
   return (

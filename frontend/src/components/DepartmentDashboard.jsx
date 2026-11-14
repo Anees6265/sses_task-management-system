@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { leaveAPI, taskAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import Loader from './Loader.jsx';
 import { 
   FiBriefcase, 
   FiUsers, 
@@ -56,14 +57,7 @@ const DepartmentDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   );
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-bold text-sm">Loading Department Dashboard...</p>
-        </div>
-      </div>
-    );
+    return <Loader message="Loading Department Dashboard..." inline />;
   }
 
   const totalFacultyCount = roleFilteredAttendanceData.reduce((acc, d) => acc + d.totalFaculty, 0);

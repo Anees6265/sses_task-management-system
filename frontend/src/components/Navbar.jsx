@@ -79,28 +79,38 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
             </button>
             
             <h1 className="text-lg md:text-xl font-bold text-slate-800 flex items-center space-x-2.5">
-              <div className="p-1 bg-gradient-to-tr from-orange-500 to-amber-400 rounded-xl shadow-md flex items-center justify-center">
+              <div className="p-1 bg-white border border-slate-200/90 rounded-xl shadow-xs flex items-center justify-center">
                 <img 
                   src={logo}
-                  alt="SSISM Logo" 
-                  className="h-7 w-7 md:h-8 md:w-8 object-contain bg-white rounded-lg p-0.5"
+                  alt="Sant Singaji Educational Society Logo" 
+                  className="h-8 w-8 md:h-9 md:w-9 object-contain rounded-lg"
                 />
               </div>
               <div className="flex flex-col">
                 <span className="hidden sm:inline font-extrabold text-slate-900 tracking-tight text-base md:text-lg">
                   Sant Singaji Educational Society
                 </span>
-                <span className="sm:hidden font-extrabold text-slate-900">SSES</span>
-                <span className="text-[10px] text-slate-400 font-medium tracking-wide uppercase hidden sm:block">
-                  Task Management Portal
+                <span className="sm:hidden font-extrabold text-slate-900">SSES Portal</span>
+                <span className="text-[10px] text-slate-500 font-semibold tracking-wide uppercase hidden sm:block">
+                  Academic Operations Portal
                 </span>
               </div>
             </h1>
 
-            {user?.role !== 'admin' && (
-              <span className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200/60 text-amber-700 text-xs font-semibold rounded-full">
-                <FiBriefcase className="w-3.5 h-3.5" />
-                {user?.department} Dept
+            {user?.role === 'admin' ? (
+              <span className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50 border border-purple-200/80 text-purple-800 text-xs font-bold rounded-full">
+                <FiShield className="w-3.5 h-3.5 text-purple-600" />
+                Dean / Admin
+              </span>
+            ) : user?.role === 'hod' ? (
+              <span className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200/80 text-amber-800 text-xs font-bold rounded-full">
+                <FiBriefcase className="w-3.5 h-3.5 text-amber-600" />
+                HOD • {user?.department}
+              </span>
+            ) : (
+              <span className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-200/80 text-blue-800 text-xs font-bold rounded-full">
+                <FiUser className="w-3.5 h-3.5 text-blue-600" />
+                Faculty • {user?.department}
               </span>
             )}
           </div>
@@ -108,7 +118,8 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
           <div className="flex items-center space-x-2 md:space-x-3">
             <button
               onClick={toggleLanguage}
-              className="px-2.5 md:px-3.5 py-1.5 md:py-2 bg-slate-100/80 hover:bg-slate-200/80 text-slate-700 rounded-xl transition font-semibold text-xs md:text-sm flex items-center gap-1.5 border border-slate-200/60"
+              title="Switch portal interface language"
+              className="px-2.5 md:px-3.5 py-1.5 md:py-2 bg-slate-100/90 hover:bg-slate-200 text-slate-700 rounded-xl transition font-bold text-xs md:text-sm flex items-center gap-1.5 border border-slate-200/80"
             >
               <FiGlobe className="w-4 h-4 text-orange-500" />
               <span>{language === 'en' ? 'हिन्दी' : 'English'}</span>
@@ -117,22 +128,22 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
             {user?.role === 'admin' && (
               <button
                 onClick={() => setShowCreateHODModal(true)}
-                className="px-3 md:px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl transition font-semibold text-xs md:text-sm flex items-center gap-2 shadow-md shadow-orange-500/20 active:scale-95"
+                className="px-3 md:px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl transition font-bold text-xs md:text-sm flex items-center gap-2 shadow-md shadow-orange-500/20 active:scale-95"
               >
                 <FiPlusCircle className="w-4 h-4" />
-                <span className="hidden sm:inline">Add Department</span>
-                <span className="sm:hidden">Add</span>
+                <span className="hidden sm:inline">+ Register Department</span>
+                <span className="sm:hidden">+ Dept</span>
               </button>
             )}
             
             {user?.role === 'hod' && (
               <button
                 onClick={() => setShowCreateFacultyModal(true)}
-                className="px-3 md:px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl transition font-semibold text-xs md:text-sm flex items-center gap-2 shadow-md shadow-orange-500/20 active:scale-95"
+                className="px-3 md:px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl transition font-bold text-xs md:text-sm flex items-center gap-2 shadow-md shadow-orange-500/20 active:scale-95"
               >
                 <FiUserPlus className="w-4 h-4" />
-                <span className="hidden sm:inline">Add Faculty</span>
-                <span className="sm:hidden">Add</span>
+                <span className="hidden sm:inline">+ Add Faculty Member</span>
+                <span className="sm:hidden">+ Faculty</span>
               </button>
             )}
             
@@ -140,6 +151,7 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-2 p-1 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                title="Account menu and profile"
               >
                 <div className="w-9 h-9 md:w-10 md:h-10 bg-gradient-to-br from-orange-500 to-amber-500 rounded-full flex items-center justify-center text-white font-bold text-sm md:text-base shadow-md shadow-orange-500/20 border-2 border-white">
                   {user?.name?.charAt(0).toUpperCase()}
@@ -148,28 +160,28 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
               </button>
 
               {showUserMenu && (
-                <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden fade-in">
-                  <div className="p-4 bg-gradient-to-br from-orange-50/80 via-amber-50/50 to-white border-b border-slate-100">
+                <div className="absolute right-0 mt-3 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 overflow-hidden fade-in">
+                  <div className="p-4 bg-gradient-to-br from-orange-50/90 via-amber-50/60 to-white border-b border-slate-100">
                     <div className="flex flex-col items-center">
-                      <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center text-white font-extrabold text-2xl mb-2.5 shadow-md shadow-orange-500/20">
+                      <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center text-white font-extrabold text-2xl mb-2.5 shadow-md shadow-orange-500/20 border-2 border-white">
                         {user?.name?.charAt(0).toUpperCase()}
                       </div>
-                      <h3 className="font-bold text-slate-800 text-center leading-tight capitalize">{user?.name}</h3>
-                      <p className="text-xs text-slate-500 text-center mt-0.5">{user?.email}</p>
+                      <h3 className="font-extrabold text-slate-900 text-center leading-tight capitalize text-sm md:text-base">{user?.name}</h3>
+                      <p className="text-xs text-slate-500 text-center mt-0.5 font-medium">{user?.email}</p>
                       
                       {user?.role === 'admin' && (
-                        <span className="mt-2.5 px-3 py-0.5 bg-orange-100 text-orange-700 text-[11px] rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
-                          <FiShield className="w-3 h-3" /> System Admin
+                        <span className="mt-2.5 px-3 py-1 bg-purple-100 text-purple-800 text-[11px] rounded-full font-extrabold uppercase tracking-wider flex items-center gap-1 border border-purple-200">
+                          <FiShield className="w-3 h-3 text-purple-600" /> Academic Dean / Admin
                         </span>
                       )}
                       {user?.role === 'hod' && (
-                        <span className="mt-2.5 px-3 py-0.5 bg-indigo-100 text-indigo-700 text-[11px] rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
-                          <FiBriefcase className="w-3 h-3" /> HOD ({user?.department})
+                        <span className="mt-2.5 px-3 py-1 bg-amber-100 text-amber-800 text-[11px] rounded-full font-extrabold uppercase tracking-wider flex items-center gap-1 border border-amber-200">
+                          <FiBriefcase className="w-3 h-3 text-amber-600" /> Head of Department (HOD)
                         </span>
                       )}
                       {user?.role === 'user' && (
-                        <span className="mt-2.5 px-3 py-0.5 bg-emerald-100 text-emerald-700 text-[11px] rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
-                          <FiUser className="w-3 h-3" /> Faculty ({user?.department})
+                        <span className="mt-2.5 px-3 py-1 bg-blue-100 text-blue-800 text-[11px] rounded-full font-extrabold uppercase tracking-wider flex items-center gap-1 border border-blue-200">
+                          <FiUser className="w-3 h-3 text-blue-600" /> Academic Faculty ({user?.department || 'Department'})
                         </span>
                       )}
                     </div>
@@ -185,10 +197,10 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
                           setShowFacultyProfileModal(true);
                         }
                       }}
-                      className="w-full flex items-center space-x-2.5 px-3.5 py-2.5 text-slate-700 hover:bg-slate-50 rounded-xl transition text-xs md:text-sm font-semibold cursor-pointer"
+                      className="w-full flex items-center space-x-2.5 px-3.5 py-2.5 text-slate-700 hover:bg-slate-50 hover:text-orange-600 rounded-xl transition text-xs md:text-sm font-semibold cursor-pointer"
                     >
                       <FiUser className="w-4 h-4 text-orange-500" />
-                      <span>My Profile & Leave Info</span>
+                      <span>My Profile & Leave Ledger</span>
                     </button>
 
                     <button
@@ -196,10 +208,10 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
                         setShowUserMenu(false);
                         setShowSettingsModal(true);
                       }}
-                      className="w-full flex items-center space-x-2.5 px-3.5 py-2.5 text-slate-700 hover:bg-slate-50 rounded-xl transition text-xs md:text-sm font-semibold cursor-pointer"
+                      className="w-full flex items-center space-x-2.5 px-3.5 py-2.5 text-slate-700 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition text-xs md:text-sm font-semibold cursor-pointer"
                     >
                       <FiSettings className="w-4 h-4 text-slate-500" />
-                      <span>{t('settings')}</span>
+                      <span>Account Credentials & Security</span>
                     </button>
 
                     <button
@@ -210,7 +222,7 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
                       className="w-full flex items-center space-x-2.5 px-3.5 py-2.5 text-rose-600 hover:bg-rose-50 rounded-xl transition text-xs md:text-sm font-semibold cursor-pointer"
                     >
                       <FiLogOut className="w-4 h-4" />
-                      <span>{t('logout')}</span>
+                      <span>Terminate Session (Sign Out)</span>
                     </button>
                   </div>
                 </div>
