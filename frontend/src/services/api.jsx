@@ -229,6 +229,7 @@ export const taskTemplateAPI = {
 };
 
 export const departmentAPI = {
+  getPublicDepartments: () => api.get('/departments/public'),
   getAllDepartments: (params) => api.get('/departments', { params }),
   getAdminDepartments: (params) => api.get('/departments/admin/all', { params }),
   createDepartment: (data) => api.post('/departments', data),

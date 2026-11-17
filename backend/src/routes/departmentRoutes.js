@@ -16,7 +16,10 @@ const {
 } = require('../controllers/departmentController');
 const { protect, admin } = require('../middleware/auth');
 
-// Public/general routes (protected by token)
+// Public department list (unprotected, for registration)
+router.get('/public', getAllDepartments);
+
+// General routes (protected by token)
 router.get('/', protect, getAllDepartments);
 
 // Admin-only management routes
