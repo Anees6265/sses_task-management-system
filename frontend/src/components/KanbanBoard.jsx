@@ -869,6 +869,7 @@ const KanbanBoard = () => {
           <main className={`flex-1 p-4 md:p-6 overflow-x-hidden transition-all duration-300 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
             {(activeView === 'dashboard' && (user?.role === 'admin' || user?.role === 'hod')) && (
               <Dashboard
+                setActiveView={setActiveView}
                 onFacultyClick={handleFacultyClick}
                 onSelectDepartment={handleSelectDepartment}
                 onOpenFacultyProfile={handleOpenFacultyProfile}

@@ -540,6 +540,18 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
               />
             </div>
 
+            {/* Role Filter (Faculty / HOD / Admin) */}
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-orange-400 bg-white"
+            >
+              <option value="all">All Roles (Faculty & HODs)</option>
+              <option value="user">Faculty Only</option>
+              <option value="hod">HODs Only</option>
+              {isAdmin && <option value="admin">Admins Only</option>}
+            </select>
+
             {/* Department Filter (Admin only) */}
             {isAdmin && (
               <select
