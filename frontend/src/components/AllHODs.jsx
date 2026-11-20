@@ -62,7 +62,7 @@ const AllHODs = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   return (
     <div className="space-y-6 fade-in pb-12">
       {/* Executive Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-6 md:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-4 sm:p-6 md:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
         <div className="relative z-10 space-y-1.5">
           <div className="flex items-center space-x-2 mb-1">
             <span className="px-3 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-bold rounded-full uppercase tracking-wider border border-orange-500/30 flex items-center gap-1.5">
@@ -87,7 +87,7 @@ const AllHODs = ({ onSelectDepartment, onOpenFacultyProfile }) => {
       </div>
 
       {/* Leadership Stats Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
           <div className="flex items-center justify-between mb-2">
             <div className="p-2.5 bg-purple-50 text-purple-600 rounded-2xl">
@@ -201,7 +201,7 @@ const AllHODs = ({ onSelectDepartment, onOpenFacultyProfile }) => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[750px] text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/70 border-b border-slate-100 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
                   <th className="py-3.5 px-4 rounded-l-2xl">Appointed HOD</th>

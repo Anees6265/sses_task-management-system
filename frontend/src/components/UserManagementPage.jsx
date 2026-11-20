@@ -542,7 +542,7 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
   return (
     <div className="space-y-6 fade-in pb-16">
       {/* 1. HERO BANNER */}
-      <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 rounded-3xl p-6 sm:p-8 text-white shadow-xl shadow-orange-500/20 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 rounded-3xl p-4 sm:p-6 md:p-8 text-white shadow-xl shadow-orange-500/20 relative overflow-hidden">
         {/* Decorative ambient blur */}
         <div className="absolute -top-16 -right-16 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-amber-400/20 rounded-full blur-2xl pointer-events-none" />
@@ -593,7 +593,7 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
       </div>
 
       {/* 2. STATS OVERVIEW CARDS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Total Members */}
         <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition group">
           <div className="flex items-center justify-between mb-2">
@@ -679,11 +679,11 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           
           {/* Tabs */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl w-fit">
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl max-w-full overflow-x-auto no-scrollbar">
             <button
               type="button"
               onClick={() => setActiveTab('directory')}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
                 activeTab === 'directory'
                   ? 'bg-white text-orange-600 shadow-sm'
                   : 'text-slate-600 hover:text-slate-900'
@@ -698,7 +698,7 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
                 <button
                   type="button"
                   onClick={() => setActiveTab('workload')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
                     activeTab === 'workload'
                       ? 'bg-white text-orange-600 shadow-sm'
                       : 'text-slate-600 hover:text-slate-900'
@@ -711,7 +711,7 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
                 <button
                   type="button"
                   onClick={() => setActiveTab('performance')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
                     activeTab === 'performance'
                       ? 'bg-white text-orange-600 shadow-sm'
                       : 'text-slate-600 hover:text-slate-900'
@@ -804,7 +804,7 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
                 )}
               </div>
             ) : (
-              <table className="w-full text-left border-collapse">
+              <table className="w-full min-w-[720px] text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider font-extrabold text-slate-500 bg-slate-50/80">
                     <th className="py-3.5 px-4">Faculty Member</th>
@@ -999,7 +999,7 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
         {/* ================= TAB 2: WORKLOAD MATRIX TABLE ================= */}
         {activeTab === 'workload' && (
           <div className="overflow-x-auto rounded-2xl border border-slate-200/80">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[800px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider font-extrabold text-slate-500 bg-slate-50/80">
                   <th className="py-3.5 px-4">Faculty Member</th>
@@ -1120,7 +1120,7 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
         {/* ================= TAB 3: TASK PERFORMANCE TABLE ================= */}
         {activeTab === 'performance' && (
           <div className="overflow-x-auto rounded-2xl border border-slate-200/80">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[820px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider font-extrabold text-slate-500 bg-slate-50/80">
                   <th className="py-3.5 px-4">Faculty Member</th>

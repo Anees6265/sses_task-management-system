@@ -292,7 +292,7 @@ const Dashboard = ({
   return (
     <div className="space-y-6 fade-in pb-16">
       {/* 1. HERO OPERATIONS BANNER */}
-      <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 rounded-3xl p-6 sm:p-8 text-white shadow-xl shadow-orange-500/20 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 rounded-3xl p-4 sm:p-6 md:p-8 text-white shadow-xl shadow-orange-500/20 relative overflow-hidden">
         {/* Decorative ambient patterns */}
         <div className="absolute -top-16 -right-16 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-amber-400/20 rounded-full blur-2xl pointer-events-none" />
@@ -355,9 +355,9 @@ const Dashboard = ({
           </div>
 
           {/* Dual Pulse Widgets */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 relative z-10">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 relative z-10 w-full sm:w-auto">
             {/* Task Completion Pulse */}
-            <div className="bg-white/15 backdrop-blur-md border border-white/25 rounded-2xl p-4 flex items-center justify-between gap-4 min-w-[200px]">
+            <div className="bg-white/15 backdrop-blur-md border border-white/25 rounded-2xl p-3.5 sm:p-4 flex items-center justify-between gap-4 w-full sm:w-auto min-w-0 sm:min-w-[200px]">
               <div>
                 <span className="text-[10px] font-bold text-orange-100 uppercase tracking-wider block">
                   Task Completion
@@ -370,13 +370,13 @@ const Dashboard = ({
                   {completedTasks} of {totalTasks} finished
                 </span>
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center font-bold text-white shadow-inner">
+              <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center font-bold text-white shadow-inner flex-shrink-0">
                 <FiTrendingUp className="w-5 h-5" />
               </div>
             </div>
 
             {/* Attendance Pulse */}
-            <div className="bg-white/15 backdrop-blur-md border border-white/25 rounded-2xl p-4 flex items-center justify-between gap-4 min-w-[200px]">
+            <div className="bg-white/15 backdrop-blur-md border border-white/25 rounded-2xl p-3.5 sm:p-4 flex items-center justify-between gap-4 w-full sm:w-auto min-w-0 sm:min-w-[200px]">
               <div>
                 <span className="text-[10px] font-bold text-orange-100 uppercase tracking-wider block">
                   Faculty On Duty
@@ -389,7 +389,7 @@ const Dashboard = ({
                   {totalAbsentCount > 0 ? `${totalAbsentCount} on leave today` : '100% On Duty'}
                 </span>
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center font-bold text-white shadow-inner">
+              <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center font-bold text-white shadow-inner flex-shrink-0">
                 <FiUserCheck className="w-5 h-5" />
               </div>
             </div>
@@ -399,11 +399,11 @@ const Dashboard = ({
 
       {/* 2. PERSPECTIVE TOGGLE TABS */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-2">
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl w-fit">
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl max-w-full overflow-x-auto no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveTab('all')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
               activeTab === 'all'
                 ? 'bg-white text-orange-600 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
@@ -416,7 +416,7 @@ const Dashboard = ({
           <button
             type="button"
             onClick={() => setActiveTab('tasks')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
               activeTab === 'tasks'
                 ? 'bg-white text-orange-600 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
@@ -429,7 +429,7 @@ const Dashboard = ({
           <button
             type="button"
             onClick={() => setActiveTab('leaves')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
               activeTab === 'leaves'
                 ? 'bg-white text-orange-600 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
@@ -472,7 +472,7 @@ const Dashboard = ({
               )}
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {/* Card 1: Total Deliverables */}
               <div 
                 onClick={() => setActiveView && setActiveView('board')}
@@ -597,7 +597,7 @@ const Dashboard = ({
               )}
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {/* Card 1: Faculty Present */}
               <div 
                 onClick={() => setActiveView && setActiveView('departments-overview')}

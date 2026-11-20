@@ -626,7 +626,7 @@ const KanbanBoard = () => {
   const Column = ({ title, subtitle, tasks, droppableId, icon: IconComponent, badgeColor }) => {
     return (
       <div className="w-full lg:flex-1 lg:min-w-[300px] relative">
-        <div className="bg-white rounded-3xl p-4 border border-slate-200/90 shadow-md flex flex-col min-h-[500px]">
+        <div className="bg-white rounded-3xl p-4 border border-slate-200/90 shadow-md flex flex-col min-h-[260px] lg:min-h-[500px]">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 flex-shrink-0">
             <div>
               <h3 className="font-extrabold text-sm md:text-base text-slate-800 flex items-center gap-2">
@@ -882,7 +882,7 @@ const KanbanBoard = () => {
             selectedFacultyForProfile={selectedFacultyForProfile}
           />
 
-          <main className={`flex-1 p-4 md:p-6 overflow-x-hidden transition-all duration-300 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
+          <main className={`flex-1 p-3 sm:p-4 md:p-6 overflow-x-hidden transition-all duration-300 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
             {(activeView === 'dashboard' && (user?.role === 'admin' || user?.role === 'hod')) && (
               <Dashboard
                 setActiveView={setActiveView}
@@ -1140,7 +1140,7 @@ const KanbanBoard = () => {
             onClick={() => setShowModal(false)}
           >
             <div 
-              className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-2xl shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in space-y-5"
+              className="bg-white p-4 sm:p-6 md:p-8 rounded-3xl w-full max-w-2xl shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in space-y-5"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header & Sub-Tabs */}
@@ -1166,22 +1166,22 @@ const KanbanBoard = () => {
 
               {/* Editing Task Navigation Sub-Tabs */}
               {editingTask && (
-                <div className="flex border-b border-slate-200 gap-4 text-xs font-extrabold">
+                <div className="flex border-b border-slate-200 gap-3 sm:gap-4 text-xs font-extrabold overflow-x-auto no-scrollbar">
                   <button
                     onClick={() => setModalTab('details')}
-                    className={`pb-2 border-b-2 transition ${modalTab === 'details' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500'}`}
+                    className={`pb-2 border-b-2 transition whitespace-nowrap flex-shrink-0 ${modalTab === 'details' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500'}`}
                   >
                     Task Details
                   </button>
                   <button
                     onClick={() => setModalTab('comments')}
-                    className={`pb-2 border-b-2 transition flex items-center gap-1 ${modalTab === 'comments' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500'}`}
+                    className={`pb-2 border-b-2 transition flex items-center gap-1 whitespace-nowrap flex-shrink-0 ${modalTab === 'comments' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500'}`}
                   >
                     <FiMessageSquare className="w-3.5 h-3.5" /> Comments ({comments.length})
                   </button>
                   <button
                     onClick={() => setModalTab('attachments')}
-                    className={`pb-2 border-b-2 transition flex items-center gap-1 ${modalTab === 'attachments' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500'}`}
+                    className={`pb-2 border-b-2 transition flex items-center gap-1 whitespace-nowrap flex-shrink-0 ${modalTab === 'attachments' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500'}`}
                   >
                     <FiPaperclip className="w-3.5 h-3.5" /> Attachments ({attachments.length})
                   </button>

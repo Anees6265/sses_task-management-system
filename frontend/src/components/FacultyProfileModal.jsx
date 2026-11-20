@@ -392,7 +392,7 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Profile Card */}
-        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-6 md:p-8 rounded-t-3xl text-white relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-4 sm:p-6 md:p-8 rounded-t-3xl text-white relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 z-10 p-2 text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition backdrop-blur-md"
@@ -449,7 +449,7 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
           </div>
         </div>
 
-        <div className="p-6 md:p-8 space-y-6 pt-0">
+        <div className="p-4 sm:p-6 md:p-8 space-y-6 pt-0">
           {/* SECTION 1: LEAVE QUOTA BALANCES & SUMMARY */}
           <div>
             <h3 className="text-base font-extrabold text-slate-800 mb-3 flex items-center gap-2">
