@@ -578,8 +578,9 @@ exports.getFacultyPerformance = async (req, res) => {
         const pendingTasks = userTasks.filter(t => t.status !== 'completed').length;
         const overdueTasks = userTasks.filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < now).length;
         const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        const isFullyCompleted = totalTasks > 0 && completedTasks === totalTasks;
         const onTimeCompleted = userTasks.filter(t => t.status === 'completed' && (!t.dueDate || new Date(t.updatedAt || t.createdAt) <= new Date(t.dueDate))).length;
-        const onTimeCompletionRate = completedTasks > 0 ? Math.round((onTimeCompleted / completedTasks) * 100) : 0;
+        const onTimeCompletionRate = isFullyCompleted ? Math.round((onTimeCompleted / totalTasks) * 100) : null;
 
         // Calculate Average Completion Time (in Hours)
         const completedTaskList = userTasks.filter(t => t.status === 'completed');
@@ -631,8 +632,9 @@ exports.getFacultyPerformance = async (req, res) => {
         const pendingTasks = userTasks.filter(t => t.status !== 'completed').length;
         const overdueTasks = userTasks.filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < now).length;
         const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-        const onTimeCompleted = userTasks.filter(t => t.status === 'completed').length;
-        const onTimeCompletionRate = completedTasks > 0 ? Math.round((onTimeCompleted / completedTasks) * 100) : 0;
+        const isFullyCompleted = totalTasks > 0 && completedTasks === totalTasks;
+        const onTimeCompleted = userTasks.filter(t => t.status === 'completed' && (!t.dueDate || new Date(t.updatedAt || t.createdAt) <= new Date(t.dueDate))).length;
+        const onTimeCompletionRate = isFullyCompleted ? Math.round((onTimeCompleted / totalTasks) * 100) : null;
 
         return {
           faculty: {

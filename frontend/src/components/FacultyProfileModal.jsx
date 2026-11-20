@@ -3,6 +3,7 @@ import { leaveAPI, taskAPI, userAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { toast } from 'react-toastify';
+import { notifyDataRefresh } from '../utils/eventBus.js';
 import { 
   FiX, 
   FiUser, 
@@ -44,6 +45,14 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
 
   useEffect(() => {
     fetchFacultyFullDetails();
+
+    const handleRefresh = () => {
+      fetchFacultyFullDetails();
+    };
+    window.addEventListener('app_data_refresh', handleRefresh);
+    return () => {
+      window.removeEventListener('app_data_refresh', handleRefresh);
+    };
   }, [faculty, targetUser, facultyId]);
 
   useEffect(() => {
@@ -259,6 +268,7 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
         reviewComment: reviewComment.trim()
       });
       toast.success(`Leave request ${reviewModal.action} successfully!`);
+      notifyDataRefresh('leaves');
       setReviewModal(null);
       setReviewComment('');
       fetchFacultyFullDetails();

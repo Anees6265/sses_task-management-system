@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
+import { notifyDataRefresh } from '../utils/eventBus.js';
 
 const SocketContext = createContext();
 
@@ -70,6 +71,41 @@ export const SocketProvider = ({ children }) => {
       newSocket.on('user-offline', ({ userId }) => {
         console.log('❌ User offline:', userId);
         if (userId) setOnlineUsers(prev => prev.filter(id => id !== userId));
+      });
+
+      // Real-time task and leave synchronization listeners
+      newSocket.on('tasks_updated', () => {
+        console.log('⚡ Socket event: tasks_updated -> refreshing');
+        notifyDataRefresh('tasks');
+      });
+
+      newSocket.on('task_created', () => {
+        notifyDataRefresh('tasks');
+      });
+
+      newSocket.on('task_updated', () => {
+        notifyDataRefresh('tasks');
+      });
+
+      newSocket.on('task_deleted', () => {
+        notifyDataRefresh('tasks');
+      });
+
+      newSocket.on('leaves_updated', () => {
+        console.log('⚡ Socket event: leaves_updated -> refreshing');
+        notifyDataRefresh('leaves');
+      });
+
+      newSocket.on('leave_created', () => {
+        notifyDataRefresh('leaves');
+      });
+
+      newSocket.on('leave_updated', () => {
+        notifyDataRefresh('leaves');
+      });
+
+      newSocket.on('dashboard_update', () => {
+        notifyDataRefresh('all');
       });
 
       setSocket(newSocket);

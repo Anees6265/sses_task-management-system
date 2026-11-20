@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { taskAPI, leaveAPI, userAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
+import { notifyDataRefresh } from '../utils/eventBus.js';
 import FacultyProfileModal from './FacultyProfileModal.jsx';
 import Loader from './Loader.jsx';
 import { 
@@ -45,11 +46,18 @@ const Dashboard = ({
   const [facultySearchQuery, setFacultySearchQuery] = useState('');
 
   useEffect(() => {
-    fetchDashboardData();
+    fetchDashboardData(true);
+
+    const handleRefresh = (e) => {
+      fetchDashboardData(false);
+    };
+
+    window.addEventListener('app_data_refresh', handleRefresh);
+    return () => window.removeEventListener('app_data_refresh', handleRefresh);
   }, []);
 
-  const fetchDashboardData = async () => {
-    setLoading(true);
+  const fetchDashboardData = async (showLoader = false) => {
+    if (showLoader) setLoading(true);
     try {
       const [
         statsRes, 
@@ -82,7 +90,7 @@ const Dashboard = ({
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   };
 
@@ -91,10 +99,10 @@ const Dashboard = ({
     return total > 0 ? Math.round((completed / total) * 100) : 0;
   };
 
-  const totalTasks = stats?.totalTasks || tasksList.length || 0;
-  const completedTasks = stats?.completedTasks || tasksList.filter(t => t.status === 'completed').length || 0;
-  const inprogressTasks = stats?.inprogressTasks || tasksList.filter(t => t.status === 'inprogress').length || 0;
-  const todoTasks = stats?.todoTasks || tasksList.filter(t => t.status === 'todo').length || 0;
+  const totalTasks = tasksList.length > 0 ? tasksList.length : (stats?.totalTasks || 0);
+  const completedTasks = tasksList.length > 0 ? tasksList.filter(t => t.status === 'completed').length : (stats?.completedTasks || 0);
+  const inprogressTasks = tasksList.length > 0 ? tasksList.filter(t => t.status === 'inprogress').length : (stats?.inprogressTasks || 0);
+  const todoTasks = tasksList.length > 0 ? tasksList.filter(t => t.status === 'todo').length : (stats?.todoTasks || 0);
   const overallTaskProgress = calculateProgress(completedTasks, totalTasks);
 
   // Daily Attendance Calculations
@@ -185,32 +193,59 @@ const Dashboard = ({
     return map;
   }, [attendanceData]);
 
+  // Dynamically resolve department stats from live tasksList
+  const resolvedDepartmentStats = useMemo(() => {
+    if (tasksList.length > 0) {
+      const deptMap = new Map();
+      tasksList.forEach(t => {
+        const dept = (t.department || 'General').trim();
+        if (!deptMap.has(dept)) {
+          deptMap.set(dept, { _id: dept, total: 0, todo: 0, inprogress: 0, completed: 0 });
+        }
+        const item = deptMap.get(dept);
+        item.total += 1;
+        if (t.status === 'todo') item.todo += 1;
+        if (t.status === 'inprogress') item.inprogress += 1;
+        if (t.status === 'completed') item.completed += 1;
+      });
+      return Array.from(deptMap.values());
+    }
+    return stats?.departmentStats || [];
+  }, [tasksList, stats]);
+
   // Faculty Workload & Attendance Combined List
   const combinedFacultyList = useMemo(() => {
-    // Collect from stats.facultyStats or allUsers
-    const sourceUsers = (stats?.facultyStats && stats.facultyStats.length > 0)
-      ? stats.facultyStats
-      : allUsers.filter(u => u.role !== 'admin');
+    // Collect from allUsers (non-admin) or stats.facultyStats
+    const sourceUsers = allUsers.filter(u => u.role !== 'admin');
+    const fallbackUsers = sourceUsers.length > 0 ? sourceUsers : (stats?.facultyStats || []);
 
     // Build absent set for quick lookup
     const absentSet = new Set(facultyOnLeaveToday.map(f => String(f._id || '')));
 
-    let list = sourceUsers.map(fac => {
+    let list = fallbackUsers.map(fac => {
       const facId = String(fac._id || '');
+      const facEmail = (fac.email || '').trim().toLowerCase();
       const isAbsent = absentSet.has(facId);
-      const leaveInfo = facultyOnLeaveToday.find(f => String(f._id || '') === facId);
+      const leaveInfo = facultyOnLeaveToday.find(f => String(f._id || '') === facId || (facEmail && f.email && f.email.trim().toLowerCase() === facEmail));
 
-      // Find tasks assigned to this faculty
+      // Find tasks assigned to this faculty strictly from live tasksList
       const userTasks = tasksList.filter(t => {
         if (!t.assignedTo) return false;
         if (Array.isArray(t.assignedTo)) {
-          return t.assignedTo.some(u => String(u._id || u) === facId);
+          return t.assignedTo.some(u => {
+            const uId = String(u._id || u || '');
+            const uEmail = (u?.email || '').trim().toLowerCase();
+            return (facId && uId === facId) || (facEmail && uEmail && uEmail === facEmail);
+          });
         }
-        return String(t.assignedTo._id || t.assignedTo) === facId;
+        const aId = String(t.assignedTo._id || t.assignedTo || '');
+        const aEmail = (t.assignedTo?.email || '').trim().toLowerCase();
+        return (facId && aId === facId) || (facEmail && aEmail && aEmail === facEmail);
       });
 
-      const userCompleted = fac.completed ?? userTasks.filter(t => t.status === 'completed').length;
-      const userTotal = fac.total ?? userTasks.length;
+      const userCompleted = userTasks.filter(t => t.status === 'completed').length;
+      const userTotal = userTasks.length;
+      const userActive = userTasks.filter(t => t.status !== 'completed').length;
 
       return {
         ...fac,
@@ -218,6 +253,7 @@ const Dashboard = ({
         leaveInfo: leaveInfo?.activeLeaveToday || null,
         completedCount: userCompleted,
         totalCount: userTotal,
+        activeCount: userActive,
         progress: calculateProgress(userCompleted, userTotal)
       };
     });
@@ -232,7 +268,7 @@ const Dashboard = ({
     }
 
     return list;
-  }, [stats, allUsers, facultyOnLeaveToday, tasksList, facultySearchQuery]);
+  }, [allUsers, stats, facultyOnLeaveToday, tasksList, facultySearchQuery]);
 
   const currentDateFormatted = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -802,7 +838,7 @@ const Dashboard = ({
             </div>
 
             {/* Department Task Progress Breakdown */}
-            {stats?.departmentStats && stats.departmentStats.length > 0 && (
+            {resolvedDepartmentStats && resolvedDepartmentStats.length > 0 && (
               <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 shadow-xs space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2.5">
@@ -832,7 +868,7 @@ const Dashboard = ({
                 </div>
 
                 <div className="space-y-3">
-                  {stats.departmentStats.map(dept => {
+                  {resolvedDepartmentStats.map(dept => {
                     const deptProgress = calculateProgress(dept.completed, dept.total);
                     const deptAttendance = attendanceMap.get(String(dept._id || '').toLowerCase().trim());
                     const present = deptAttendance?.presentCount || 0;

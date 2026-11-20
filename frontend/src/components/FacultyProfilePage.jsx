@@ -3,6 +3,7 @@ import { leaveAPI, taskAPI, userAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { toast } from 'react-toastify';
+import { notifyDataRefresh } from '../utils/eventBus.js';
 import Loader from './Loader.jsx';
 import { 
   FiArrowLeft, 
@@ -62,6 +63,14 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
 
   useEffect(() => {
     fetchFacultyFullDetails();
+
+    const handleRefresh = () => {
+      fetchFacultyFullDetails();
+    };
+    window.addEventListener('app_data_refresh', handleRefresh);
+    return () => {
+      window.removeEventListener('app_data_refresh', handleRefresh);
+    };
   }, [faculty, targetUser, facultyId]);
 
   const fetchFacultyFullDetails = async () => {
@@ -265,6 +274,7 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
         reviewComment: reviewComment.trim()
       });
       toast.success(`Leave request ${reviewModal.action} successfully!`);
+      notifyDataRefresh('leaves');
       setReviewModal(null);
       setReviewComment('');
       fetchFacultyFullDetails();
@@ -279,6 +289,7 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
     try {
       await leaveAPI.cancelLeave(id);
       toast.success('Leave cancelled successfully!');
+      notifyDataRefresh('leaves');
       fetchFacultyFullDetails();
       if (onRefresh) onRefresh();
     } catch (error) {

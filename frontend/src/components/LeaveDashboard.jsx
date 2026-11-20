@@ -3,6 +3,7 @@ import { leaveAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { toast } from 'react-toastify';
+import { notifyDataRefresh } from '../utils/eventBus.js';
 import FacultyProfileModal from './FacultyProfileModal.jsx';
 import Modal from './Modal.jsx';
 import Loader from './Loader.jsx';
@@ -75,6 +76,15 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
 
   useEffect(() => {
     fetchLeaveData();
+
+    const handleRefresh = (e) => {
+      const type = e.detail?.type;
+      if (type === 'leaves' || type === 'all') {
+        fetchLeaveData();
+      }
+    };
+    window.addEventListener('app_data_refresh', handleRefresh);
+    return () => window.removeEventListener('app_data_refresh', handleRefresh);
   }, []);
 
   const fetchLeaveData = async () => {
@@ -111,6 +121,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
       setShowAnnounceHolidayModal(false);
       setHolidayFormData({ title: '', startDate: '', endDate: '', description: '' });
       fetchLeaveData();
+      notifyDataRefresh('leaves');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to announce holiday');
     } finally {
@@ -124,6 +135,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
       await leaveAPI.deleteHoliday(id);
       toast.success('Holiday deleted successfully');
       fetchLeaveData();
+      notifyDataRefresh('leaves');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to delete holiday');
     }
@@ -148,6 +160,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
       setShowApplyModal(false);
       setFormData({ leaveType: 'casual', startDate: '', endDate: '', reason: '' });
       fetchLeaveData();
+      notifyDataRefresh('leaves');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to apply for leave');
     } finally {
@@ -166,6 +179,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
       setReviewModal(null);
       setReviewComment('');
       fetchLeaveData();
+      notifyDataRefresh('leaves');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to update leave status');
     }
@@ -177,6 +191,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
       await leaveAPI.cancelLeave(id);
       toast.success('Leave cancelled');
       fetchLeaveData();
+      notifyDataRefresh('leaves');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to cancel leave');
     }
