@@ -323,7 +323,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   return (
     <div className="space-y-6 fade-in pb-12">
       {/* 1. Modern Header Banner (Warm & High-Signal) */}
-      <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 rounded-3xl p-6 sm:p-8 text-white shadow-lg shadow-orange-500/15 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 rounded-3xl p-4 sm:p-6 md:p-8 text-white shadow-lg shadow-orange-500/15 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="absolute -top-12 -right-12 w-48 h-48 bg-white/10 rounded-full blur-xl pointer-events-none" />
         <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-white/10 rounded-full blur-xl pointer-events-none" />
 
@@ -363,7 +363,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
       </div>
 
       {/* 2. Key Metrics & Quotas Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Card 1: Total Requests / Casual Leave */}
         <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-2">
@@ -669,7 +669,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
               <p className="text-xs text-slate-400 mt-0.5">No records matching the selected filter or search query.</p>
             </div>
           ) : (
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[760px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-bold text-slate-400 bg-slate-50/50">
                   <th className="p-3.5 rounded-l-2xl">Applicant</th>
@@ -793,7 +793,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Start Date *
@@ -887,7 +887,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
             </div>
 
             {/* Quick Metrics */}
-            <div className="grid grid-cols-4 gap-2 text-center text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
               <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5">
                 <span className="text-[10px] font-bold text-slate-400 uppercase block">Staff</span>
                 <span className="text-base font-extrabold text-slate-800">{selectedDeptDetailModal.totalFaculty}</span>
@@ -1067,7 +1067,7 @@ const LeaveDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Start Date *

@@ -524,7 +524,7 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
       </div>
 
       {/* METRICS & MONTHLY COMPARISON CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
         {/* CURRENT MONTH LEAVES */}
         <div 
           onClick={() => setAnalyticsModalMonth('current')}
@@ -769,84 +769,89 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
               </span>
             </div>
 
-            {/* 7-COLUMN WEEKDAY HEADERS (STARTS WITH SUNDAY ON LEFT) */}
-            <div className="grid grid-cols-7 gap-2 text-center text-xs font-extrabold text-slate-600 uppercase tracking-wider bg-slate-100/80 p-3 rounded-2xl border border-slate-200/80">
-              <div className="text-rose-600 font-black">Sun</div>
-              <div>Mon</div>
-              <div>Tue</div>
-              <div>Wed</div>
-              <div>Thu</div>
-              <div>Fri</div>
-              <div>Sat</div>
-            </div>
+            {/* 7-COLUMN CALENDAR (SCROLLABLE ON SMALL SCREENS FOR CRYSTAL CLEAR LEGIBILITY) */}
+            <div className="overflow-x-auto pb-2">
+              <div className="min-w-[620px] md:min-w-0 space-y-2">
+                {/* 7-COLUMN WEEKDAY HEADERS (STARTS WITH SUNDAY ON LEFT) */}
+                <div className="grid grid-cols-7 gap-2 text-center text-xs font-extrabold text-slate-600 uppercase tracking-wider bg-slate-100/80 p-3 rounded-2xl border border-slate-200/80">
+                  <div className="text-rose-600 font-black">Sun</div>
+                  <div>Mon</div>
+                  <div>Tue</div>
+                  <div>Wed</div>
+                  <div>Thu</div>
+                  <div>Fri</div>
+                  <div>Sat</div>
+                </div>
 
-            {/* 7-COLUMN CALENDAR GRID */}
-            <div className="grid grid-cols-7 gap-2">
-              {/* Empty padding cells for days before 1st of month */}
-              {Array.from({ length: currentMonthMatrix.firstDayOfWeek }).map((_, i) => (
-                <div key={`padding-${i}`} className="bg-slate-50/40 rounded-2xl p-2.5 border border-slate-100/60 opacity-30 min-h-[85px]" />
-              ))}
+                {/* 7-COLUMN CALENDAR GRID */}
+                <div className="grid grid-cols-7 gap-2">
+                  {/* Empty padding cells for days before 1st of month */}
+                  {Array.from({ length: currentMonthMatrix.firstDayOfWeek }).map((_, i) => (
+                    <div key={`padding-${i}`} className="bg-slate-50/40 rounded-2xl p-2.5 border border-slate-100/60 opacity-30 min-h-[85px]" />
+                  ))}
 
-              {/* Actual Date Cells */}
-              {currentMonthMatrix.daysArray.map((day) => {
-                let cardStyle = "bg-emerald-50/40 border-emerald-200 text-emerald-900";
-                let statusContent = (
-                  <span className="text-[11px] font-extrabold text-emerald-700 flex items-center gap-1">
-                    <FiCheck className="w-3 h-3 text-emerald-600" /> Present
-                  </span>
-                );
-
-                if (day.isLeave) {
-                  cardStyle = "bg-rose-50 border-rose-300 text-rose-900 shadow-xs ring-1 ring-rose-300/50";
-                  statusContent = (
-                    <div>
-                      <span className="px-2 py-0.5 bg-rose-600 text-white rounded-md text-[10px] font-black uppercase inline-block mb-1 shadow-2xs">
-                        {day.isFuture ? 'Scheduled Leave' : (day.leaveDetails?.leaveType || 'Leave')}
+                  {/* Actual Date Cells */}
+                  {currentMonthMatrix.daysArray.map((day) => {
+                    let cardStyle = "bg-emerald-50/40 border-emerald-200 text-emerald-900";
+                    let statusContent = (
+                      <span className="text-[11px] font-extrabold text-emerald-700 flex items-center gap-1">
+                        <FiCheck className="w-3 h-3 text-emerald-600" /> Present
                       </span>
-                      <p className="text-[11px] font-bold truncate text-rose-800" title={day.leaveDetails?.reason}>
-                        "{day.leaveDetails?.reason}"
-                      </p>
-                    </div>
-                  );
-                } else if (day.isFuture) {
-                  // Future date without scheduled leave -> Disabled style
-                  cardStyle = "bg-slate-50/80 border-slate-200/70 text-slate-400 opacity-60 cursor-not-allowed";
-                  statusContent = (
-                    <span className="text-[11px] font-semibold text-slate-400 italic">
-                      Upcoming
-                    </span>
-                  );
-                } else if (day.isSunday) {
-                  cardStyle = "bg-amber-50/70 border-amber-200 text-amber-900";
-                  statusContent = (
-                    <span className="text-[11px] font-bold text-amber-700 block">Sunday</span>
-                  );
-                }
+                    );
 
-                return (
-                  <div
-                    key={day.dayNumber}
-                    className={`rounded-2xl p-2.5 border transition-all flex flex-col justify-between min-h-[85px] relative group ${cardStyle} ${
-                      day.isToday ? 'ring-2 ring-orange-500 shadow-md' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className={`text-sm md:text-base font-black ${day.isToday ? 'text-orange-600' : ''}`}>
-                        {day.dayNumber}
-                      </span>
-                      {day.isToday && (
-                        <span className="px-1.5 py-0.5 bg-orange-500 text-white text-[9px] font-black rounded-md uppercase">
-                          Today
+                    if (day.isLeave) {
+                      cardStyle = "bg-rose-50 border-rose-300 text-rose-900 shadow-xs ring-1 ring-rose-300/50";
+                      statusContent = (
+                        <div>
+                          <span className="px-2 py-0.5 bg-rose-600 text-white rounded-md text-[10px] font-black uppercase inline-block mb-1 shadow-2xs">
+                            {day.isFuture ? 'Scheduled Leave' : (day.leaveDetails?.leaveType || 'Leave')}
+                          </span>
+                          <p className="text-[11px] font-bold truncate text-rose-800" title={day.leaveDetails?.reason}>
+                            "{day.leaveDetails?.reason}"
+                          </p>
+                        </div>
+                      );
+                    } else if (day.isFuture) {
+                      // Future date without scheduled leave -> Disabled style
+                      cardStyle = "bg-slate-50/80 border-slate-200/70 text-slate-400 opacity-60 cursor-not-allowed";
+                      statusContent = (
+                        <span className="text-[11px] font-semibold text-slate-400 italic">
+                          Upcoming
                         </span>
-                      )}
-                    </div>
+                      );
+                    } else if (day.isSunday) {
+                      cardStyle = "bg-amber-50/70 border-amber-200 text-amber-900";
+                      statusContent = (
+                        <span className="text-[11px] font-bold text-amber-700 block">Sunday</span>
+                      );
+                    }
 
-                    <div>
-                      {statusContent}
-                    </div>
-                  </div>
-                );
-              })}
+                    return (
+                      <div
+                        key={day.dayNumber}
+                        className={`rounded-2xl p-2.5 border transition-all flex flex-col justify-between min-h-[85px] relative group ${cardStyle} ${
+                          day.isToday ? 'ring-2 ring-orange-500 shadow-md' : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`text-sm md:text-base font-black ${day.isToday ? 'text-orange-600' : ''}`}>
+                            {day.dayNumber}
+                          </span>
+                          {day.isToday && (
+                            <span className="px-1.5 py-0.5 bg-orange-500 text-white text-[9px] font-black rounded-md uppercase">
+                              Today
+                            </span>
+                          )}
+                        </div>
+
+                        <div>
+                          {statusContent}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             {/* Monthly Comparison Summary Table (Previous, Current & Next Month) */}

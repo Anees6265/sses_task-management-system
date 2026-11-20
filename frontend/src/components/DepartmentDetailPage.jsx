@@ -162,7 +162,7 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
   return (
     <div className="space-y-6 fade-in pb-12">
       {/* Header Banner with Back Button */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-6 md:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-4 sm:p-6 md:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
         <div className="relative z-10 space-y-2">
           <button
             onClick={onBack}
@@ -195,7 +195,7 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
       </div>
 
       {/* Overview Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="glass-card rounded-3xl p-5 border border-slate-200/80">
           <div className="flex items-center justify-between mb-2">
             <div className="p-3 bg-slate-100 text-slate-700 rounded-2xl">
@@ -342,7 +342,7 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
 
             <div className="overflow-x-auto">
               {deptData?.presentList && deptData.presentList.length > 0 ? (
-                <table className="w-full text-left border-collapse">
+                <table className="w-full min-w-[500px] text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
                       <th className="p-3 rounded-l-xl">Faculty</th>
