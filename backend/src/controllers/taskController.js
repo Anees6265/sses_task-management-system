@@ -52,13 +52,28 @@ const getMockStats = (user) => {
   });
   const departmentStats = Object.values(deptMap);
 
+  const facultyMap = {};
+  tasks.forEach(t => {
+    (t.assignedTo || []).forEach(assignee => {
+      const uId = String(assignee._id || assignee);
+      const u = demoUsers.find(du => du._id === uId) || (typeof assignee === 'object' ? assignee : { name: 'Faculty' });
+      if (!facultyMap[uId]) {
+        facultyMap[uId] = { _id: uId, name: u.name, email: u.email, department: u.department, total: 0, todo: 0, inprogress: 0, completed: 0 };
+      }
+      facultyMap[uId].total++;
+      if (t.status === 'todo') facultyMap[uId].todo++;
+      if (t.status === 'inprogress') facultyMap[uId].inprogress++;
+      if (t.status === 'completed') facultyMap[uId].completed++;
+    });
+  });
+
   return {
     totalTasks,
     todoTasks,
     inprogressTasks,
     completedTasks,
     departmentStats,
-    facultyStats: []
+    facultyStats: Object.values(facultyMap)
   };
 };
 
@@ -220,6 +235,12 @@ exports.createTask = async (req, res) => {
         createdAt: new Date().toISOString()
       };
       demoTasks.unshift(newTask);
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('task_created', newTask);
+        io.emit('tasks_updated');
+        io.emit('dashboard_update');
+      }
       return res.status(201).json(newTask);
     }
 
@@ -284,6 +305,14 @@ exports.createTask = async (req, res) => {
       });
     }
 
+    // Emit real-time task sync events
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('task_created', populatedTask);
+      io.emit('tasks_updated');
+      io.emit('dashboard_update');
+    }
+
     res.status(201).json(populatedTask);
   } catch (error) {
     console.error('❌ Task creation error:', error);
@@ -309,6 +338,12 @@ exports.updateTask = async (req, res) => {
           }
         }
         demoTasks[index] = { ...demoTasks[index], ...req.body };
+        const io = req.app.get('io');
+        if (io) {
+          io.emit('task_updated', demoTasks[index]);
+          io.emit('tasks_updated');
+          io.emit('dashboard_update');
+        }
         return res.json(demoTasks[index]);
       }
       return res.status(404).json({ message: 'Task not found in mock store' });
@@ -412,6 +447,13 @@ exports.updateTask = async (req, res) => {
       }
     }
 
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('task_updated', task);
+      io.emit('tasks_updated');
+      io.emit('dashboard_update');
+    }
+
     res.json(task);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -475,6 +517,13 @@ exports.reassignTask = async (req, res) => {
         details: { taskId: task._id, previousAssignedCount: previousAssignedTo.length, newAssignedCount: newAssignedUserIds.length }
       });
 
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('task_updated', updatedTask);
+        io.emit('tasks_updated');
+        io.emit('dashboard_update');
+      }
+
       return res.json(updatedTask);
     } else {
       const index = demoTasks.findIndex(t => String(t._id) === String(id));
@@ -484,6 +533,14 @@ exports.reassignTask = async (req, res) => {
           const u = demoUsers.find(du => String(du._id) === String(uId));
           return u ? { _id: u._id, name: u.name, email: u.email } : { _id: uId, name: 'Assigned User', email: '' };
         });
+
+        const io = req.app.get('io');
+        if (io) {
+          io.emit('task_updated', demoTasks[index]);
+          io.emit('tasks_updated');
+          io.emit('dashboard_update');
+        }
+
         return res.json(demoTasks[index]);
       }
       return res.status(404).json({ message: 'Task not found' });
@@ -681,6 +738,12 @@ exports.deleteTask = async (req, res) => {
       const index = demoTasks.findIndex(t => String(t._id) === String(req.params.id));
       if (index !== -1) {
         demoTasks.splice(index, 1);
+        const io = req.app.get('io');
+        if (io) {
+          io.emit('task_deleted', req.params.id);
+          io.emit('tasks_updated');
+          io.emit('dashboard_update');
+        }
         return res.json({ message: 'Task deleted successfully' });
       }
       return res.status(404).json({ message: 'Task not found in mock store' });
@@ -700,6 +763,14 @@ exports.deleteTask = async (req, res) => {
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('task_deleted', req.params.id);
+      io.emit('tasks_updated');
+      io.emit('dashboard_update');
+    }
+
     res.json({ message: 'Task deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -769,35 +840,35 @@ exports.getDashboardStats = async (req, res) => {
       departmentStats = aggregatedDepts.filter(d => d._id);
     }
 
-    // Faculty-wise stats for HOD
+    // Faculty-wise stats for Admin & HOD
     let facultyStats = [];
-    if (req.user.role === 'hod') {
-      facultyStats = await Task.aggregate([
-        { $match: { department: req.user.department } },
-        { $unwind: '$assignedTo' },
-        {
-          $lookup: {
-            from: 'users',
-            localField: 'assignedTo',
-            foreignField: '_id',
-            as: 'facultyInfo'
-          }
-        },
-        { $unwind: '$facultyInfo' },
-        {
-          $group: {
-            _id: '$assignedTo',
-            name: { $first: '$facultyInfo.name' },
-            email: { $first: '$facultyInfo.email' },
-            total: { $sum: 1 },
-            todo: { $sum: { $cond: [{ $eq: ['$status', 'todo'] }, 1, 0] } },
-            inprogress: { $sum: { $cond: [{ $eq: ['$status', 'inprogress'] }, 1, 0] } },
-            completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } }
-          }
-        },
-        { $sort: { name: 1 } }
-      ]);
-    }
+    const facultyMatch = req.user.role === 'hod' ? { department: req.user.department } : {};
+    facultyStats = await Task.aggregate([
+      { $match: facultyMatch },
+      { $unwind: '$assignedTo' },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'assignedTo',
+          foreignField: '_id',
+          as: 'facultyInfo'
+        }
+      },
+      { $unwind: '$facultyInfo' },
+      {
+        $group: {
+          _id: '$assignedTo',
+          name: { $first: '$facultyInfo.name' },
+          email: { $first: '$facultyInfo.email' },
+          department: { $first: '$facultyInfo.department' },
+          total: { $sum: 1 },
+          todo: { $sum: { $cond: [{ $eq: ['$status', 'todo'] }, 1, 0] } },
+          inprogress: { $sum: { $cond: [{ $eq: ['$status', 'inprogress'] }, 1, 0] } },
+          completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } }
+        }
+      },
+      { $sort: { name: 1 } }
+    ]);
 
     res.json({
       totalTasks,

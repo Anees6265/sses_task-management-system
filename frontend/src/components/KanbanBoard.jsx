@@ -10,6 +10,7 @@ import Chat from './Chat.jsx';
 import Loader from './Loader.jsx';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { notifyDataRefresh } from '../utils/eventBus.js';
 import {
   FiPlus,
   FiRefreshCw,
@@ -268,6 +269,17 @@ const KanbanBoard = () => {
     fetchTasks();
   }, [activeView, selectedFacultyId]);
 
+  useEffect(() => {
+    const handleDataRefresh = (e) => {
+      const type = e.detail?.type;
+      if (type === 'tasks' || type === 'all') {
+        fetchTasks();
+      }
+    };
+    window.addEventListener('app_data_refresh', handleDataRefresh);
+    return () => window.removeEventListener('app_data_refresh', handleDataRefresh);
+  }, [selectedFacultyId, activeView]);
+
   const fetchDepartments = async () => {
     try {
       const { data } = await departmentAPI.getAllDepartments();
@@ -364,6 +376,7 @@ const KanbanBoard = () => {
     try {
       await taskAPI.updateTask(String(draggableId), { status: destination.droppableId });
       await fetchTasks();
+      notifyDataRefresh('tasks');
     } catch (error) {
       console.error('Error updating task status via drag:', error);
       toast.error(error.response?.data?.message || 'Failed to update task status');
@@ -412,6 +425,7 @@ const KanbanBoard = () => {
 
       resetTaskForm();
       await fetchTasks();
+      notifyDataRefresh('tasks');
     } catch (error) {
       console.error('Error saving task:', error);
       toast.error(error.response?.data?.message || 'Failed to save task', { position: 'top-center', autoClose: 3000 });
@@ -566,7 +580,8 @@ const KanbanBoard = () => {
     try {
       await taskAPI.deleteTask(id);
       setDeleteConfirm(null);
-      fetchTasks();
+      await fetchTasks();
+      notifyDataRefresh('tasks');
       toast.success('Task deleted!', { position: 'top-center', autoClose: 2000 });
     } catch (error) {
       console.error('Error deleting task:', error);
@@ -578,6 +593,7 @@ const KanbanBoard = () => {
     try {
       await taskAPI.updateTask(taskId, { status: newStatus });
       await fetchTasks();
+      notifyDataRefresh('tasks');
       toast.success('Task status updated!', { position: 'top-center', autoClose: 2000 });
     } catch (error) {
       console.error('Error updating task status:', error);
@@ -1097,7 +1113,10 @@ const KanbanBoard = () => {
             })()}
 
             {activeView === 'users' && (
-              <UserManagementPage onOpenFacultyProfile={handleOpenFacultyProfile} />
+              <UserManagementPage 
+                onOpenFacultyProfile={handleOpenFacultyProfile} 
+                onFacultyClick={handleFacultyClick}
+              />
             )}
 
             {activeView === 'chats' && (

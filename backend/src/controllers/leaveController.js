@@ -133,6 +133,13 @@ exports.applyLeave = async (req, res) => {
       }
     })();
 
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('leave_created', resultLeave);
+      io.emit('leaves_updated');
+      io.emit('dashboard_update');
+    }
+
     return res.status(201).json(resultLeave);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -291,6 +298,13 @@ exports.updateLeaveStatus = async (req, res) => {
         console.error('⚠️ Error processing WhatsApp status update notification:', wErr.message);
       }
     })();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('leave_updated', updatedResult);
+      io.emit('leaves_updated');
+      io.emit('dashboard_update');
+    }
 
     return res.json(updatedResult);
   } catch (error) {
@@ -549,6 +563,12 @@ exports.cancelLeave = async (req, res) => {
     if (leave) {
       leave.status = 'cancelled';
       await leave.save();
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('leave_cancelled', id);
+        io.emit('leaves_updated');
+        io.emit('dashboard_update');
+      }
       return res.json({ message: 'Leave request cancelled successfully' });
     } else {
       const index = demoLeaves.findIndex(l => 
@@ -559,6 +579,12 @@ exports.cancelLeave = async (req, res) => {
 
       if (index !== -1) {
         demoLeaves[index].status = 'cancelled';
+        const io = req.app.get('io');
+        if (io) {
+          io.emit('leave_cancelled', id);
+          io.emit('leaves_updated');
+          io.emit('dashboard_update');
+        }
         return res.json({ message: 'Leave request cancelled successfully' });
       }
 
@@ -753,6 +779,13 @@ exports.announceHoliday = async (req, res) => {
       }
     })();
 
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('holiday_announced', createdHoliday);
+      io.emit('leaves_updated');
+      io.emit('dashboard_update');
+    }
+
     res.status(201).json({
       message: 'Official holiday announced successfully & WhatsApp notifications broadcasted to all faculty members!',
       holiday: createdHoliday
@@ -778,6 +811,13 @@ exports.deleteHoliday = async (req, res) => {
       if (idx !== -1) {
         demoHolidays.splice(idx, 1);
       }
+    }
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('holiday_deleted', id);
+      io.emit('leaves_updated');
+      io.emit('dashboard_update');
     }
 
     res.json({ message: 'Holiday deleted successfully' });
