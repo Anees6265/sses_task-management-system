@@ -10,15 +10,12 @@ const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || JWT_SECRET;
 const generateAccessToken = (id) => {
   return jwt.sign({ id }, JWT_SECRET, { expiresIn: '1h' });
 };
-
 const generateRefreshToken = (id) => {
   return jwt.sign({ id }, JWT_REFRESH_SECRET, { expiresIn: '2d' });
 };
-
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
-
 exports.register = async (req, res) => {
   try {
     const { name, email, password, department, role, phoneNumber, telegramChatId } = req.body;
@@ -52,10 +49,10 @@ exports.register = async (req, res) => {
         return res.status(400).json({ message: 'User already exists' });
       }
 
-      const userData = { 
-        name: name.trim(), 
-        email: normalizedEmail, 
-        password, 
+      const userData = {
+        name: name.trim(),
+        email: normalizedEmail,
+        password,
         role: role || 'user',
         phoneNumber: formattedPhone,
         telegramChatId: telegramChatId ? telegramChatId.trim() : undefined
