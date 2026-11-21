@@ -736,8 +736,15 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
                 {performanceData.map((item) => (
-                  <tr key={item.faculty?._id} className="hover:bg-slate-50/80 transition">
-                    <td className="p-3.5 font-bold text-slate-800">{item.faculty?.name}</td>
+                  <tr 
+                    key={item.faculty?._id} 
+                    onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(item.faculty)}
+                    className="hover:bg-orange-50/50 transition cursor-pointer group"
+                    title="Click to view full faculty performance profile"
+                  >
+                    <td className="p-3.5 font-bold text-slate-800 group-hover:text-orange-600 transition">
+                      {item.faculty?.name}
+                    </td>
                     <td className="p-3.5 font-black text-slate-900">{item.metrics?.totalTasks || 0}</td>
                     <td className="p-3.5 font-bold text-emerald-600">{item.metrics?.completedTasks || 0}</td>
                     <td className="p-3.5">

@@ -575,7 +575,9 @@ exports.getFacultyPerformance = async (req, res) => {
 
         const totalTasks = userTasks.length;
         const completedTasks = userTasks.filter(t => t.status === 'completed').length;
-        const pendingTasks = userTasks.filter(t => t.status !== 'completed').length;
+        const inprogressTasks = userTasks.filter(t => t.status === 'inprogress').length;
+        const todoTasks = userTasks.filter(t => t.status === 'todo').length;
+        const pendingTasks = todoTasks;
         const overdueTasks = userTasks.filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < now).length;
         const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
         const onTimeCompleted = userTasks.filter(t => t.status === 'completed' && (!t.dueDate || new Date(t.updatedAt || t.createdAt) <= new Date(t.dueDate))).length;
@@ -602,6 +604,8 @@ exports.getFacultyPerformance = async (req, res) => {
           metrics: {
             totalTasks,
             completedTasks,
+            inprogressTasks,
+            todoTasks,
             pendingTasks,
             overdueTasks,
             completionRate,
@@ -628,7 +632,9 @@ exports.getFacultyPerformance = async (req, res) => {
 
         const totalTasks = userTasks.length;
         const completedTasks = userTasks.filter(t => t.status === 'completed').length;
-        const pendingTasks = userTasks.filter(t => t.status !== 'completed').length;
+        const inprogressTasks = userTasks.filter(t => t.status === 'inprogress').length;
+        const todoTasks = userTasks.filter(t => t.status === 'todo').length;
+        const pendingTasks = todoTasks;
         const overdueTasks = userTasks.filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < now).length;
         const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
         const onTimeCompleted = userTasks.filter(t => t.status === 'completed').length;
@@ -644,6 +650,8 @@ exports.getFacultyPerformance = async (req, res) => {
           metrics: {
             totalTasks,
             completedTasks,
+            inprogressTasks,
+            todoTasks,
             pendingTasks,
             overdueTasks,
             completionRate,
@@ -655,6 +663,215 @@ exports.getFacultyPerformance = async (req, res) => {
       return res.json(performanceData);
     }
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getSingleFacultyPerformance = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    let targetUser = null;
+    if (mongoose.connection.readyState === 1) {
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        targetUser = await User.findById(id).select('-password');
+      }
+    }
+    if (!targetUser) {
+      targetUser = demoUsers.find(u => String(u._id) === String(id));
+    }
+
+    if (!targetUser) {
+      return res.status(404).json({ message: 'Faculty member not found' });
+    }
+
+    // RBAC: Admin can view any faculty; HOD can view faculty in their department; Faculty can view themselves
+    if (req.user.role === 'hod' && targetUser.department && req.user.department && targetUser.department.toLowerCase() !== req.user.department.toLowerCase()) {
+      return res.status(403).json({ message: 'Access denied. You can only view performance for faculty in your department.' });
+    } else if (req.user.role === 'user' && String(req.user._id) !== String(targetUser._id)) {
+      return res.status(403).json({ message: 'Access denied.' });
+    }
+
+    const now = new Date();
+    let tasks = [];
+    let recentActivities = [];
+
+    if (mongoose.connection.readyState === 1) {
+      tasks = await Task.find({
+        $or: [
+          { assignedTo: targetUser._id },
+          { createdBy: targetUser._id }
+        ]
+      })
+      .populate('assignedTo', 'name email department role phoneNumber')
+      .populate('createdBy', 'name email department')
+      .sort({ createdAt: -1 });
+
+      const assignedTasks = tasks.filter(t => {
+        if (!t.assignedTo) return false;
+        if (Array.isArray(t.assignedTo)) {
+          return t.assignedTo.some(u => String(u._id || u) === String(targetUser._id));
+        }
+        return String(t.assignedTo._id || t.assignedTo) === String(targetUser._id);
+      });
+
+      const totalTasks = assignedTasks.length;
+      let todoTasks = 0;
+      let inprogressTasks = 0;
+      let completedTasks = 0;
+      let overdueTasks = 0;
+      let onTimeCompleted = 0;
+
+      assignedTasks.forEach(t => {
+        if (t.status === 'todo') todoTasks++;
+        else if (t.status === 'inprogress') inprogressTasks++;
+        else if (t.status === 'completed') {
+          completedTasks++;
+          if (!t.dueDate || new Date(t.completedAt || t.updatedAt || t.createdAt) <= new Date(t.dueDate)) {
+            onTimeCompleted++;
+          }
+        }
+
+        if (t.dueDate && new Date(t.dueDate) < now && t.status !== 'completed') {
+          overdueTasks++;
+        }
+      });
+
+      const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+      const onTimeCompletionRate = completedTasks > 0 ? Math.round((onTimeCompleted / completedTasks) * 100) : 0;
+
+      // Fetch recent ActivityLog events
+      try {
+        const taskIds = tasks.map(t => t._id);
+        const logs = await ActivityLog.find({
+          $or: [
+            { performedBy: targetUser._id },
+            { 'details.taskId': { $in: taskIds } }
+          ]
+        })
+        .populate('performedBy', 'name email')
+        .sort({ createdAt: -1 })
+        .limit(20);
+
+        recentActivities = logs.map(log => ({
+          _id: log._id,
+          action: log.action,
+          details: log.details,
+          performedBy: log.performedBy ? { _id: log.performedBy._id, name: log.performedBy.name, email: log.performedBy.email } : null,
+          departmentName: log.departmentName,
+          createdAt: log.createdAt
+        }));
+      } catch (logErr) {
+        console.warn('Could not fetch activity logs for faculty:', logErr.message);
+      }
+
+      // If logs are empty, generate activities from task timestamps and history
+      if (recentActivities.length === 0) {
+        tasks.slice(0, 10).forEach(t => {
+          if (t.status === 'completed') {
+            recentActivities.push({
+              _id: `completed-${t._id}`,
+              action: 'TASK_COMPLETED',
+              details: { taskId: t._id, title: t.title },
+              performedBy: { name: targetUser.name },
+              createdAt: t.completedAt || t.updatedAt || t.createdAt
+            });
+          }
+          if (t.createdAt) {
+            recentActivities.push({
+              _id: `created-${t._id}`,
+              action: 'TASK_ASSIGNED',
+              details: { taskId: t._id, title: t.title, priority: t.priority },
+              performedBy: t.createdBy ? { name: t.createdBy.name } : { name: 'System' },
+              createdAt: t.createdAt
+            });
+          }
+        });
+        recentActivities.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      }
+
+      return res.json({
+        faculty: {
+          _id: targetUser._id,
+          name: targetUser.name,
+          email: targetUser.email,
+          role: targetUser.role,
+          department: targetUser.department,
+          phoneNumber: targetUser.phoneNumber || '',
+          status: targetUser.status || 'active',
+          profileImage: targetUser.profileImage || null
+        },
+        metrics: {
+          totalTasks,
+          pendingTasks: todoTasks,
+          todoTasks,
+          inprogressTasks,
+          completedTasks,
+          overdueTasks,
+          completionRate,
+          onTimeCompletionRate
+        },
+        tasks,
+        recentActivities: recentActivities.slice(0, 20)
+      });
+    } else {
+      // Mock Store Fallback
+      tasks = demoTasks.filter(t => {
+        const isAssigned = t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(targetUser._id));
+        const isCreated = t.createdBy && String(t.createdBy._id || t.createdBy) === String(targetUser._id);
+        return isAssigned || isCreated;
+      });
+
+      const assignedTasks = tasks.filter(t => 
+        t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(targetUser._id))
+      );
+
+      const totalTasks = assignedTasks.length;
+      const todoTasks = assignedTasks.filter(t => t.status === 'todo').length;
+      const inprogressTasks = assignedTasks.filter(t => t.status === 'inprogress').length;
+      const completedTasks = assignedTasks.filter(t => t.status === 'completed').length;
+      const overdueTasks = assignedTasks.filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < now).length;
+      const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+      const onTimeCompletionRate = completedTasks > 0 ? 100 : 0;
+
+      const recentActivities = [];
+      tasks.forEach(t => {
+        recentActivities.push({
+          _id: `act-${t._id}`,
+          action: t.status === 'completed' ? 'TASK_COMPLETED' : 'TASK_ASSIGNED',
+          details: { taskId: t._id, title: t.title, priority: t.priority },
+          performedBy: { name: targetUser.name },
+          createdAt: t.createdAt || new Date()
+        });
+      });
+
+      return res.json({
+        faculty: {
+          _id: targetUser._id,
+          name: targetUser.name,
+          email: targetUser.email,
+          role: targetUser.role,
+          department: targetUser.department,
+          phoneNumber: targetUser.phoneNumber || '',
+          status: targetUser.status || 'active',
+          profileImage: null
+        },
+        metrics: {
+          totalTasks,
+          pendingTasks: todoTasks,
+          todoTasks,
+          inprogressTasks,
+          completedTasks,
+          overdueTasks,
+          completionRate,
+          onTimeCompletionRate
+        },
+        tasks,
+        recentActivities
+      });
+    }
+  } catch (error) {
+    console.error('getSingleFacultyPerformance error:', error);
     res.status(500).json({ message: error.message });
   }
 };

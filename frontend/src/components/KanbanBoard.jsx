@@ -39,6 +39,7 @@ import {
 import LeaveDashboard from './LeaveDashboard.jsx';
 import DepartmentDashboard from './DepartmentDashboard.jsx';
 import DepartmentDetailPage from './DepartmentDetailPage.jsx';
+import DepartmentPerformanceDetails from './DepartmentPerformanceDetails.jsx';
 import FacultyProfilePage from './FacultyProfilePage.jsx';
 import UserManagementPage from './UserManagementPage.jsx';
 import DepartmentManagement from './DepartmentManagement.jsx';
@@ -53,6 +54,7 @@ const viewToPathMap = {
   departments: '/departments',
   'departments-overview': '/departments-overview',
   'dept-detail': '/dept-detail',
+  'dept-performance': '/dept-performance',
   'faculty-profile': '/faculty-profile',
   'all-hods': '/all-hods',
 };
@@ -66,6 +68,7 @@ const pathToViewMap = {
   '/departments': 'departments',
   '/departments-overview': 'departments-overview',
   '/dept-detail': 'dept-detail',
+  '/dept-performance': 'dept-performance',
   '/faculty-profile': 'faculty-profile',
   '/all-hods': 'all-hods',
 };
@@ -91,8 +94,8 @@ const getViewFromUrl = () => {
 
 const getUrlFromView = (view, deptName) => {
   if (viewToPathMap[view]) {
-    if (view === 'dept-detail' && deptName) {
-      return `/dept-detail?dept=${encodeURIComponent(deptName)}`;
+    if ((view === 'dept-detail' || view === 'dept-performance') && deptName) {
+      return `/${view}?dept=${encodeURIComponent(deptName)}`;
     }
     return viewToPathMap[view];
   }
@@ -152,7 +155,7 @@ const KanbanBoard = () => {
 
   const setActiveView = (newView, deptName) => {
     setActiveViewRaw(newView);
-    const targetDept = deptName !== undefined ? deptName : (newView === 'dept-detail' ? selectedDepartmentName : null);
+    const targetDept = deptName !== undefined ? deptName : ((newView === 'dept-detail' || newView === 'dept-performance') ? selectedDepartmentName : null);
     if (deptName !== undefined) {
       setSelectedDepartmentName(deptName);
     }
@@ -188,9 +191,14 @@ const KanbanBoard = () => {
   const { t } = useLanguage();
 
   const [previousViewBeforeProfile, setPreviousViewBeforeProfile] = useState('dashboard');
+  const [facultyProfileInitialTab, setFacultyProfileInitialTab] = useState('performance');
 
   const handleSelectDepartment = (deptName) => {
     setActiveView('dept-detail', deptName);
+  };
+
+  const handleSelectDepartmentPerformance = (deptName) => {
+    setActiveView('dept-performance', deptName);
   };
 
   const handleOpenFacultyProfile = (facultyObj) => {
@@ -198,6 +206,16 @@ const KanbanBoard = () => {
       setPreviousViewBeforeProfile(activeView);
     }
     setSelectedFacultyForProfile(facultyObj || user);
+    setFacultyProfileInitialTab('performance');
+    setActiveView('faculty-profile');
+  };
+
+  const handleOpenFacultyPerformance = (facultyObj) => {
+    if (activeView !== 'faculty-profile') {
+      setPreviousViewBeforeProfile(activeView);
+    }
+    setSelectedFacultyForProfile(facultyObj || user);
+    setFacultyProfileInitialTab('performance');
     setActiveView('faculty-profile');
   };
 
@@ -827,6 +845,7 @@ const KanbanBoard = () => {
               <Dashboard
                 onFacultyClick={handleFacultyClick}
                 onSelectDepartment={handleSelectDepartment}
+                onSelectDepartmentPerformance={handleSelectDepartmentPerformance}
                 onOpenFacultyProfile={handleOpenFacultyProfile}
               />
             )}
@@ -843,21 +862,36 @@ const KanbanBoard = () => {
             )}
 
             {activeView === 'dept-detail' && (
-              <DepartmentDetailPage departmentName={selectedDepartmentName} onBack={() => setActiveView('departments-overview')} onOpenFacultyProfile={handleOpenFacultyProfile} />
+              <DepartmentDetailPage
+                departmentName={selectedDepartmentName}
+                onBack={() => setActiveView('departments-overview')}
+                onOpenFacultyProfile={handleOpenFacultyProfile}
+                onOpenDepartmentPerformance={() => handleSelectDepartmentPerformance(selectedDepartmentName)}
+              />
+            )}
+
+            {activeView === 'dept-performance' && (
+              <DepartmentPerformanceDetails
+                departmentName={selectedDepartmentName}
+                onBack={() => setActiveView('dashboard')}
+                onOpenFacultyPerformance={handleOpenFacultyPerformance}
+                onOpenFacultyProfile={handleOpenFacultyProfile}
+              />
             )}
 
             {activeView === 'faculty-profile' && (
               <FacultyProfilePage
                 faculty={selectedFacultyForProfile || user}
                 targetUser={selectedFacultyForProfile || user}
+                initialTab={facultyProfileInitialTab}
                 onBack={() => {
                   const fallback = (user?.role === 'admin' || user?.role === 'hod') ? 'dashboard' : 'board';
-                  setActiveView(previousViewBeforeProfile || fallback);
+                  setActiveView(previousViewBeforeProfile || fallback, selectedDepartmentName);
                 }}
               />
             )}
 
-            {activeView !== 'dashboard' && activeView !== 'leaves' && activeView !== 'departments-overview' && activeView !== 'dept-detail' && activeView !== 'faculty-profile' && activeView !== 'chats' && activeView !== 'users' && activeView !== 'analytics' && activeView !== 'settings' && activeView !== 'departments' && activeView !== 'all-hods' && (
+            {activeView !== 'dashboard' && activeView !== 'leaves' && activeView !== 'departments-overview' && activeView !== 'dept-detail' && activeView !== 'dept-performance' && activeView !== 'faculty-profile' && activeView !== 'chats' && activeView !== 'users' && activeView !== 'analytics' && activeView !== 'settings' && activeView !== 'departments' && activeView !== 'all-hods' && (
               <>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 md:mb-6 gap-2 md:gap-3">
                   <div className="flex items-center gap-3">

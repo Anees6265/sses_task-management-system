@@ -23,7 +23,7 @@ import {
   FiAlertCircle
 } from 'react-icons/fi';
 
-const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) => {
+const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile, onOpenDepartmentPerformance }) => {
   const { user } = useContext(AuthContext);
   const { t } = useLanguage();
 
@@ -182,11 +182,22 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
           </div>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 flex items-center gap-4 relative z-10">
-          <div>
-            <p className="text-[10px] font-extrabold uppercase text-slate-300 tracking-wider">Total Department Staff</p>
-            <p className="text-2xl font-black text-white">{deptData?.totalFaculty || 0} Members</p>
+        <div className="flex flex-wrap items-center gap-3 relative z-10">
+          <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 flex items-center gap-4">
+            <div>
+              <p className="text-[10px] font-extrabold uppercase text-slate-300 tracking-wider">Total Department Staff</p>
+              <p className="text-2xl font-black text-white">{deptData?.totalFaculty || 0} Members</p>
+            </div>
           </div>
+          {onOpenDepartmentPerformance && (
+            <button
+              onClick={onOpenDepartmentPerformance}
+              className="px-4 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-2xl font-extrabold text-xs flex items-center gap-2 transition shadow-lg shadow-orange-500/20 active:scale-95"
+            >
+              <FiTrendingUp className="w-4 h-4" />
+              <span>Performance Details</span>
+            </button>
+          )}
         </div>
       </div>
 

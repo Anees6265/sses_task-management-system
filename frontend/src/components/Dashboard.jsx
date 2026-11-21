@@ -21,7 +21,7 @@ import {
   FiMessageSquare
 } from 'react-icons/fi';
 
-const Dashboard = ({ onFacultyClick, onSelectDepartment, onOpenFacultyProfile }) => {
+const Dashboard = ({ onFacultyClick, onSelectDepartment, onSelectDepartmentPerformance, onOpenFacultyProfile }) => {
   const [stats, setStats] = useState(null);
   const [attendanceData, setAttendanceData] = useState([]);
   const [leaves, setLeaves] = useState([]);
@@ -420,8 +420,15 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment, onOpenFacultyProfile })
               return (
                 <div 
                   key={dept._id} 
-                  onClick={() => onSelectDepartment && onSelectDepartment(dept._id)}
+                  onClick={() => {
+                    if (onSelectDepartmentPerformance) {
+                      onSelectDepartmentPerformance(dept._id);
+                    } else if (onSelectDepartment) {
+                      onSelectDepartment(dept._id, 'performance');
+                    }
+                  }}
                   className="glass-card glass-card-hover rounded-2xl p-5 border border-slate-200/80 hover:border-orange-500 cursor-pointer transition-all group shadow-sm hover:shadow-xl flex flex-col justify-between"
+                  title={`Click to view detailed performance for ${dept._id} Department`}
                 >
                   <div>
                     <div className="flex items-center justify-between mb-4 gap-3">

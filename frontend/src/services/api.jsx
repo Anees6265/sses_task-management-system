@@ -218,6 +218,7 @@ export const userAPI = {
   toggleUserStatus: (id, status) => api.patch(`/users/${id}/status`, { status }),
   getFacultyWorkload: (params) => api.get('/users/workload', { params }),
   getFacultyPerformance: (params) => api.get('/users/performance', { params }),
+  getFacultyPerformanceById: (id) => api.get(`/users/${id}/performance`),
   getFacultyTaskHistory: (id) => api.get(`/users/${id}/history`)
 };
 
@@ -237,8 +238,9 @@ export const departmentAPI = {
   toggleDepartmentStatus: (id, status) => api.patch(`/departments/${id}/status`, { status }),
   assignHOD: (id, hodId) => api.post(`/departments/${id}/assign-hod`, { hodId }),
   changeHOD: (id, newHodId) => api.post(`/departments/${id}/change-hod`, { newHodId }),
-  getDepartmentFaculty: (id) => api.get(`/departments/${id}/faculty`),
-  getDepartmentTaskStats: (id) => api.get(`/departments/${id}/tasks/stats`),
+  getDepartmentPerformance: (id) => api.get(`/departments/${encodeURIComponent(id)}/performance`),
+  getDepartmentFaculty: (id) => api.get(`/departments/${encodeURIComponent(id)}/faculty`),
+  getDepartmentTaskStats: (id) => api.get(`/departments/${encodeURIComponent(id)}/tasks/stats`),
   getAllHODs: (params) => api.get('/departments/hods/all', { params }),
   getActivityLogs: () => api.get('/departments/activity-logs')
 };

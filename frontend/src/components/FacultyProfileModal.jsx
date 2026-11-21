@@ -3,6 +3,7 @@ import { leaveAPI, taskAPI, userAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { toast } from 'react-toastify';
+import FacultyPerformanceOverview from './FacultyPerformanceOverview.jsx';
 import { 
   FiX, 
   FiUser, 
@@ -34,7 +35,7 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
   const [profileData, setProfileData] = useState(null);
   const [facultyLeaves, setFacultyLeaves] = useState([]);
   const [facultyTasks, setFacultyTasks] = useState([]);
-  const [activeTab, setActiveTab] = useState('leaves'); // 'leaves' | 'tasks'
+  const [activeTab, setActiveTab] = useState('performance'); // 'performance' | 'leaves' | 'tasks'
   const [statusFilter, setStatusFilter] = useState('all');
   const [reviewModal, setReviewModal] = useState(null); // { leave, action: 'approved' | 'rejected' }
   const [reviewComment, setReviewComment] = useState('');
@@ -685,11 +686,20 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
             </div>
           </div>
 
-          {/* NAVIGATION TABS (LEAVES vs TASKS) */}
-          <div className="flex border-b border-slate-200 gap-6">
+          {/* NAVIGATION TABS (PERFORMANCE vs LEAVES vs TASKS) */}
+          <div className="flex border-b border-slate-200 gap-6 overflow-x-auto">
+            <button
+              onClick={() => setActiveTab('performance')}
+              className={`pb-3 font-extrabold text-sm flex items-center gap-2 border-b-2 transition whitespace-nowrap ${
+                activeTab === 'performance' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <FiTrendingUp className="w-4 h-4" />
+              <span>Performance Overview</span>
+            </button>
             <button
               onClick={() => setActiveTab('leaves')}
-              className={`pb-3 font-extrabold text-sm flex items-center gap-2 border-b-2 transition ${
+              className={`pb-3 font-extrabold text-sm flex items-center gap-2 border-b-2 transition whitespace-nowrap ${
                 activeTab === 'leaves' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -698,7 +708,7 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
             </button>
             <button
               onClick={() => setActiveTab('tasks')}
-              className={`pb-3 font-extrabold text-sm flex items-center gap-2 border-b-2 transition ${
+              className={`pb-3 font-extrabold text-sm flex items-center gap-2 border-b-2 transition whitespace-nowrap ${
                 activeTab === 'tasks' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -706,6 +716,15 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
               <span>Assigned Department Tasks ({facultyTasks.length})</span>
             </button>
           </div>
+
+          {/* TAB 0: PERFORMANCE OVERVIEW */}
+          {activeTab === 'performance' && (
+            <FacultyPerformanceOverview
+              faculty={profileData || faculty || targetUser}
+              leaves={facultyLeaves}
+              onRefresh={fetchFacultyFullDetails}
+            />
+          )}
 
           {/* TAB 1: COMPLETE LEAVE HISTORY */}
           {activeTab === 'leaves' && (

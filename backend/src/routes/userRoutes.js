@@ -8,6 +8,7 @@ const {
   toggleUserStatus,
   getFacultyWorkload,
   getFacultyPerformance,
+  getSingleFacultyPerformance,
   getFacultyTaskHistory,
   assignFacultyDepartment,
   removeFacultyDepartment,
@@ -20,6 +21,7 @@ router.get('/', protect, getAllUsers);
 router.get('/workload', protect, getFacultyWorkload);
 router.get('/performance', protect, getFacultyPerformance);
 router.get('/unassigned', protect, getUnassignedFaculty);
+router.get('/:id/performance', protect, getSingleFacultyPerformance);
 router.get('/:id/history', protect, getFacultyTaskHistory);
 router.get('/:id', protect, getUserById);
 

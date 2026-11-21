@@ -11,6 +11,7 @@ const {
   changeHOD,
   getDepartmentFaculty,
   getDepartmentTaskStats,
+  getDepartmentPerformance,
   getAllHODs,
   getActivityLogs
 } = require('../controllers/departmentController');
@@ -24,6 +25,11 @@ router.get('/admin/all', protect, admin, getAdminDepartments);
 router.post('/', protect, admin, createDepartment);
 router.get('/hods/all', protect, admin, getAllHODs);
 router.get('/activity-logs', protect, admin, getActivityLogs);
+
+// Department Performance & Faculty details (Admin, or HOD for their department)
+router.get('/:id/performance', protect, getDepartmentPerformance);
+router.get('/:id/faculty', protect, getDepartmentFaculty);
+router.get('/:id/tasks/stats', protect, getDepartmentTaskStats);
 
 router.get('/:id', protect, admin, getDepartmentById);
 router.put('/:id', protect, admin, updateDepartment);

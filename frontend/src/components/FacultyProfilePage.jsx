@@ -3,6 +3,7 @@ import { leaveAPI, taskAPI, userAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { toast } from 'react-toastify';
+import FacultyPerformanceOverview from './FacultyPerformanceOverview.jsx';
 import { 
   FiArrowLeft, 
   FiUser, 
@@ -28,7 +29,7 @@ import {
   FiPieChart
 } from 'react-icons/fi';
 
-const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh }) => {
+const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh, initialTab }) => {
   const { user: currentUser } = useContext(AuthContext);
   const { t } = useLanguage();
 
@@ -36,7 +37,13 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
   const [profileData, setProfileData] = useState(null);
   const [facultyLeaves, setFacultyLeaves] = useState([]);
   const [facultyTasks, setFacultyTasks] = useState([]);
-  const [activeTab, setActiveTab] = useState('calendar'); // 'calendar' | 'history' | 'tasks'
+  const [activeTab, setActiveTab] = useState(initialTab || 'performance'); // 'performance' | 'calendar' | 'history' | 'tasks'
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [reviewModal, setReviewModal] = useState(null); // { leave, action: 'approved' | 'rejected' }
   const [reviewComment, setReviewComment] = useState('');
@@ -654,6 +661,15 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200 pb-4">
           <div className="flex border-b sm:border-b-0 border-slate-200 gap-4 overflow-x-auto w-full sm:w-auto">
             <button
+              onClick={() => setActiveTab('performance')}
+              className={`pb-2.5 font-extrabold text-sm flex items-center gap-2 border-b-2 transition whitespace-nowrap ${
+                activeTab === 'performance' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <FiTrendingUp className="w-4 h-4" />
+              <span>Performance Overview</span>
+            </button>
+            <button
               onClick={() => setActiveTab('calendar')}
               className={`pb-2.5 font-extrabold text-sm flex items-center gap-2 border-b-2 transition whitespace-nowrap ${
                 activeTab === 'calendar' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -682,6 +698,15 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
             </button>
           </div>
         </div>
+
+        {/* TAB 0: FACULTY PERFORMANCE OVERVIEW */}
+        {activeTab === 'performance' && (
+          <FacultyPerformanceOverview
+            faculty={profileData || faculty || targetUser}
+            leaves={facultyLeaves}
+            onRefresh={fetchFacultyFullDetails}
+          />
+        )}
 
         {/* TAB 1: 1 TO 30/31 DAY-BY-DAY LEAVE CALENDAR MATRIX */}
         {activeTab === 'calendar' && (

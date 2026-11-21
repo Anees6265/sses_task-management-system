@@ -1,7 +1,9 @@
+const mongoose = require('mongoose');
 const Department = require('../models/Department');
 const User = require('../models/User');
 const Task = require('../models/Task');
 const ActivityLog = require('../models/ActivityLog');
+const { demoUsers, demoTasks } = require('../utils/mockStore');
 
 // Helper to auto-seed existing department strings if Department collection is empty
 const autoSeedDepartments = async () => {
@@ -477,52 +479,150 @@ exports.changeHOD = async (req, res) => {
   }
 };
 
+// Helper to resolve Department by ObjectId, name, or code
+const resolveDepartment = async (idOrName) => {
+  if (!idOrName) return null;
+  const decoded = decodeURIComponent(idOrName).trim();
+
+  if (mongoose.connection.readyState === 1) {
+    if (mongoose.Types.ObjectId.isValid(decoded)) {
+      const byId = await Department.findById(decoded).populate('hod', 'name email phoneNumber role');
+      if (byId) return byId;
+    }
+    const escaped = decoded.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const byNameOrCode = await Department.findOne({
+      $or: [
+        { name: new RegExp(`^${escaped}$`, 'i') },
+        { code: new RegExp(`^${escaped}$`, 'i') }
+      ]
+    }).populate('hod', 'name email phoneNumber role');
+    if (byNameOrCode) return byNameOrCode;
+
+    // Check if user has this department
+    const userWithDept = await User.findOne({
+      department: new RegExp(`^${escaped}$`, 'i')
+    });
+    if (userWithDept) {
+      return {
+        _id: decoded,
+        name: userWithDept.department,
+        code: userWithDept.department.replace(/[^a-zA-Z0-9]/g, '').substring(0, 4).toUpperCase(),
+        description: `${userWithDept.department} Department`,
+        status: 'active'
+      };
+    }
+  }
+
+  // Fallback / mockStore
+  return {
+    _id: decoded,
+    name: decoded,
+    code: decoded.replace(/[^a-zA-Z0-9]/g, '').substring(0, 4).toUpperCase(),
+    description: `${decoded} Department`,
+    status: 'active'
+  };
+};
+
+// Check if user is allowed to access department performance
+const canAccessDepartment = (reqUser, deptName) => {
+  if (!reqUser) return false;
+  if (reqUser.role === 'admin') return true;
+  if (reqUser.role === 'hod') {
+    return (reqUser.department || '').trim().toLowerCase() === (deptName || '').trim().toLowerCase();
+  }
+  return false;
+};
+
 // 8. Get Department Faculty
 exports.getDepartmentFaculty = async (req, res) => {
   try {
     const { id } = req.params;
-    const department = await Department.findById(id);
+    const department = await resolveDepartment(id);
 
     if (!department) {
       return res.status(404).json({ message: 'Department not found' });
     }
 
-    const deptIdentifier = [department.name, department.code];
-    const faculty = await User.find({
-      role: 'user',
-      department: { $in: deptIdentifier }
-    }).select('-password');
+    if (!canAccessDepartment(req.user, department.name)) {
+      return res.status(403).json({ message: 'Access denied. You can only view faculty for your own department.' });
+    }
 
+    const deptIdentifier = [department.name, department.code].filter(Boolean);
     const now = new Date();
 
-    const facultyMetrics = await Promise.all(
-      faculty.map(async (fac) => {
-        const tasks = await Task.find({ assignedTo: fac._id });
+    if (mongoose.connection.readyState === 1) {
+      const faculty = await User.find({
+        role: 'user',
+        department: { $in: deptIdentifier }
+      }).select('-password');
+
+      const facultyMetrics = await Promise.all(
+        faculty.map(async (fac) => {
+          const tasks = await Task.find({ assignedTo: fac._id });
+          let totalTasks = tasks.length;
+          let completedTasks = 0;
+          let pendingTasks = 0;
+          let inprogressTasks = 0;
+          let overdueTasks = 0;
+
+          tasks.forEach(t => {
+            if (t.status === 'completed') completedTasks++;
+            else if (t.status === 'inprogress') {
+              inprogressTasks++;
+              pendingTasks++;
+            } else {
+              pendingTasks++;
+            }
+
+            if (t.dueDate && new Date(t.dueDate) < now && t.status !== 'completed') {
+              overdueTasks++;
+            }
+          });
+
+          const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+          return {
+            ...fac.toObject(),
+            totalTasks,
+            completedTasks,
+            pendingTasks,
+            inprogressTasks,
+            overdueTasks,
+            completionRate
+          };
+        })
+      );
+
+      return res.json(facultyMetrics);
+    } else {
+      const faculty = demoUsers.filter(u => 
+        u.role === 'user' && u.department && u.department.toLowerCase() === department.name.toLowerCase()
+      );
+
+      const facultyMetrics = faculty.map(fac => {
+        const tasks = demoTasks.filter(t => 
+          t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(fac._id))
+        );
         let totalTasks = tasks.length;
-        let completedTasks = 0;
-        let pendingTasks = 0;
-        let overdueTasks = 0;
-
-        tasks.forEach(t => {
-          if (t.status === 'completed') completedTasks++;
-          else pendingTasks++;
-
-          if (t.dueDate && new Date(t.dueDate) < now && t.status !== 'completed') {
-            overdueTasks++;
-          }
-        });
+        let completedTasks = tasks.filter(t => t.status === 'completed').length;
+        let inprogressTasks = tasks.filter(t => t.status === 'inprogress').length;
+        let pendingTasks = tasks.filter(t => t.status === 'todo').length;
+        let overdueTasks = tasks.filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < now).length;
+        let completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
         return {
-          ...fac.toObject(),
+          ...fac,
           totalTasks,
           completedTasks,
           pendingTasks,
-          overdueTasks
+          inprogressTasks,
+          overdueTasks,
+          completionRate
         };
-      })
-    );
+      });
 
-    res.json(facultyMetrics);
+      return res.json(facultyMetrics);
+    }
   } catch (error) {
     console.error('getDepartmentFaculty error:', error);
     res.status(500).json({ message: error.message });
@@ -533,56 +633,269 @@ exports.getDepartmentFaculty = async (req, res) => {
 exports.getDepartmentTaskStats = async (req, res) => {
   try {
     const { id } = req.params;
-    const department = await Department.findById(id);
+    const department = await resolveDepartment(id);
 
     if (!department) {
       return res.status(404).json({ message: 'Department not found' });
     }
 
-    const deptIdentifier = [department.name, department.code];
-    const tasks = await Task.find({ department: { $in: deptIdentifier } });
+    if (!canAccessDepartment(req.user, department.name)) {
+      return res.status(403).json({ message: 'Access denied. You can only view statistics for your own department.' });
+    }
+
+    const deptIdentifier = [department.name, department.code].filter(Boolean);
     const now = new Date();
 
-    let total = tasks.length;
-    let todo = 0;
-    let inprogress = 0;
-    let completed = 0;
-    let overdue = 0;
-    let high = 0;
-    let medium = 0;
-    let low = 0;
+    if (mongoose.connection.readyState === 1) {
+      const tasks = await Task.find({ department: { $in: deptIdentifier }, isPersonal: { $ne: true } });
 
-    tasks.forEach(t => {
-      if (t.status === 'todo') todo++;
-      else if (t.status === 'inprogress') inprogress++;
-      else if (t.status === 'completed') completed++;
+      let total = tasks.length;
+      let todo = 0;
+      let inprogress = 0;
+      let completed = 0;
+      let overdue = 0;
+      let high = 0;
+      let medium = 0;
+      let low = 0;
 
-      if (t.priority === 'high') high++;
-      else if (t.priority === 'medium') medium++;
-      else if (t.priority === 'low') low++;
+      tasks.forEach(t => {
+        if (t.status === 'todo') todo++;
+        else if (t.status === 'inprogress') inprogress++;
+        else if (t.status === 'completed') completed++;
 
-      if (t.dueDate && new Date(t.dueDate) < now && t.status !== 'completed') {
-        overdue++;
-      }
-    });
+        if (t.priority === 'high') high++;
+        else if (t.priority === 'medium') medium++;
+        else if (t.priority === 'low') low++;
 
-    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+        if (t.dueDate && new Date(t.dueDate) < now && t.status !== 'completed') {
+          overdue++;
+        }
+      });
 
-    res.json({
-      departmentName: department.name,
-      totalTasks: total,
-      todo,
-      inprogress,
-      completed,
-      pending: todo + inprogress,
-      overdue,
-      highPriority: high,
-      mediumPriority: medium,
-      lowPriority: low,
-      completionRate
-    });
+      const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+      return res.json({
+        departmentName: department.name,
+        totalTasks: total,
+        todo,
+        inprogress,
+        completed,
+        pending: todo,
+        overdue,
+        highPriority: high,
+        mediumPriority: medium,
+        lowPriority: low,
+        completionRate
+      });
+    } else {
+      const tasks = demoTasks.filter(t => 
+        t.department && t.department.toLowerCase() === department.name.toLowerCase() && !t.isPersonal
+      );
+      let total = tasks.length;
+      let todo = tasks.filter(t => t.status === 'todo').length;
+      let inprogress = tasks.filter(t => t.status === 'inprogress').length;
+      let completed = tasks.filter(t => t.status === 'completed').length;
+      let overdue = tasks.filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < now).length;
+      const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+      return res.json({
+        departmentName: department.name,
+        totalTasks: total,
+        todo,
+        inprogress,
+        completed,
+        pending: todo,
+        overdue,
+        completionRate
+      });
+    }
   } catch (error) {
     console.error('getDepartmentTaskStats error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// 9b. Detailed Department Performance Overview & Complete Faculty List
+exports.getDepartmentPerformance = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const department = await resolveDepartment(id);
+
+    if (!department) {
+      return res.status(404).json({ message: 'Department not found' });
+    }
+
+    if (!canAccessDepartment(req.user, department.name)) {
+      return res.status(403).json({ message: 'Access denied. You can only view performance for your own department.' });
+    }
+
+    const deptIdentifier = [department.name, department.code].filter(Boolean);
+    const now = new Date();
+
+    if (mongoose.connection.readyState === 1) {
+      // 1. Fetch tasks for this department
+      const tasks = await Task.find({
+        department: { $in: deptIdentifier },
+        isPersonal: { $ne: true }
+      }).populate('assignedTo', 'name email department role phoneNumber')
+        .populate('createdBy', 'name email department')
+        .sort({ createdAt: -1 });
+
+      const totalTasks = tasks.length;
+      let todoTasks = 0;
+      let inprogressTasks = 0;
+      let completedTasks = 0;
+      let overdueTasks = 0;
+
+      tasks.forEach(t => {
+        if (t.status === 'todo') todoTasks++;
+        else if (t.status === 'inprogress') inprogressTasks++;
+        else if (t.status === 'completed') completedTasks++;
+
+        if (t.dueDate && new Date(t.dueDate) < now && t.status !== 'completed') {
+          overdueTasks++;
+        }
+      });
+
+      const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+      // 2. Fetch all faculty members in this department
+      const facultyList = await User.find({
+        role: 'user',
+        department: { $in: deptIdentifier }
+      }).select('-password').sort({ name: 1 });
+
+      const facultyMetrics = facultyList.map((fac) => {
+        const facTasks = tasks.filter(t => {
+          if (!t.assignedTo) return false;
+          if (Array.isArray(t.assignedTo)) {
+            return t.assignedTo.some(u => String(u._id || u) === String(fac._id));
+          }
+          return String(t.assignedTo._id || t.assignedTo) === String(fac._id);
+        });
+
+        const facTotal = facTasks.length;
+        let facTodo = 0;
+        let facInProgress = 0;
+        let facCompleted = 0;
+        let facOverdue = 0;
+
+        facTasks.forEach(t => {
+          if (t.status === 'todo') facTodo++;
+          else if (t.status === 'inprogress') facInProgress++;
+          else if (t.status === 'completed') facCompleted++;
+
+          if (t.dueDate && new Date(t.dueDate) < now && t.status !== 'completed') {
+            facOverdue++;
+          }
+        });
+
+        const facCompletionRate = facTotal > 0 ? Math.round((facCompleted / facTotal) * 100) : 0;
+
+        return {
+          _id: fac._id,
+          name: fac.name,
+          email: fac.email,
+          role: fac.role,
+          department: fac.department,
+          phoneNumber: fac.phoneNumber || '',
+          status: fac.status || 'active',
+          profileImage: fac.profileImage || null,
+          totalTasks: facTotal,
+          pendingTasks: facTodo,
+          inprogressTasks: facInProgress,
+          completedTasks: facCompleted,
+          overdueTasks: facOverdue,
+          completionRate: facCompletionRate
+        };
+      });
+
+      return res.json({
+        department: {
+          _id: department._id,
+          name: department.name,
+          code: department.code,
+          description: department.description,
+          status: department.status,
+          hod: department.hod || null
+        },
+        taskOverview: {
+          totalTasks,
+          pendingTasks: todoTasks,
+          inprogressTasks,
+          completedTasks,
+          overdueTasks,
+          completionRate
+        },
+        faculty: facultyMetrics
+      });
+    } else {
+      // Mock Store Fallback
+      const deptTasks = demoTasks.filter(t => 
+        t.department && t.department.toLowerCase() === department.name.toLowerCase() && !t.isPersonal
+      );
+      const totalTasks = deptTasks.length;
+      const todoTasks = deptTasks.filter(t => t.status === 'todo').length;
+      const inprogressTasks = deptTasks.filter(t => t.status === 'inprogress').length;
+      const completedTasks = deptTasks.filter(t => t.status === 'completed').length;
+      const overdueTasks = deptTasks.filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < now).length;
+      const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+      const facultyList = demoUsers.filter(u => 
+        u.role === 'user' && u.department && u.department.toLowerCase() === department.name.toLowerCase()
+      );
+
+      const facultyMetrics = facultyList.map(fac => {
+        const facTasks = deptTasks.filter(t => 
+          t.assignedTo && t.assignedTo.some(u => String(u._id || u) === String(fac._id))
+        );
+        const facTotal = facTasks.length;
+        const facTodo = facTasks.filter(t => t.status === 'todo').length;
+        const facInProgress = facTasks.filter(t => t.status === 'inprogress').length;
+        const facCompleted = facTasks.filter(t => t.status === 'completed').length;
+        const facOverdue = facTasks.filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < now).length;
+        const facCompletionRate = facTotal > 0 ? Math.round((facCompleted / facTotal) * 100) : 0;
+
+        return {
+          _id: fac._id,
+          name: fac.name,
+          email: fac.email,
+          role: fac.role,
+          department: fac.department,
+          phoneNumber: fac.phoneNumber || '',
+          status: fac.status || 'active',
+          profileImage: null,
+          totalTasks: facTotal,
+          pendingTasks: facTodo,
+          inprogressTasks: facInProgress,
+          completedTasks: facCompleted,
+          overdueTasks: facOverdue,
+          completionRate: facCompletionRate
+        };
+      });
+
+      return res.json({
+        department: {
+          _id: department._id,
+          name: department.name,
+          code: department.code,
+          description: department.description,
+          status: department.status,
+          hod: department.hod || null
+        },
+        taskOverview: {
+          totalTasks,
+          pendingTasks: todoTasks,
+          inprogressTasks,
+          completedTasks,
+          overdueTasks,
+          completionRate
+        },
+        faculty: facultyMetrics
+      });
+    }
+  } catch (error) {
+    console.error('getDepartmentPerformance error:', error);
     res.status(500).json({ message: error.message });
   }
 };
