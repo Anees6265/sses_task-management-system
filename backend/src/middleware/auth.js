@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const { demoUsers } = require('../utils/mockStore');
 
+const JWT_SECRET = process.env.JWT_SECRET || 'sses_task_management_default_jwt_secret_dev_key';
+
 exports.protect = async (req, res, next) => {
   try {
     let token;
@@ -15,7 +17,7 @@ exports.protect = async (req, res, next) => {
       return res.status(401).json({ message: 'Not authorized, no token' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     
     if (mongoose.connection.readyState === 1) {
       try {

@@ -101,13 +101,14 @@ app.get('/', (req, res) => {
 
 // Socket.IO for real-time chat
 const onlineUsers = new Map();
+const JWT_SECRET = process.env.JWT_SECRET || 'sses_task_management_default_jwt_secret_dev_key';
 
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
   if (!token) return next(new Error('Authentication error'));
   
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     socket.userId = decoded.id;
     next();
   } catch (error) {
@@ -209,6 +210,7 @@ server.listen(PORT, HOST, () => {
   console.log(`Server running on http://${HOST}:${PORT}`);
   console.log(`Local access: http://localhost:${PORT}`);
   console.log(`Network access: http://172.19.16.1:${PORT}`);
-  console.log(`\n📧 Email Config: ${process.env.EMAIL_USER ? '✅ Configured' : '❌ Not Configured'}`);
+  console.log(`\n🔐 JWT Secret: ${process.env.JWT_SECRET ? '✅ Configured' : '⚠️ Using fallback dev secret (set JWT_SECRET in .env)'}`);
+  console.log(`📧 Email Config: ${process.env.EMAIL_USER ? '✅ Configured' : '❌ Not Configured'}`);
   console.log('💬 Socket.IO chat enabled');
 });
