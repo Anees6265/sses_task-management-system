@@ -27,6 +27,16 @@ const AllHODs = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   useEffect(() => {
     fetchHODs();
     fetchDepartmentsList();
+
+    const handleRefresh = (e) => {
+      const type = e?.detail?.type;
+      if (!type || type === 'all' || type === 'departments') {
+        fetchDepartmentsList();
+        fetchHODs();
+      }
+    };
+    window.addEventListener('app_data_refresh', handleRefresh);
+    return () => window.removeEventListener('app_data_refresh', handleRefresh);
   }, [deptFilter, statusFilter]);
 
   const fetchHODs = async () => {

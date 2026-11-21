@@ -19,6 +19,11 @@ const departmentSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
+  phoneNumber: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   status: {
     type: String,
     enum: ['active', 'inactive'],
