@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { leaveAPI, taskAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import Loader from './Loader.jsx';
 import { 
   FiBriefcase, 
   FiUsers, 
@@ -56,14 +57,7 @@ const DepartmentDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   );
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-bold text-sm">Loading Department Dashboard...</p>
-        </div>
-      </div>
-    );
+    return <Loader message="Loading Department Dashboard..." inline />;
   }
 
   const totalFacultyCount = roleFilteredAttendanceData.reduce((acc, d) => acc + d.totalFaculty, 0);
@@ -93,80 +87,81 @@ const DepartmentDashboard = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   return (
     <div className="space-y-6 fade-in pb-12">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-6 md:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
-        <div className="relative z-10">
-          <div className="flex items-center space-x-2 mb-1">
-            <span className="px-3 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-bold rounded-full uppercase tracking-wider border border-orange-500/30 flex items-center gap-1.5">
-              <FiBriefcase className="w-3.5 h-3.5" />
-              {isFaculty ? `${userDepartment} Portal` : 'Department Directory'}
-            </span>
+      <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 rounded-3xl p-4 sm:p-6 md:p-8 text-white shadow-lg shadow-orange-500/15 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="absolute -top-12 -right-12 w-48 h-48 bg-white/10 rounded-full blur-xl pointer-events-none" />
+        <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-white/10 rounded-full blur-xl pointer-events-none" />
+
+        <div className="relative z-10 space-y-1">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-bold uppercase tracking-wider mb-1">
+            <FiBriefcase className="w-3.5 h-3.5" />
+            <span>{isFaculty ? `${userDepartment} Portal` : 'Department Attendance Overview'}</span>
           </div>
-          <h2 className="text-2xl md:text-3xl font-extrabold flex items-center gap-3 tracking-tight">
-            <span>{isFaculty ? `${userDepartment || 'My'} Department Dashboard` : 'Department Dashboard'}</span>
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            {isFaculty ? `${userDepartment || 'My'} Department Attendance` : 'Department Attendance & Overview'}
           </h2>
-          <p className="text-xs md:text-sm text-slate-300 mt-1">
+          <p className="text-xs sm:text-sm text-orange-100 font-medium">
             {isFaculty 
-              ? `Overview of your department (${userDepartment}), faculty attendance & leave status` 
-              : 'Overview of all departments, daily faculty attendance ratios & leave request counts'}
+              ? `Daily faculty attendance and leave status for ${userDepartment}` 
+              : 'Overview of all academic departments, faculty presence ratios, and leaves'}
           </p>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-4 relative z-10">
+        <div className="bg-white/15 backdrop-blur-md px-5 py-3.5 rounded-2xl border border-white/20 flex items-center gap-4 relative z-10 self-start md:self-auto">
           <div>
-            <p className="text-[10px] font-extrabold uppercase text-slate-300 tracking-wider">
-              {isFaculty ? 'Department' : 'Total Departments'}
-            </p>
-            <p className="text-2xl font-black text-white">
-              {isFaculty ? userDepartment : `${roleFilteredAttendanceData.length} Active`}
+            <span className="text-[10px] font-bold uppercase text-orange-100 tracking-wider block">
+              {isFaculty ? 'Department' : 'Active Divisions'}
+            </span>
+            <p className="text-2xl font-black text-white mt-0.5">
+              {isFaculty ? userDepartment : `${roleFilteredAttendanceData.length} Departments`}
             </p>
           </div>
         </div>
       </div>
 
       {/* Summary Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-card rounded-3xl p-5 border border-slate-200/80">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-2">
-            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
-              <FiBriefcase className="w-6 h-6" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Departments</span>
+            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+              <FiBriefcase className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-extrabold text-indigo-500 uppercase">Departments</span>
           </div>
-          <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{attendanceData.length}</p>
-          <p className="text-xs font-semibold text-slate-500 mt-1">Total Active Departments</p>
+          <p className="text-2xl sm:text-3xl font-extrabold text-slate-800">{attendanceData.length}</p>
+          <p className="text-[11px] font-medium text-slate-400 mt-1">Total active academic units</p>
         </div>
 
-        <div className="glass-card rounded-3xl p-5 border border-slate-200/80">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-2">
-            <div className="p-3 bg-slate-100 text-slate-700 rounded-2xl">
-              <FiUsers className="w-6 h-6" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Faculty & Staff</span>
+            <div className="p-2 bg-slate-100 text-slate-700 rounded-xl">
+              <FiUsers className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-extrabold text-slate-400 uppercase">Staff</span>
           </div>
-          <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{totalFacultyCount}</p>
-          <p className="text-xs font-semibold text-slate-500 mt-1">Total Institute Faculties</p>
+          <p className="text-2xl sm:text-3xl font-extrabold text-slate-800">{totalFacultyCount}</p>
+          <p className="text-[11px] font-medium text-slate-400 mt-1">Total registered personnel</p>
         </div>
 
-        <div className="glass-card rounded-3xl p-5 border border-slate-200/80">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-2">
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
-              <FiUserCheck className="w-6 h-6" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Present Today</span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+              <FiUserCheck className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-extrabold text-emerald-500 uppercase">Present</span>
           </div>
-          <p className="text-2xl md:text-3xl font-extrabold text-emerald-600">{totalPresentCount}</p>
-          <p className="text-xs font-semibold text-slate-500 mt-1">Present Today Across Institute</p>
+          <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600">{totalPresentCount}</p>
+          <p className="text-[11px] font-medium text-slate-400 mt-1">Active on duty today</p>
         </div>
 
-        <div className="glass-card rounded-3xl p-5 border border-slate-200/80">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-2">
-            <div className="p-3 bg-rose-50 text-rose-600 rounded-2xl">
-              <FiUserX className="w-6 h-6" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">On Leave Today</span>
+            <div className="p-2 bg-rose-50 text-rose-600 rounded-xl">
+              <FiUserX className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-extrabold text-rose-500 uppercase">On Leave</span>
           </div>
-          <p className="text-2xl md:text-3xl font-extrabold text-rose-600">{totalAbsentCount}</p>
-          <p className="text-xs font-semibold text-slate-500 mt-1">On Leave Today Across Institute</p>
+          <p className="text-2xl sm:text-3xl font-extrabold text-rose-600">{totalAbsentCount}</p>
+          <p className="text-[11px] font-medium text-slate-400 mt-1">Authorized absence today</p>
         </div>
       </div>
 

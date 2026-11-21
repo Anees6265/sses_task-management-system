@@ -1,6 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { departmentAPI, userAPI } from '../services/api.jsx';
 import { toast } from 'react-toastify';
+import Loader from './Loader.jsx';
+import { 
+  FiBriefcase, 
+  FiUsers, 
+  FiPlus, 
+  FiEye, 
+  FiEdit3, 
+  FiUserCheck, 
+  FiPower, 
+  FiSearch, 
+  FiCheckCircle, 
+  FiShield, 
+  FiX, 
+  FiCheckSquare, 
+  FiAlertCircle,
+  FiClock
+} from 'react-icons/fi';
 
 const DepartmentManagement = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   const [departments, setDepartments] = useState([]);
@@ -168,49 +185,116 @@ const DepartmentManagement = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   );
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div>
-          <h2 className="text-xl md:text-3xl font-bold text-gray-800 flex items-center gap-2">
-            <span className="text-2xl md:text-4xl">🏛️</span>
-            <span>Department Management</span>
+    <div className="space-y-6 fade-in pb-12">
+      {/* Banner Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-4 sm:p-6 md:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
+        <div className="relative z-10 space-y-1.5">
+          <div className="flex items-center space-x-2 mb-1">
+            <span className="px-3 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-bold rounded-full uppercase tracking-wider border border-orange-500/30 flex items-center gap-1.5">
+              <FiBriefcase className="w-3.5 h-3.5" />
+              Sant Singaji Educational Society — Department Governance
+            </span>
+          </div>
+          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3">
+            <span>Academic Department Management</span>
           </h2>
-          <p className="text-xs md:text-sm text-gray-600 mt-1">
-            Manage academic and administrative departments, assign HODs, view faculty members, and monitor performance.
+          <p className="text-xs md:text-sm text-slate-300 max-w-2xl leading-relaxed">
+            Institutional divisions, appointed Heads of Department (HODs), allocated teaching faculty, and curricular deliverable milestones across all academic centers.
           </p>
         </div>
-        <button
-          onClick={handleOpenCreateModal}
-          className="px-4 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-amber-600 transition shadow-md flex items-center justify-center gap-2 text-sm md:text-base cursor-pointer"
-        >
-          <span>➕</span>
-          <span>Add Department</span>
-        </button>
+
+        <div className="relative z-10">
+          <button
+            onClick={handleOpenCreateModal}
+            className="px-5 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold rounded-2xl transition shadow-lg shadow-orange-500/30 flex items-center gap-2 text-xs md:text-sm active:scale-95 cursor-pointer"
+          >
+            <FiPlus className="w-4 h-4" />
+            <span>+ Register Academic Department</span>
+          </button>
+        </div>
       </div>
 
+      {/* Department Summary Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2.5 bg-orange-50 text-orange-600 rounded-2xl">
+              <FiBriefcase className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-extrabold text-orange-500 uppercase tracking-wider">Divisions</span>
+          </div>
+          <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{departments.length}</p>
+          <p className="text-xs font-semibold text-slate-500 mt-0.5">Total Departments</p>
+          <span className="text-[10px] text-slate-400">Institutional centers</span>
+        </div>
+
+        <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-2xl">
+              <FiCheckCircle className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-extrabold text-emerald-500 uppercase tracking-wider">Operational</span>
+          </div>
+          <p className="text-2xl md:text-3xl font-extrabold text-emerald-600">
+            {departments.filter(d => d.status === 'active').length}
+          </p>
+          <p className="text-xs font-semibold text-slate-500 mt-0.5">Active Academic Divisions</p>
+          <span className="text-[10px] text-slate-400">Functioning curricula</span>
+        </div>
+
+        <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2.5 bg-purple-50 text-purple-600 rounded-2xl">
+              <FiUserCheck className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-extrabold text-purple-500 uppercase tracking-wider">Leadership</span>
+          </div>
+          <p className="text-2xl md:text-3xl font-extrabold text-purple-600">
+            {departments.filter(d => d.hod).length}
+          </p>
+          <p className="text-xs font-semibold text-slate-500 mt-0.5">Appointed HODs</p>
+          <span className="text-[10px] text-slate-400">Department chairpersons</span>
+        </div>
+
+        <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl">
+              <FiUsers className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-extrabold text-blue-500 uppercase tracking-wider">Faculty</span>
+          </div>
+          <p className="text-2xl md:text-3xl font-extrabold text-blue-600">
+            {departments.reduce((acc, d) => acc + (d.totalFaculty || 0), 0)}
+          </p>
+          <p className="text-xs font-semibold text-slate-500 mt-0.5">Allocated Faculty</p>
+          <span className="text-[10px] text-slate-400">Teaching cadre</span>
+        </div>
+      </div>
+
+
       {/* Search & Filter Controls */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
+      <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="relative w-full md:w-96">
+          <FiSearch className="absolute left-3.5 top-3 text-slate-400 w-4 h-4" />
           <input
             type="text"
-            placeholder="🔍 Search department by name or code..."
+            placeholder="Search department title or code..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-3 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400"
+            className="w-full pl-10 pr-4 py-2 text-xs font-medium border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400"
           />
         </div>
 
         <div className="flex items-center gap-2 w-full md:w-auto">
-          <span className="text-xs md:text-sm font-medium text-gray-600">Status:</span>
+          <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Status Filter:</span>
           {['all', 'active', 'inactive'].map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium capitalize transition ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold capitalize transition ${
                 statusFilter === st
-                  ? 'bg-orange-500 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
               {st}
@@ -220,46 +304,43 @@ const DepartmentManagement = ({ onSelectDepartment, onOpenFacultyProfile }) => {
       </div>
 
       {/* Department Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-gray-500">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-500 mx-auto mb-3"></div>
-            <p className="text-sm">Loading departments...</p>
-          </div>
+          <Loader message="Loading Academic Departments..." inline />
         ) : filteredDepartments.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">
-            <p className="text-4xl mb-2">🏛️</p>
-            <p className="text-lg font-medium text-gray-600">No departments found</p>
-            <p className="text-xs text-gray-500 mt-1">Try changing your search or filter options.</p>
+          <div className="p-16 text-center text-slate-400">
+            <FiBriefcase className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+            <p className="text-sm font-bold text-slate-700">No Departments Found</p>
+            <p className="text-xs text-slate-400 mt-1">There are no academic departments matching your search query or status filter.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[850px] text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  <th className="py-3 px-4">Department</th>
-                  <th className="py-3 px-4">HOD</th>
-                  <th className="py-3 px-4 text-center">Faculty</th>
-                  <th className="py-3 px-4 text-center">Total Tasks</th>
-                  <th className="py-3 px-4 text-center">Completed</th>
-                  <th className="py-3 px-4 text-center">Pending</th>
-                  <th className="py-3 px-4 text-center">Overdue</th>
-                  <th className="py-3 px-4 text-center">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                <tr className="bg-slate-50/70 border-b border-slate-100 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
+                  <th className="py-3.5 px-4 rounded-l-2xl">Academic Department & Code</th>
+                  <th className="py-3.5 px-4">Appointed HOD</th>
+                  <th className="py-3.5 px-4 text-center">Faculty Strength</th>
+                  <th className="py-3.5 px-4 text-center">Total Tasks</th>
+                  <th className="py-3.5 px-4 text-center">Completed</th>
+                  <th className="py-3.5 px-4 text-center">Pending</th>
+                  <th className="py-3.5 px-4 text-center">Overdue</th>
+                  <th className="py-3.5 px-4 text-center">Operational Status</th>
+                  <th className="py-3.5 px-4 text-right rounded-r-2xl">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 text-sm">
+              <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
                 {filteredDepartments.map((dept) => (
-                  <tr key={dept._id} className="hover:bg-orange-50/40 transition">
-                    <td className="py-3.5 px-4 font-medium text-gray-800">
-                      <div className="flex items-center gap-2">
-                        <span className="bg-orange-100 text-orange-700 text-xs font-bold px-2 py-0.5 rounded">
+                  <tr key={dept._id} className="hover:bg-slate-50/80 transition">
+                    <td className="py-3.5 px-4 font-medium text-slate-800">
+                      <div className="flex items-center gap-3">
+                        <span className="bg-orange-100 text-orange-800 text-xs font-extrabold px-2.5 py-1 rounded-xl border border-orange-200">
                           {dept.code}
                         </span>
                         <div>
-                          <div className="font-semibold text-gray-900">{dept.name}</div>
+                          <div className="font-bold text-slate-900">{dept.name}</div>
                           {dept.description && (
-                            <div className="text-xs text-gray-500 truncate max-w-xs">{dept.description}</div>
+                            <div className="text-[11px] text-slate-400 truncate max-w-xs">{dept.description}</div>
                           )}
                         </div>
                       </div>
@@ -267,72 +348,74 @@ const DepartmentManagement = ({ onSelectDepartment, onOpenFacultyProfile }) => {
                     <td className="py-3.5 px-4">
                       {dept.hod ? (
                         <div>
-                          <span className="font-semibold text-gray-800 block text-xs md:text-sm">{dept.hod.name}</span>
-                          <span className="text-xs text-gray-500">{dept.hod.email}</span>
+                          <span className="font-bold text-slate-800 block text-xs">{dept.hod.name}</span>
+                          <span className="text-[11px] text-slate-400">{dept.hod.email}</span>
                         </div>
                       ) : (
-                        <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200">
-                          ⚠️ Unassigned
+                        <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-xl border border-amber-200 inline-flex items-center gap-1">
+                          <FiAlertCircle className="w-3 h-3 text-amber-500" /> Unassigned
                         </span>
                       )}
                     </td>
-                    <td className="py-3.5 px-4 text-center font-semibold text-gray-700">
+                    <td className="py-3.5 px-4 text-center font-bold text-slate-700">
                       {dept.totalFaculty || 0}
                     </td>
-                    <td className="py-3.5 px-4 text-center font-bold text-gray-800">
+                    <td className="py-3.5 px-4 text-center font-extrabold text-slate-900">
                       {dept.totalTasks || 0}
                     </td>
-                    <td className="py-3.5 px-4 text-center font-bold text-green-600">
+                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600">
                       {dept.completedTasks || 0}
                     </td>
-                    <td className="py-3.5 px-4 text-center font-bold text-orange-600">
+                    <td className="py-3.5 px-4 text-center font-bold text-amber-600">
                       {dept.pendingTasks || 0}
                     </td>
-                    <td className="py-3.5 px-4 text-center font-bold text-red-600">
+                    <td className="py-3.5 px-4 text-center font-black text-rose-600">
                       {dept.overdueTasks || 0}
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold inline-flex items-center gap-1 ${
                         dept.status === 'active'
-                          ? 'bg-green-100 text-green-700 border border-green-200'
-                          : 'bg-red-100 text-red-700 border border-red-200'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-rose-50 text-rose-700 border border-rose-200'
                       }`}>
-                        {dept.status === 'active' ? '● Active' : '○ Inactive'}
+                        {dept.status === 'active' ? <><FiCheckCircle className="w-3 h-3" /> Active</> : <><FiPower className="w-3 h-3" /> Inactive</>}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-right space-x-1">
-                      <button
-                        onClick={() => handleViewDetails(dept)}
-                        title="View Details"
-                        className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition"
-                      >
-                        👁️
-                      </button>
-                      <button
-                        onClick={() => handleOpenEditModal(dept)}
-                        title="Edit Department"
-                        className="p-1.5 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg transition"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={() => handleOpenHODModal(dept)}
-                        title={dept.hod ? 'Change HOD' : 'Assign HOD'}
-                        className="p-1.5 bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg transition"
-                      >
-                        👨‍💼
-                      </button>
-                      <button
-                        onClick={() => setStatusConfirmDept(dept)}
-                        title={dept.status === 'active' ? 'Deactivate Department' : 'Activate Department'}
-                        className={`p-1.5 rounded-lg transition ${
-                          dept.status === 'active'
-                            ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                            : 'bg-green-50 text-green-600 hover:bg-green-100'
-                        }`}
-                      >
-                        {dept.status === 'active' ? '🛑' : '✅'}
-                      </button>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleViewDetails(dept)}
+                          title="Inspect Department & Faculty Workloads"
+                          className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition"
+                        >
+                          <FiEye className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenEditModal(dept)}
+                          title="Edit Department Division"
+                          className="p-2 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-xl transition"
+                        >
+                          <FiEdit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenHODModal(dept)}
+                          title={dept.hod ? 'Reassign Department HOD' : 'Appoint Department HOD'}
+                          className="p-2 bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-xl transition"
+                        >
+                          <FiUserCheck className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setStatusConfirmDept(dept)}
+                          title={dept.status === 'active' ? 'Deactivate Department' : 'Activate Department'}
+                          className={`p-2 rounded-xl transition ${
+                            dept.status === 'active'
+                              ? 'bg-rose-50 text-rose-600 hover:bg-rose-100'
+                              : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                          }`}
+                        >
+                          <FiPower className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -574,10 +657,7 @@ const DepartmentManagement = ({ onSelectDepartment, onOpenFacultyProfile }) => {
             </div>
 
             {detailsLoading ? (
-              <div className="p-8 text-center text-gray-500">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-2"></div>
-                <p className="text-xs">Loading department analytics...</p>
-              </div>
+              <Loader message="Loading Department Analytics..." inline />
             ) : (
               <div className="space-y-6">
                 {/* Tabs */}

@@ -3,7 +3,9 @@ import { leaveAPI, taskAPI, userAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { toast } from 'react-toastify';
+import { notifyDataRefresh } from '../utils/eventBus.js';
 import FacultyProfileModal from './FacultyProfileModal.jsx';
+import Loader from './Loader.jsx';
 import { 
   FiArrowLeft, 
   FiBriefcase, 
@@ -41,6 +43,14 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
 
   useEffect(() => {
     fetchDepartmentDetail();
+
+    const handleRefresh = () => {
+      fetchDepartmentDetail();
+    };
+    window.addEventListener('app_data_refresh', handleRefresh);
+    return () => {
+      window.removeEventListener('app_data_refresh', handleRefresh);
+    };
   }, [departmentName, user]);
 
   const fetchDepartmentDetail = async () => {
@@ -102,6 +112,7 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
         reviewComment: reviewComment.trim()
       });
       toast.success(`Leave request ${reviewModal.action} successfully!`);
+      notifyDataRefresh('leaves');
       setReviewModal(null);
       setReviewComment('');
       fetchDepartmentDetail();
@@ -145,20 +156,13 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-bold text-sm">Loading Department Details...</p>
-        </div>
-      </div>
-    );
+    return <Loader message="Loading Department Details..." inline />;
   }
 
   return (
     <div className="space-y-6 fade-in pb-12">
       {/* Header Banner with Back Button */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-6 md:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-4 sm:p-6 md:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
         <div className="relative z-10 space-y-2">
           <button
             onClick={onBack}
@@ -191,7 +195,7 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
       </div>
 
       {/* Overview Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="glass-card rounded-3xl p-5 border border-slate-200/80">
           <div className="flex items-center justify-between mb-2">
             <div className="p-3 bg-slate-100 text-slate-700 rounded-2xl">
@@ -338,7 +342,7 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
 
             <div className="overflow-x-auto">
               {deptData?.presentList && deptData.presentList.length > 0 ? (
-                <table className="w-full text-left border-collapse">
+                <table className="w-full min-w-[500px] text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
                       <th className="p-3 rounded-l-xl">Faculty</th>

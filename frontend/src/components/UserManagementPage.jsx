@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { userAPI, departmentAPI } from '../services/api.jsx';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
+import { userAPI, departmentAPI, taskAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { toast } from 'react-toastify';
+import { notifyDataRefresh } from '../utils/eventBus.js';
+import Loader from './Loader.jsx';
 import { 
   FiUsers, 
   FiSearch, 
@@ -22,11 +24,12 @@ import {
   FiClock,
   FiAlertTriangle,
   FiCheckSquare,
-  FiTrash2,
   FiPower,
   FiUserMinus,
   FiBarChart2,
-  FiTrendingUp
+  FiTrendingUp,
+  FiArrowRight,
+  FiLayers
 } from 'react-icons/fi';
 import { 
   validateEmail, 
@@ -36,19 +39,21 @@ import {
   formatPhoneInput 
 } from '../utils/validation.js';
 
-const UserManagementPage = ({ onOpenFacultyProfile }) => {
+const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
   const { user } = useContext(AuthContext);
+
   const [users, setUsers] = useState([]);
+  const [tasksList, setTasksList] = useState([]);
   const [unassignedUsers, setUnassignedUsers] = useState([]);
-  const [workloadData, setWorkloadData] = useState([]);
-  const [performanceData, setPerformanceData] = useState([]);
   const [departments, setDepartments] = useState(['Computer Science', 'Information Technology', 'Management', 'Electronics & Comm.']);
   const [loading, setLoading] = useState(true);
+
+  // Filters & Tabs
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('directory'); // 'directory' | 'workload' | 'performance'
-  
+
   // Modals
   const [selectedUserForDeptChange, setSelectedUserForDeptChange] = useState(null);
   const [targetDepartment, setTargetDepartment] = useState('');
@@ -56,20 +61,20 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
   const [customDeptName, setCustomDeptName] = useState('');
   const [updating, setUpdating] = useState(false);
 
-  // Edit Faculty Modal (HOD / Admin)
+  // Edit Faculty Modal
   const [editingFaculty, setEditingFaculty] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', email: '', phoneNumber: '' });
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // Assign Unassigned Faculty Modal (HOD / Admin)
+  // Assign Faculty Modal
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [selectedUnassignedUser, setSelectedUnassignedUser] = useState('');
   const [assigning, setAssigning] = useState(false);
 
-  // Status Change Confirmation Dialog
+  // Status Change Dialog
   const [statusConfirmUser, setStatusConfirmUser] = useState(null);
 
-  // Remove Faculty Confirmation Dialog
+  // Remove Faculty Dialog
   const [removeConfirmUser, setRemoveConfirmUser] = useState(null);
 
   // Create User Modal (Admin only)
@@ -86,23 +91,59 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
   const [customCreateDeptName, setCustomCreateDeptName] = useState('');
   const [creatingUser, setCreatingUser] = useState(false);
 
+  const isAdmin = user?.role === 'admin';
+  const isHOD = user?.role === 'hod';
+
   useEffect(() => {
-    fetchUsersData();
-    fetchDepartmentsData();
-    fetchWorkloadAndPerformance();
-    fetchUnassigned();
+    fetchInitialData(true);
+
+    const handleRefresh = (e) => {
+      const type = e.detail?.type;
+      if (type === 'tasks' || type === 'all') {
+        fetchTasksData();
+      }
+      if (type === 'users' || type === 'all') {
+        fetchUsersData();
+      }
+    };
+
+    window.addEventListener('app_data_refresh', handleRefresh);
+    return () => window.removeEventListener('app_data_refresh', handleRefresh);
   }, []);
 
+  const fetchInitialData = async (showLoader = false) => {
+    if (showLoader) setLoading(true);
+    try {
+      await Promise.all([
+        fetchUsersData(),
+        fetchTasksData(),
+        fetchDepartmentsData(),
+        fetchUnassigned()
+      ]);
+    } catch (error) {
+      console.error('Error fetching directory data:', error);
+    } finally {
+      if (showLoader) setLoading(false);
+    }
+  };
+
   const fetchUsersData = async () => {
-    setLoading(true);
     try {
       const { data } = await userAPI.getAllUsers();
       setUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to load user directory');
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const fetchTasksData = async () => {
+    try {
+      const { data } = await taskAPI.getTasks();
+      const rawTasks = Array.isArray(data) ? data : (data?.data || []);
+      setTasksList(rawTasks);
+    } catch (error) {
+      console.error('Error fetching tasks for workload calculation:', error);
     }
   };
 
@@ -118,19 +159,6 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
     }
   };
 
-  const fetchWorkloadAndPerformance = async () => {
-    try {
-      const [wlRes, perfRes] = await Promise.all([
-        userAPI.getFacultyWorkload(),
-        userAPI.getFacultyPerformance()
-      ]);
-      setWorkloadData(wlRes.data || []);
-      setPerformanceData(perfRes.data || []);
-    } catch (error) {
-      console.error('Error fetching workload/performance:', error);
-    }
-  };
-
   const fetchUnassigned = async () => {
     try {
       const { data } = await userAPI.getUnassignedFaculty();
@@ -140,7 +168,118 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
     }
   };
 
-  // Edit Faculty Handler
+  // Helper to calculate exact task-based workload for any user
+  const getUserTaskMetrics = useMemo(() => {
+    const now = new Date();
+    const map = new Map();
+
+    users.forEach(u => {
+      const userIdStr = String(u._id || '');
+      const userEmail = (u.email || '').trim().toLowerCase();
+
+      const userTasks = tasksList.filter(t => {
+        if (!t.assignedTo) return false;
+        if (Array.isArray(t.assignedTo)) {
+          return t.assignedTo.some(assignee => {
+            const aId = String(assignee._id || assignee || '');
+            const aEmail = (assignee?.email || '').trim().toLowerCase();
+            return (userIdStr && aId === userIdStr) || (userEmail && aEmail && aEmail === userEmail);
+          });
+        }
+        const aId = String(t.assignedTo._id || t.assignedTo || '');
+        const aEmail = (t.assignedTo?.email || '').trim().toLowerCase();
+        return (userIdStr && aId === userIdStr) || (userEmail && aEmail && aEmail === userEmail);
+      });
+
+      const total = userTasks.length;
+      const todo = userTasks.filter(t => t.status === 'todo').length;
+      const inprogress = userTasks.filter(t => t.status === 'inprogress').length;
+      const completed = userTasks.filter(t => t.status === 'completed').length;
+      const active = todo + inprogress;
+      const overdue = userTasks.filter(t => t.status !== 'completed' && t.dueDate && new Date(t.dueDate) < now).length;
+      const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+      const isFullyCompleted = total > 0 && completed === total;
+
+      // On-time completion metric: calculate ONLY when tasks are 100% completed
+      let onTimeRate = null;
+      if (isFullyCompleted) {
+        const onTimeCompleted = userTasks.filter(t => {
+          if (!t.dueDate) return true;
+          const compDate = new Date(t.updatedAt || t.createdAt);
+          return compDate <= new Date(t.dueDate);
+        }).length;
+        onTimeRate = Math.round((onTimeCompleted / total) * 100);
+      }
+
+      // Workload Level calculation based on active tasks
+      let level = {
+        label: 'Available',
+        badge: 'bg-slate-100 text-slate-600 border-slate-200'
+      };
+
+      if (active > 6 || overdue > 1) {
+        level = {
+          label: 'Overloaded',
+          badge: 'bg-rose-50 text-rose-700 border-rose-200'
+        };
+      } else if (active >= 4) {
+        level = {
+          label: 'Heavy Load',
+          badge: 'bg-amber-50 text-amber-700 border-amber-200'
+        };
+      } else if (active >= 2) {
+        level = {
+          label: 'Moderate',
+          badge: 'bg-sky-50 text-sky-700 border-sky-200'
+        };
+      } else if (active === 1) {
+        level = {
+          label: 'Light Load',
+          badge: 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        };
+      }
+
+      map.set(userIdStr, {
+        total,
+        todo,
+        inprogress,
+        completed,
+        active,
+        overdue,
+        progress,
+        isFullyCompleted,
+        onTimeRate,
+        level,
+        tasks: userTasks
+      });
+    });
+
+    return map;
+  }, [users, tasksList]);
+
+  // Filtered Users List
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => {
+      const query = searchQuery.trim().toLowerCase();
+      const matchesSearch = !query || 
+        (u.name && u.name.toLowerCase().includes(query)) ||
+        (u.email && u.email.toLowerCase().includes(query)) ||
+        (u.department && u.department.toLowerCase().includes(query)) ||
+        (u.phoneNumber && u.phoneNumber.toLowerCase().includes(query));
+
+      const matchesDept = deptFilter === 'all' || u.department === deptFilter;
+      const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+
+      if (isHOD) {
+        const isSameDept = (u.department || '').trim().toLowerCase() === (user?.department || '').trim().toLowerCase();
+        return matchesSearch && matchesRole && isSameDept;
+      }
+
+      return matchesSearch && matchesDept && matchesRole;
+    });
+  }, [users, searchQuery, deptFilter, roleFilter, isHOD, user?.department]);
+
+  // Edit Faculty Handlers
   const handleOpenEditModal = (targetUser) => {
     setEditingFaculty(targetUser);
     setEditForm({
@@ -179,10 +318,9 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
         email: editForm.email.toLowerCase().trim(),
         phoneNumber: phoneCheck.formatted
       });
-      toast.success(`Faculty profile updated for ${data.name}`);
+      toast.success(`Profile updated for ${data.name}`);
       setEditingFaculty(null);
-      await fetchUsersData();
-      await fetchWorkloadAndPerformance();
+      await Promise.all([fetchUsersData(), fetchTasksData()]);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to update faculty profile');
     } finally {
@@ -190,17 +328,17 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
     }
   };
 
-  // Toggle Status Handler
+  // Status Change Handler
   const handleConfirmToggleStatus = async () => {
     if (!statusConfirmUser) return;
     const newStatus = statusConfirmUser.status === 'inactive' ? 'active' : 'inactive';
     try {
       await userAPI.toggleUserStatus(statusConfirmUser._id, newStatus);
-      toast.success(`Account status updated to ${newStatus} for ${statusConfirmUser.name}`);
+      toast.success(`Account status changed to ${newStatus} for ${statusConfirmUser.name}`);
       setStatusConfirmUser(null);
       await fetchUsersData();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update status');
+      toast.error(error.response?.data?.message || 'Failed to update account status');
     }
   };
 
@@ -215,12 +353,10 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
     try {
       const deptToAssign = user?.role === 'hod' ? user.department : (targetDepartment || departments[0]);
       await userAPI.assignFacultyDepartment(selectedUnassignedUser, deptToAssign);
-      toast.success(`Faculty assigned to ${deptToAssign} department`);
+      toast.success(`Faculty assigned to ${deptToAssign}`);
       setIsAssignModalOpen(false);
       setSelectedUnassignedUser('');
-      await fetchUsersData();
-      await fetchUnassigned();
-      await fetchWorkloadAndPerformance();
+      await Promise.all([fetchUsersData(), fetchUnassigned(), fetchTasksData()]);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to assign faculty');
     } finally {
@@ -235,9 +371,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
       await userAPI.removeFacultyDepartment(removeConfirmUser._id);
       toast.success(`Faculty member ${removeConfirmUser.name} removed from ${user?.department || 'department'}`);
       setRemoveConfirmUser(null);
-      await fetchUsersData();
-      await fetchUnassigned();
-      await fetchWorkloadAndPerformance();
+      await Promise.all([fetchUsersData(), fetchUnassigned(), fetchTasksData()]);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to remove faculty');
     }
@@ -266,8 +400,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
       await userAPI.updateUserDepartment(selectedUserForDeptChange._id, finalDept);
       toast.success(`Department updated to "${finalDept}" for ${selectedUserForDeptChange.name}`);
       setSelectedUserForDeptChange(null);
-      await fetchUsersData();
-      await fetchWorkloadAndPerformance();
+      await Promise.all([fetchUsersData(), fetchTasksData()]);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to update department');
     } finally {
@@ -275,6 +408,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
     }
   };
 
+  // Create User Handler (Admin Only)
   const handleCreateUserSubmit = async (e) => {
     e.preventDefault();
 
@@ -322,7 +456,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
       }
 
       await userAPI.createUser(payload);
-      toast.success(`User "${createUserForm.name}" created successfully!`);
+      toast.success(`Account for "${createUserForm.name}" created successfully!`);
 
       setIsCreateUserModalOpen(false);
       setCreateUserForm({
@@ -336,217 +470,301 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
       setIsCustomCreateDept(false);
       setCustomCreateDeptName('');
 
-      await fetchUsersData();
-      await fetchWorkloadAndPerformance();
+      await Promise.all([fetchUsersData(), fetchTasksData()]);
     } catch (error) {
       console.error('Error creating user:', error);
-      toast.error(error.response?.data?.message || 'Failed to create user');
+      toast.error(error.response?.data?.message || 'Failed to create user account');
     } finally {
       setCreatingUser(false);
     }
   };
 
-  const isAdmin = user?.role === 'admin';
-  const isHOD = user?.role === 'hod';
-
-  // Filtered Users List
-  const filteredUsers = users.filter(u => {
-    const matchesSearch = u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          u.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDept = deptFilter === 'all' || u.department === deptFilter;
-    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
-
-    if (isHOD) {
-      const isSameDept = (u.department || '').trim().toLowerCase() === (user?.department || '').trim().toLowerCase();
-      return matchesSearch && matchesRole && isSameDept;
-    }
-
-    return matchesSearch && matchesDept && matchesRole;
-  });
-
   const getRoleBadge = (role) => {
     switch (role) {
       case 'admin':
-        return <span className="px-3 py-1 bg-purple-100 text-purple-800 text-xs font-extrabold rounded-full flex items-center gap-1 border border-purple-300"><FiShield className="w-3 h-3" /> Admin</span>;
+        return (
+          <span className="px-2.5 py-0.5 bg-purple-50 text-purple-700 text-xs font-bold rounded-lg border border-purple-200 inline-flex items-center gap-1.5">
+            <FiShield className="w-3 h-3 text-purple-600" />
+            <span>Admin</span>
+          </span>
+        );
       case 'hod':
-        return <span className="px-3 py-1 bg-amber-100 text-amber-800 text-xs font-extrabold rounded-full flex items-center gap-1 border border-amber-300"><FiUserCheck className="w-3 h-3" /> HOD</span>;
+        return (
+          <span className="px-2.5 py-0.5 bg-amber-50 text-amber-800 text-xs font-bold rounded-lg border border-amber-200 inline-flex items-center gap-1.5">
+            <FiUserCheck className="w-3 h-3 text-amber-600" />
+            <span>HOD</span>
+          </span>
+        );
       default:
-        return <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-extrabold rounded-full flex items-center gap-1 border border-blue-300">Faculty</span>;
+        return (
+          <span className="px-2.5 py-0.5 bg-sky-50 text-sky-800 text-xs font-bold rounded-lg border border-sky-200 inline-flex items-center gap-1.5">
+            <FiUser className="w-3 h-3 text-sky-600" />
+            <span>Faculty</span>
+          </span>
+        );
     }
   };
 
   const getStatusBadge = (status) => {
     if (status === 'inactive') {
-      return <span className="px-2.5 py-0.5 bg-rose-100 text-rose-800 text-xs font-extrabold rounded-full border border-rose-300 inline-flex items-center gap-1"><FiPower className="w-3 h-3" /> Inactive</span>;
+      return (
+        <span className="px-2.5 py-0.5 bg-rose-50 text-rose-700 text-xs font-bold rounded-lg border border-rose-200 inline-flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+          <span>Inactive</span>
+        </span>
+      );
     }
-    return <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-extrabold rounded-full border border-emerald-300 inline-flex items-center gap-1"><FiCheckCircle className="w-3 h-3" /> Active</span>;
+    return (
+      <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-200 inline-flex items-center gap-1.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+        <span>Active</span>
+      </span>
+    );
   };
 
+  // Metrics summary
+  const totalFacultyCount = filteredUsers.length;
+  const regularFacultyCount = filteredUsers.filter(u => u.role === 'user').length;
+  const activeCount = filteredUsers.filter(u => u.status !== 'inactive').length;
+  
+  // Aggregate active tasks across filtered users
+  const totalActiveTasks = useMemo(() => {
+    return filteredUsers.reduce((acc, u) => {
+      const metrics = getUserTaskMetrics.get(String(u._id || ''));
+      return acc + (metrics?.active || 0);
+    }, 0);
+  }, [filteredUsers, getUserTaskMetrics]);
+
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-bold text-sm">Loading User Directory...</p>
-        </div>
-      </div>
-    );
+    return <Loader message="Loading Faculty Directory & Workload..." inline />;
   }
 
   return (
-    <div className="space-y-6 fade-in pb-12">
-      {/* Banner Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-6 md:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
-        <div className="relative z-10 space-y-1">
-          <div className="flex items-center space-x-2 mb-1">
-            <span className="px-3 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-bold rounded-full uppercase tracking-wider border border-orange-500/30 flex items-center gap-1.5">
-              <FiUsers className="w-3.5 h-3.5" />
-              {isAdmin ? 'Admin Control Center' : isHOD ? `${user?.department} Department Directory` : 'User Directory'}
-            </span>
+    <div className="space-y-6 fade-in pb-16">
+      {/* 1. HERO BANNER */}
+      <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 rounded-3xl p-4 sm:p-6 md:p-8 text-white shadow-xl shadow-orange-500/20 relative overflow-hidden">
+        {/* Decorative ambient blur */}
+        <div className="absolute -top-16 -right-16 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-amber-400/20 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-bold uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>{isAdmin ? 'Institutional Directory' : `${user?.department || 'Department'} Directory`}</span>
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
+              Faculty & Staff Directory
+            </h1>
+
+            <p className="text-xs sm:text-sm text-orange-100 font-medium max-w-xl">
+              {isHOD 
+                ? `Manage faculty appointments, task assignments, and active workloads for ${user?.department}.`
+                : 'Complete registry of all faculty members, department heads, and academic task workloads.'}
+            </p>
           </div>
-          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3">
-            <span>Faculty & User Management</span>
-          </h2>
-          <p className="text-xs md:text-sm text-slate-300">
-            {isHOD 
-              ? `Manage faculty members in ${user?.department} department, track workloads & performance metrics.`
-              : 'View all institution faculties & staff across departments. Reassign departments or create new user accounts.'}
-          </p>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="relative z-10 flex items-center gap-3">
-          {isHOD && (
-            <button
-              onClick={() => setIsAssignModalOpen(true)}
-              className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-extrabold rounded-2xl transition border border-white/20 flex items-center gap-2 text-xs md:text-sm backdrop-blur-md active:scale-95"
-            >
-              <FiUserPlus className="w-4 h-4 text-orange-400" />
-              <span>+ Assign Faculty</span>
-            </button>
-          )}
+          {/* Action Buttons in Banner */}
+          <div className="relative z-10 flex flex-wrap items-center gap-3">
+            {isHOD && (
+              <button
+                type="button"
+                onClick={() => setIsAssignModalOpen(true)}
+                className="px-4 py-2.5 bg-white text-orange-700 hover:bg-orange-50 font-extrabold rounded-2xl shadow-sm transition active:scale-95 flex items-center gap-2 text-xs sm:text-sm"
+              >
+                <FiUserPlus className="w-4 h-4" />
+                <span>+ Assign Faculty</span>
+              </button>
+            )}
 
-          {isAdmin && (
-            <button
-              onClick={() => setIsCreateUserModalOpen(true)}
-              className="px-5 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold rounded-2xl transition shadow-lg shadow-orange-500/30 flex items-center gap-2 text-xs md:text-sm active:scale-95"
-            >
-              <FiUserPlus className="w-4 h-4" />
-              <span>+ Create User</span>
-            </button>
-          )}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setIsCreateUserModalOpen(true)}
+                className="px-4 py-2.5 bg-white text-orange-700 hover:bg-orange-50 font-extrabold rounded-2xl shadow-sm transition active:scale-95 flex items-center gap-2 text-xs sm:text-sm"
+              >
+                <FiUserPlus className="w-4 h-4" />
+                <span>+ Add New Faculty</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Directory Stats Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
+      {/* 2. STATS OVERVIEW CARDS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Total Members */}
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition group">
           <div className="flex items-center justify-between mb-2">
-            <div className="p-2.5 bg-orange-50 text-orange-600 rounded-2xl">
-              <FiUsers className="w-5 h-5" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Members</span>
+            <div className="p-2 bg-orange-50 text-orange-600 rounded-xl group-hover:scale-110 transition-transform">
+              <FiUsers className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-extrabold text-orange-500 uppercase tracking-wider">Total</span>
           </div>
-          <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{filteredUsers.length}</p>
-          <p className="text-xs font-semibold text-slate-500 mt-0.5">Listed Users</p>
+          <p className="text-2xl sm:text-3xl font-black text-slate-800">{totalFacultyCount}</p>
+          <p className="text-[11px] font-semibold text-slate-500 mt-2">
+            Faculty in active view
+          </p>
+          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2.5 overflow-hidden">
+            <div className="bg-orange-500 h-full rounded-full w-full" />
+          </div>
         </div>
 
-        <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
+        {/* Teaching Faculty */}
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition group">
           <div className="flex items-center justify-between mb-2">
-            <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl">
-              <FiBriefcase className="w-5 h-5" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Teaching Faculty</span>
+            <div className="p-2 bg-sky-50 text-sky-600 rounded-xl group-hover:scale-110 transition-transform">
+              <FiUser className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-extrabold text-blue-500 uppercase tracking-wider">Faculty</span>
           </div>
-          <p className="text-2xl md:text-3xl font-extrabold text-blue-600">
-            {filteredUsers.filter(u => u.role === 'user').length}
+          <p className="text-2xl sm:text-3xl font-black text-sky-600">{regularFacultyCount}</p>
+          <p className="text-[11px] font-semibold text-slate-500 mt-2">
+            Course & task instructors
           </p>
-          <p className="text-xs font-semibold text-slate-500 mt-0.5">Faculty Members</p>
+          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2.5 overflow-hidden">
+            <div 
+              className="bg-sky-500 h-full rounded-full transition-all duration-500" 
+              style={{ width: `${totalFacultyCount > 0 ? (regularFacultyCount / totalFacultyCount) * 100 : 0}%` }}
+            />
+          </div>
         </div>
 
-        <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
+        {/* Active Task Workload */}
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition group">
           <div className="flex items-center justify-between mb-2">
-            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-2xl">
-              <FiUserCheck className="w-5 h-5" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Tasks</span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl group-hover:scale-110 transition-transform">
+              <FiCheckSquare className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-extrabold text-emerald-500 uppercase tracking-wider">Active</span>
           </div>
-          <p className="text-2xl md:text-3xl font-extrabold text-emerald-600">
-            {filteredUsers.filter(u => u.status !== 'inactive').length}
+          <p className="text-2xl sm:text-3xl font-black text-amber-600">{totalActiveTasks}</p>
+          <p className="text-[11px] font-semibold text-slate-500 mt-2">
+            Tasks in progress or to do
           </p>
-          <p className="text-xs font-semibold text-slate-500 mt-0.5">Active Accounts</p>
+          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2.5 overflow-hidden">
+            <div 
+              className="bg-amber-500 h-full rounded-full transition-all duration-500" 
+              style={{ width: `${Math.min(100, totalActiveTasks * 10)}%` }}
+            />
+          </div>
         </div>
 
-        <div className="glass-card glass-card-hover rounded-3xl p-5 border border-slate-200/80">
+        {/* Active Accounts */}
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition group">
           <div className="flex items-center justify-between mb-2">
-            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-2xl">
-              <FiBriefcase className="w-5 h-5" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Status</span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl group-hover:scale-110 transition-transform">
+              <FiCheckCircle className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-extrabold text-amber-500 uppercase tracking-wider">Dept</span>
           </div>
-          <p className="text-2xl md:text-3xl font-extrabold text-amber-600">
-            {isHOD ? user?.department : new Set(users.map(u => u.department)).size}
+          <p className="text-2xl sm:text-3xl font-black text-emerald-600">{activeCount}</p>
+          <p className="text-[11px] font-semibold text-emerald-700 mt-2">
+            {totalFacultyCount > 0 ? `${Math.round((activeCount / totalFacultyCount) * 100)}% accounts active` : '100% active'}
           </p>
-          <p className="text-xs font-semibold text-slate-500 mt-0.5">{isHOD ? 'My Department' : 'Active Depts'}</p>
+          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2.5 overflow-hidden">
+            <div 
+              className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+              style={{ width: `${totalFacultyCount > 0 ? (activeCount / totalFacultyCount) * 100 : 100}%` }}
+            />
+          </div>
         </div>
       </div>
 
-      {/* TABS NAVIGATION (Directory | Workload | Performance) */}
-      <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-          <div className="flex items-center gap-4 border-b md:border-b-0 border-slate-200 pb-2 md:pb-0">
+      {/* 3. MAIN DIRECTORY CONTAINER */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-xs border border-slate-200/80 space-y-5">
+        
+        {/* Navigation Tabs & Controls Bar */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          
+          {/* Tabs */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl max-w-full overflow-x-auto no-scrollbar">
             <button
+              type="button"
               onClick={() => setActiveTab('directory')}
-              className={`font-extrabold text-sm flex items-center gap-2 pb-2 md:pb-0 border-b-2 transition ${
-                activeTab === 'directory' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
+                activeTab === 'directory'
+                  ? 'bg-white text-orange-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <FiUsers className="w-4 h-4" />
+              <FiUsers className="w-3.5 h-3.5" />
               <span>Faculty Directory ({filteredUsers.length})</span>
             </button>
+
             {(isHOD || isAdmin) && (
               <>
                 <button
+                  type="button"
                   onClick={() => setActiveTab('workload')}
-                  className={`font-extrabold text-sm flex items-center gap-2 pb-2 md:pb-0 border-b-2 transition ${
-                    activeTab === 'workload' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
+                    activeTab === 'workload'
+                      ? 'bg-white text-orange-600 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  <FiBarChart2 className="w-4 h-4" />
-                  <span>Faculty Workload</span>
+                  <FiBarChart2 className="w-3.5 h-3.5" />
+                  <span>Workload Matrix</span>
                 </button>
+
                 <button
+                  type="button"
                   onClick={() => setActiveTab('performance')}
-                  className={`font-extrabold text-sm flex items-center gap-2 pb-2 md:pb-0 border-b-2 transition ${
-                    activeTab === 'performance' ? 'border-orange-500 text-orange-600' : 'border-transparent text-slate-500 hover:text-slate-800'
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ${
+                    activeTab === 'performance'
+                      ? 'bg-white text-orange-600 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  <FiTrendingUp className="w-4 h-4" />
-                  <span>Faculty Performance</span>
+                  <FiTrendingUp className="w-3.5 h-3.5" />
+                  <span>Task Performance</span>
                 </button>
               </>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Search & Filter Controls */}
+          <div className="flex flex-wrap items-center gap-2.5">
             {/* Search Input */}
-            <div className="relative w-full sm:w-56">
-              <FiSearch className="absolute left-3.5 top-3 text-slate-400 w-4 h-4" />
+            <div className="relative w-full sm:w-60">
+              <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Search name or email..."
+                placeholder="Search faculty or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-orange-400"
+                className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-orange-500 focus:outline-hidden"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <FiX className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
-            {/* Department Filter (Admin only) */}
+            {/* Role Filter */}
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-orange-500 focus:outline-hidden bg-white"
+            >
+              <option value="all">All Roles</option>
+              <option value="user">Faculty Only</option>
+              <option value="hod">HODs Only</option>
+              {isAdmin && <option value="admin">Admins Only</option>}
+            </select>
+
+            {/* Department Filter (Admin Only) */}
             {isAdmin && (
               <select
                 value={deptFilter}
                 onChange={(e) => setDeptFilter(e.target.value)}
-                className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-orange-400 bg-white"
+                className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-orange-500 focus:outline-hidden bg-white"
               >
                 <option value="all">All Departments</option>
                 {departments.map(d => (
@@ -557,223 +775,494 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
           </div>
         </div>
 
-        {/* TAB 1: FACULTY DIRECTORY TABLE */}
+        {/* ================= TAB 1: FACULTY DIRECTORY TABLE ================= */}
         {activeTab === 'directory' && (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-2xl border border-slate-200/80">
             {filteredUsers.length === 0 ? (
-              <div className="text-center py-16 text-slate-400">
-                <FiUsers className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                <p className="text-sm font-bold text-slate-700">No Faculty Found</p>
-                <p className="text-xs text-slate-400 mt-1">There are no records matching your criteria.</p>
+              <div className="text-center py-16 space-y-3">
+                <div className="w-14 h-14 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center mx-auto">
+                  <FiUsers className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">No Faculty Records Found</p>
+                  <p className="text-xs text-slate-400 mt-0.5 max-w-sm mx-auto">
+                    No faculty members match your active search or filters.
+                  </p>
+                </div>
+                {(searchQuery || deptFilter !== 'all' || roleFilter !== 'all') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setDeptFilter('all');
+                      setRoleFilter('all');
+                    }}
+                    className="px-4 py-2 bg-slate-100 hover:bg-orange-50 text-slate-700 hover:text-orange-600 rounded-xl text-xs font-bold transition"
+                  >
+                    Clear All Filters
+                  </button>
+                )}
               </div>
             ) : (
-              <table className="w-full text-left border-collapse">
+              <table className="w-full min-w-[720px] text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
-                    <th className="p-3.5 rounded-l-2xl">Faculty Member</th>
-                    <th className="p-3.5">Email / Phone</th>
-                    <th className="p-3.5">Role</th>
-                    <th className="p-3.5">Department</th>
-                    <th className="p-3.5">Status</th>
-                    <th className="p-3.5 text-right rounded-r-2xl">Actions</th>
+                  <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider font-extrabold text-slate-500 bg-slate-50/80">
+                    <th className="py-3.5 px-4">Faculty Member</th>
+                    <th className="py-3.5 px-4">Contact</th>
+                    <th className="py-3.5 px-4">Role</th>
+                    <th className="py-3.5 px-4">Department</th>
+                    <th className="py-3.5 px-4">Task Workload</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
-                  {filteredUsers.map((u) => (
-                    <tr key={u._id} className="hover:bg-slate-50/80 transition">
-                      <td 
-                        className="p-3.5 cursor-pointer group"
-                        onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(u)}
-                        title="Click to view full faculty profile"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 text-white font-black flex items-center justify-center text-xs shadow-sm group-hover:scale-105 transition">
-                            {u.name?.charAt(0).toUpperCase()}
+                <tbody className="divide-y divide-slate-100 text-xs sm:text-sm font-medium text-slate-700">
+                  {filteredUsers.map((u) => {
+                    const metrics = getUserTaskMetrics.get(String(u._id || '')) || {
+                      total: 0,
+                      todo: 0,
+                      inprogress: 0,
+                      completed: 0,
+                      active: 0,
+                      overdue: 0,
+                      progress: 0,
+                      level: { label: 'Available', badge: 'bg-slate-100 text-slate-600 border-slate-200' }
+                    };
+
+                    return (
+                      <tr key={u._id} className="hover:bg-orange-50/30 transition-colors">
+                        {/* Member Details */}
+                        <td 
+                          className="py-3.5 px-4 cursor-pointer group"
+                          onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(u)}
+                          title="Click to view full faculty profile"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 text-white font-black flex items-center justify-center text-xs shadow-xs group-hover:scale-105 transition-transform flex-shrink-0">
+                              {u.name?.charAt(0).toUpperCase() || 'F'}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-slate-900 group-hover:text-orange-600 transition capitalize truncate">
+                                {u.name}
+                              </p>
+                              <p className="text-[11px] text-slate-400">
+                                ID: {u._id ? String(u._id).slice(-6) : 'N/A'}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-bold text-slate-800 leading-tight group-hover:text-orange-600 transition capitalize">
-                              {u.name}
-                            </p>
-                            <p className="text-[11px] text-slate-400">ID: {u._id ? String(u._id).slice(-6) : 'N/A'}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-3.5">
-                        <p className="text-xs text-slate-700 font-semibold flex items-center gap-1.5">
-                          <FiMail className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{u.email}</span>
-                        </p>
-                        {u.phoneNumber && (
-                          <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5">
-                            <FiPhone className="w-3 h-3 text-slate-400" />
-                            <span>{u.phoneNumber}</span>
+                        </td>
+
+                        {/* Contact */}
+                        <td className="py-3.5 px-4">
+                          <p className="text-xs text-slate-700 font-medium flex items-center gap-1.5 truncate max-w-[200px]">
+                            <FiMail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            <span className="truncate">{u.email}</span>
                           </p>
-                        )}
-                      </td>
-                      <td className="p-3.5">{getRoleBadge(u.role)}</td>
-                      <td className="p-3.5">
-                        <span className="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 inline-flex items-center gap-1.5 capitalize">
-                          <FiBriefcase className="w-3 h-3 text-slate-400" />
-                          {u.department || 'Unassigned'}
-                        </span>
-                      </td>
-                      <td className="p-3.5">{getStatusBadge(u.status)}</td>
-                      <td className="p-3.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {/* HOD & Admin Edit Faculty */}
-                          {(isAdmin || (isHOD && u.role === 'user' && u.department === user?.department)) && (
-                            <button
-                              onClick={() => handleOpenEditModal(u)}
-                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1"
-                              title="Edit Faculty Details"
-                            >
-                              <FiEdit3 className="w-3.5 h-3.5" />
-                              <span>Edit</span>
-                            </button>
+                          {u.phoneNumber && (
+                            <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5">
+                              <FiPhone className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                              <span>{u.phoneNumber}</span>
+                            </p>
                           )}
+                        </td>
 
-                          {/* HOD & Admin Toggle Status */}
-                          {(isAdmin || (isHOD && u.role === 'user' && u.department === user?.department)) && (
+                        {/* Role Badge */}
+                        <td className="py-3.5 px-4">{getRoleBadge(u.role)}</td>
+
+                        {/* Department Badge */}
+                        <td className="py-3.5 px-4">
+                          <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg border border-slate-200 inline-flex items-center gap-1.5 capitalize">
+                            <FiBriefcase className="w-3 h-3 text-slate-400" />
+                            <span>{u.department || 'Unassigned'}</span>
+                          </span>
+                        </td>
+
+                        {/* Task-Based Workload Column */}
+                        <td className="py-3.5 px-4 min-w-[170px]">
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded-md border ${metrics.level.badge}`}>
+                                {metrics.level.label}
+                              </span>
+                              <span className="text-[11px] font-bold text-slate-600">
+                                {metrics.active} Active / {metrics.total} Total
+                              </span>
+                            </div>
+
+                            {/* Progress bar */}
+                            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                              <div 
+                                className="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full transition-all duration-300"
+                                style={{ width: `${metrics.progress}%` }}
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium">
+                              <span className="text-emerald-600 font-bold">{metrics.completed} Done</span>
+                              {metrics.overdue > 0 && (
+                                <span className="text-rose-600 font-bold">{metrics.overdue} Overdue</span>
+                              )}
+                              {onFacultyClick && metrics.total > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onFacultyClick(u._id);
+                                  }}
+                                  className="text-orange-600 hover:underline font-bold"
+                                >
+                                  View Tasks →
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-3.5 px-4">{getStatusBadge(u.status)}</td>
+
+                        {/* Action Buttons */}
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* Edit Faculty */}
+                            {(isAdmin || (isHOD && u.role === 'user' && u.department === user?.department)) && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(u)}
+                                className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+                                title="Edit Details"
+                              >
+                                <FiEdit3 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+
+                            {/* Change Department (Admin only) */}
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenChangeDeptModal(u)}
+                                className="p-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 transition"
+                                title="Change Department"
+                              >
+                                <FiBriefcase className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+
+                            {/* Toggle Account Status */}
+                            {(isAdmin || (isHOD && u.role === 'user' && u.department === user?.department)) && (
+                              <button
+                                type="button"
+                                onClick={() => setStatusConfirmUser(u)}
+                                className={`p-1.5 rounded-lg transition ${
+                                  u.status === 'inactive'
+                                    ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                    : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+                                }`}
+                                title={u.status === 'inactive' ? 'Activate Account' : 'Deactivate Account'}
+                              >
+                                <FiPower className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+
+                            {/* Remove from Dept (HOD only) */}
+                            {isHOD && u.role === 'user' && u.department === user?.department && (
+                              <button
+                                type="button"
+                                onClick={() => setRemoveConfirmUser(u)}
+                                className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition"
+                                title="Remove from Department"
+                              >
+                                <FiUserMinus className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+
+                            {/* Profile Chevron */}
                             <button
-                              onClick={() => setStatusConfirmUser(u)}
-                              className={`px-2 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
-                                u.status === 'inactive' 
-                                  ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200' 
-                                  : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
-                              }`}
-                              title={u.status === 'inactive' ? 'Activate Faculty Account' : 'Deactivate Faculty Account'}
+                              type="button"
+                              onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(u)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-orange-600 hover:bg-orange-50 transition"
+                              title="View Full Profile"
                             >
-                              <FiPower className="w-3.5 h-3.5" />
-                              <span>{u.status === 'inactive' ? 'Activate' : 'Deactivate'}</span>
+                              <FiChevronRight className="w-4 h-4" />
                             </button>
-                          )}
-
-                          {/* HOD Remove Faculty from Department */}
-                          {isHOD && u.role === 'user' && u.department === user?.department && (
-                            <button
-                              onClick={() => setRemoveConfirmUser(u)}
-                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition"
-                              title="Remove Faculty from Department"
-                            >
-                              <FiUserMinus className="w-4 h-4" />
-                            </button>
-                          )}
-
-                          {/* Admin Change Department */}
-                          {isAdmin && (
-                            <button
-                              onClick={() => handleOpenChangeDeptModal(u)}
-                              className="px-2.5 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-xl text-xs font-bold transition flex items-center gap-1"
-                              title="Change Department"
-                            >
-                              <FiBriefcase className="w-3.5 h-3.5" />
-                              <span>Dept</span>
-                            </button>
-                          )}
-
-                          <button
-                            onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(u)}
-                            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition"
-                            title="View Faculty Profile"
-                          >
-                            <FiChevronRight className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
           </div>
         )}
 
-        {/* TAB 2: FACULTY WORKLOAD TABLE */}
+        {/* ================= TAB 2: WORKLOAD MATRIX TABLE ================= */}
         {activeTab === 'workload' && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto rounded-2xl border border-slate-200/80">
+            <table className="w-full min-w-[800px] text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
-                  <th className="p-3.5 rounded-l-2xl">Faculty Member</th>
-                  <th className="p-3.5">Department</th>
-                  <th className="p-3.5">Total Tasks</th>
-                  <th className="p-3.5">Pending (To Do)</th>
-                  <th className="p-3.5">In Progress</th>
-                  <th className="p-3.5">Completed</th>
-                  <th className="p-3.5 text-right rounded-r-2xl">Overdue Tasks</th>
+                <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider font-extrabold text-slate-500 bg-slate-50/80">
+                  <th className="py-3.5 px-4">Faculty Member</th>
+                  <th className="py-3.5 px-4">Department</th>
+                  <th className="py-3.5 px-4">Workload Level</th>
+                  <th className="py-3.5 px-4">Total Tasks</th>
+                  <th className="py-3.5 px-4">To Do</th>
+                  <th className="py-3.5 px-4">In Progress</th>
+                  <th className="py-3.5 px-4">Completed</th>
+                  <th className="py-3.5 px-4">Completion Progress</th>
+                  <th className="py-3.5 px-4 text-right">Overdue Tasks</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
-                {workloadData.map((item) => (
-                  <tr key={item.faculty?._id} className="hover:bg-slate-50/80 transition">
-                    <td className="p-3.5 font-bold text-slate-800">{item.faculty?.name}</td>
-                    <td className="p-3.5 text-xs text-slate-600">{item.faculty?.department}</td>
-                    <td className="p-3.5 font-black text-slate-900">{item.workload?.totalTasks || 0}</td>
-                    <td className="p-3.5 font-bold text-indigo-600">{item.workload?.todoTasks || 0}</td>
-                    <td className="p-3.5 font-bold text-amber-600">{item.workload?.inprogressTasks || 0}</td>
-                    <td className="p-3.5 font-bold text-emerald-600">{item.workload?.completedTasks || 0}</td>
-                    <td className="p-3.5 text-right font-black text-rose-600">{item.workload?.overdueTasks || 0}</td>
+              <tbody className="divide-y divide-slate-100 text-xs sm:text-sm font-medium text-slate-700">
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan="9" className="text-center py-8 text-slate-400 text-xs">
+                      No workload data available.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredUsers.map((u) => {
+                    const metrics = getUserTaskMetrics.get(String(u._id || '')) || {
+                      total: 0,
+                      todo: 0,
+                      inprogress: 0,
+                      completed: 0,
+                      active: 0,
+                      overdue: 0,
+                      progress: 0,
+                      level: { label: 'Available', badge: 'bg-slate-100 text-slate-600 border-slate-200' }
+                    };
+
+                    return (
+                      <tr key={u._id} className="hover:bg-orange-50/30 transition-colors">
+                        {/* Member */}
+                        <td 
+                          className="py-3.5 px-4 cursor-pointer group"
+                          onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(u)}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-orange-500 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                              {u.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-800 group-hover:text-orange-600 transition capitalize">
+                                {u.name}
+                              </p>
+                              <p className="text-[11px] text-slate-400">{u.email}</p>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Department */}
+                        <td className="py-3.5 px-4 text-xs text-slate-600">
+                          {u.department || 'Unassigned'}
+                        </td>
+
+                        {/* Workload Level Badge */}
+                        <td className="py-3.5 px-4">
+                          <span className={`px-2.5 py-0.5 text-xs font-extrabold rounded-md border ${metrics.level.badge}`}>
+                            {metrics.level.label}
+                          </span>
+                        </td>
+
+                        {/* Total Tasks */}
+                        <td className="py-3.5 px-4 font-black text-slate-900">
+                          {metrics.total}
+                        </td>
+
+                        {/* To Do */}
+                        <td className="py-3.5 px-4 font-bold text-indigo-600">
+                          {metrics.todo}
+                        </td>
+
+                        {/* In Progress */}
+                        <td className="py-3.5 px-4 font-bold text-amber-600">
+                          {metrics.inprogress}
+                        </td>
+
+                        {/* Completed */}
+                        <td className="py-3.5 px-4 font-bold text-emerald-600">
+                          {metrics.completed}
+                        </td>
+
+                        {/* Progress Bar */}
+                        <td className="py-3.5 px-4 min-w-[130px]">
+                          <div className="space-y-1">
+                            <span className="text-[11px] font-bold text-slate-600">{metrics.progress}%</span>
+                            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                              <div 
+                                className="bg-gradient-to-r from-orange-500 to-amber-500 h-full rounded-full transition-all"
+                                style={{ width: `${metrics.progress}%` }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Overdue */}
+                        <td className="py-3.5 px-4 text-right">
+                          {metrics.overdue > 0 ? (
+                            <span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-md font-extrabold text-[11px]">
+                              {metrics.overdue} Overdue
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-xs">0 on track</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
         )}
 
-        {/* TAB 3: FACULTY PERFORMANCE METRICS TABLE */}
+        {/* ================= TAB 3: TASK PERFORMANCE TABLE ================= */}
         {activeTab === 'performance' && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto rounded-2xl border border-slate-200/80">
+            <table className="w-full min-w-[820px] text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wider font-extrabold text-slate-400 bg-slate-50/50">
-                  <th className="p-3.5 rounded-l-2xl">Faculty Member</th>
-                  <th className="p-3.5">Tasks Assigned</th>
-                  <th className="p-3.5">Tasks Completed</th>
-                  <th className="p-3.5">On-Time Completion</th>
-                  <th className="p-3.5">Overdue Tasks</th>
-                  <th className="p-3.5 text-right rounded-r-2xl">Avg Completion Time</th>
+                <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider font-extrabold text-slate-500 bg-slate-50/80">
+                  <th className="py-3.5 px-4">Faculty Member</th>
+                  <th className="py-3.5 px-4">Department</th>
+                  <th className="py-3.5 px-4">Assigned Tasks</th>
+                  <th className="py-3.5 px-4">Completed</th>
+                  <th className="py-3.5 px-4">Completion Rate</th>
+                  <th className="py-3.5 px-4">On-Time Rate</th>
+                  <th className="py-3.5 px-4">Overdue Tasks</th>
+                  <th className="py-3.5 px-4 text-right">Performance Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs md:text-sm font-medium text-slate-700">
-                {performanceData.map((item) => (
-                  <tr key={item.faculty?._id} className="hover:bg-slate-50/80 transition">
-                    <td className="p-3.5 font-bold text-slate-800">{item.faculty?.name}</td>
-                    <td className="p-3.5 font-black text-slate-900">{item.metrics?.totalTasks || 0}</td>
-                    <td className="p-3.5 font-bold text-emerald-600">{item.metrics?.completedTasks || 0}</td>
-                    <td className="p-3.5">
-                      <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 text-xs font-extrabold rounded-full border border-emerald-200">
-                        {item.metrics?.onTimeCompletionRate || 0}%
-                      </span>
-                    </td>
-                    <td className="p-3.5 font-bold text-rose-600">{item.metrics?.overdueTasks || 0}</td>
-                    <td className="p-3.5 text-right font-bold text-slate-700">
-                      {item.metrics?.avgCompletionTimeHours ? `${item.metrics.avgCompletionTimeHours} Hours` : 'N/A'}
+              <tbody className="divide-y divide-slate-100 text-xs sm:text-sm font-medium text-slate-700">
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="text-center py-8 text-slate-400 text-xs">
+                      No performance data recorded.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredUsers.map((u) => {
+                    const metrics = getUserTaskMetrics.get(String(u._id || '')) || {
+                      total: 0,
+                      todo: 0,
+                      inprogress: 0,
+                      completed: 0,
+                      active: 0,
+                      overdue: 0,
+                      progress: 0,
+                      isFullyCompleted: false,
+                      onTimeRate: null
+                    };
+
+                    let rating = 'On Track';
+                    let ratingBadge = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+
+                    if (metrics.overdue > 1 || (metrics.progress < 30 && metrics.total >= 4)) {
+                      rating = 'Needs Attention';
+                      ratingBadge = 'bg-rose-50 text-rose-800 border-rose-200';
+                    } else if (metrics.isFullyCompleted) {
+                      rating = (metrics.onTimeRate !== null && metrics.onTimeRate >= 80) ? 'High Performer' : 'Completed';
+                      ratingBadge = (metrics.onTimeRate !== null && metrics.onTimeRate >= 80) ? 'bg-purple-50 text-purple-800 border-purple-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200';
+                    } else if (metrics.total === 0) {
+                      rating = 'Unassigned';
+                      ratingBadge = 'bg-slate-100 text-slate-600 border-slate-200';
+                    }
+
+                    return (
+                      <tr key={u._id} className="hover:bg-orange-50/30 transition-colors">
+                        <td 
+                          className="py-3.5 px-4 cursor-pointer group"
+                          onClick={() => onOpenFacultyProfile && onOpenFacultyProfile(u)}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-orange-500 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                              {u.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-800 group-hover:text-orange-600 transition capitalize">
+                                {u.name}
+                              </p>
+                              <p className="text-[11px] text-slate-400">{u.email}</p>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 px-4 text-xs text-slate-600">
+                          {u.department || 'General'}
+                        </td>
+
+                        <td className="py-3.5 px-4 font-black text-slate-900">
+                          {metrics.total}
+                        </td>
+
+                        <td className="py-3.5 px-4 font-bold text-emerald-600">
+                          {metrics.completed}
+                        </td>
+
+                        <td className="py-3.5 px-4 font-bold text-slate-700">
+                          {metrics.progress}%
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          {metrics.isFullyCompleted && metrics.onTimeRate !== null ? (
+                            <span className={`px-2.5 py-0.5 text-xs font-extrabold rounded-lg border ${
+                              metrics.onTimeRate >= 80 
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                                : metrics.onTimeRate >= 50 
+                                ? 'bg-amber-50 text-amber-800 border-amber-200' 
+                                : 'bg-rose-50 text-rose-800 border-rose-200'
+                            }`}>
+                              {metrics.onTimeRate}%
+                            </span>
+                          ) : metrics.total > 0 ? (
+                            <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[11px] font-semibold rounded-lg border border-slate-200 inline-block" title="All tasks must be 100% completed to calculate On-Time Rate">
+                              In Progress
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-xs font-medium">—</span>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4 font-bold text-rose-600">
+                          {metrics.overdue}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right">
+                          <span className={`px-2.5 py-1 text-xs font-bold rounded-lg border ${ratingBadge}`}>
+                            {rating}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
         )}
+
       </div>
 
-      {/* EDIT FACULTY MODAL (HOD & Admin) */}
+      {/* ================= MODALS ================= */}
+
+      {/* EDIT FACULTY MODAL */}
       {editingFaculty && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in space-y-5">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-orange-100 text-orange-600 rounded-2xl">
                   <FiEdit3 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-extrabold text-slate-800">Edit Faculty Profile</h3>
-                  <p className="text-xs text-slate-500 font-semibold">Update faculty contact & details</p>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-800">Edit Faculty Profile</h3>
+                  <p className="text-xs text-slate-500">Update name, email, and contact info</p>
                 </div>
               </div>
               <button 
+                type="button"
                 onClick={() => setEditingFaculty(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition"
               >
                 <FiX className="w-5 h-5" />
               </button>
@@ -786,7 +1275,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                   type="text"
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:outline-hidden text-sm font-medium text-slate-800"
                   required
                 />
               </div>
@@ -799,10 +1288,10 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                   pattern="[a-zA-Z0-9._%+\-]+@ssism\.org"
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:outline-hidden text-sm font-medium text-slate-800"
                   required
                 />
-                <p className="text-[11px] text-slate-400 font-semibold mt-1">Must be an @ssism.org domain</p>
+                <p className="text-[11px] text-slate-400 mt-1">Must belong to @ssism.org domain</p>
               </div>
 
               <div>
@@ -813,23 +1302,23 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                   maxLength={15}
                   value={editForm.phoneNumber}
                   onChange={(e) => setEditForm({ ...editForm, phoneNumber: formatPhoneInput(e.target.value) })}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:outline-hidden text-sm font-medium text-slate-800"
                 />
-                <p className="text-[11px] text-slate-400 font-semibold mt-1">+91 country code & 10 digits (e.g. +91 9876543210)</p>
+                <p className="text-[11px] text-slate-400 mt-1">Include +91 country code (e.g. +91 9876543210)</p>
               </div>
 
               <div className="flex gap-3 pt-4 border-t border-slate-100">
                 <button
                   type="submit"
                   disabled={savingEdit}
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-sm disabled:opacity-50"
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-xs sm:text-sm disabled:opacity-50"
                 >
-                  {savingEdit ? 'Saving Changes...' : 'Save Profile Changes'}
+                  {savingEdit ? 'Saving...' : 'Save Profile Changes'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditingFaculty(null)}
-                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm"
                 >
                   Cancel
                 </button>
@@ -839,23 +1328,24 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
         </div>
       )}
 
-      {/* ASSIGN FACULTY TO DEPARTMENT MODAL (HOD / Admin) */}
+      {/* ASSIGN FACULTY MODAL (HOD / Admin) */}
       {isAssignModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in space-y-5">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-orange-100 text-orange-600 rounded-2xl">
                   <FiUserPlus className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-extrabold text-slate-800">Assign Faculty to Department</h3>
-                  <p className="text-xs text-slate-500 font-semibold">Assign available faculty to {user?.department || 'department'}</p>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-800">Assign Faculty</h3>
+                  <p className="text-xs text-slate-500">Assign faculty to {user?.department || 'department'}</p>
                 </div>
               </div>
               <button 
+                type="button"
                 onClick={() => setIsAssignModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition"
               >
                 <FiX className="w-5 h-5" />
               </button>
@@ -874,10 +1364,10 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                   <select
                     value={selectedUnassignedUser}
                     onChange={(e) => setSelectedUnassignedUser(e.target.value)}
-                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-bold text-slate-800 bg-white"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:outline-hidden text-sm font-bold text-slate-800 bg-white"
                     required
                   >
-                    <option value="">-- Select Faculty --</option>
+                    <option value="">-- Choose Faculty Member --</option>
                     {unassignedUsers.map(u => (
                       <option key={u._id} value={u._id}>{u.name} ({u.email})</option>
                     ))}
@@ -889,14 +1379,14 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                 <button
                   type="submit"
                   disabled={assigning || unassignedUsers.length === 0}
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-sm disabled:opacity-50"
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-xs sm:text-sm disabled:opacity-50"
                 >
                   {assigning ? 'Assigning...' : 'Assign to Department'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsAssignModalOpen(false)}
-                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm"
                 >
                   Cancel
                 </button>
@@ -908,31 +1398,40 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
 
       {/* STATUS TOGGLE CONFIRMATION DIALOG */}
       {statusConfirmUser && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in space-y-4">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto ${
               statusConfirmUser.status === 'inactive' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
             }`}>
               <FiPower className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-extrabold text-slate-800 mb-1 capitalize">
-              {statusConfirmUser.status === 'inactive' ? 'Activate' : 'Deactivate'} Faculty Account?
-            </h3>
-            <p className="text-xs text-slate-500 mb-6">
-              Are you sure you want to {statusConfirmUser.status === 'inactive' ? 'activate' : 'deactivate'} <span className="font-bold text-slate-700">{statusConfirmUser.name}</span>'s account?
-            </p>
-            <div className="flex gap-3">
+
+            <div>
+              <h3 className="text-base sm:text-lg font-extrabold text-slate-800 capitalize">
+                {statusConfirmUser.status === 'inactive' ? 'Activate' : 'Deactivate'} Account?
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Are you sure you want to {statusConfirmUser.status === 'inactive' ? 'activate' : 'deactivate'}{' '}
+                <span className="font-bold text-slate-700">{statusConfirmUser.name}</span>'s portal account?
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
               <button
+                type="button"
                 onClick={handleConfirmToggleStatus}
-                className={`flex-1 text-white py-2.5 rounded-xl font-bold text-sm shadow-md transition ${
-                  statusConfirmUser.status === 'inactive' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
+                className={`flex-1 text-white py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md transition ${
+                  statusConfirmUser.status === 'inactive' 
+                    ? 'bg-emerald-600 hover:bg-emerald-700' 
+                    : 'bg-rose-600 hover:bg-rose-700'
                 }`}
               >
                 Confirm {statusConfirmUser.status === 'inactive' ? 'Activation' : 'Deactivation'}
               </button>
               <button
+                type="button"
                 onClick={() => setStatusConfirmUser(null)}
-                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm"
               >
                 Cancel
               </button>
@@ -943,25 +1442,32 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
 
       {/* REMOVE FACULTY CONFIRMATION DIALOG */}
       {removeConfirmUser && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in">
-            <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in space-y-4">
+            <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto">
               <FiUserMinus className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-extrabold text-slate-800 mb-1">Remove Faculty from Department?</h3>
-            <p className="text-xs text-slate-500 mb-6">
-              Are you sure you want to remove <span className="font-bold text-slate-700">{removeConfirmUser.name}</span> from <span className="font-bold text-slate-700">{user?.department}</span>?
-            </p>
-            <div className="flex gap-3">
+
+            <div>
+              <h3 className="text-base sm:text-lg font-extrabold text-slate-800">Remove from Department?</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Remove <span className="font-bold text-slate-700">{removeConfirmUser.name}</span> from{' '}
+                <span className="font-bold text-slate-700">{user?.department}</span>?
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
               <button
+                type="button"
                 onClick={handleConfirmRemoveFaculty}
-                className="flex-1 bg-rose-600 text-white py-2.5 rounded-xl font-bold hover:bg-rose-700 transition text-sm shadow-md shadow-rose-600/20"
+                className="flex-1 bg-rose-600 text-white py-2.5 rounded-xl font-bold hover:bg-rose-700 transition text-xs sm:text-sm shadow-md shadow-rose-600/20"
               >
                 Confirm Removal
               </button>
               <button
+                type="button"
                 onClick={() => setRemoveConfirmUser(null)}
-                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm"
               >
                 Cancel
               </button>
@@ -970,34 +1476,35 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
         </div>
       )}
 
-      {/* Change Department Modal (Admin Only) */}
+      {/* CHANGE DEPARTMENT MODAL (Admin Only) */}
       {selectedUserForDeptChange && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in space-y-5">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div className="p-2.5 bg-orange-100 text-orange-600 rounded-2xl">
                   <FiBriefcase className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-extrabold text-slate-800">Change Faculty Department</h3>
-                  <p className="text-xs text-slate-500 font-semibold">Reassign user to a new department</p>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-800">Change Department</h3>
+                  <p className="text-xs text-slate-500">Reassign faculty to a new department</p>
                 </div>
               </div>
               <button 
+                type="button"
                 onClick={() => setSelectedUserForDeptChange(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition"
               >
                 <FiX className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveDepartmentChange} className="space-y-5">
+            <form onSubmit={handleSaveDepartmentChange} className="space-y-4">
               <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Target Faculty</p>
+                <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Faculty Member</p>
                 <p className="font-extrabold text-slate-800 text-sm mt-0.5">{selectedUserForDeptChange.name}</p>
                 <p className="text-xs text-slate-500">{selectedUserForDeptChange.email}</p>
-                <p className="text-xs font-bold text-orange-600 mt-1">Current Department: {selectedUserForDeptChange.department || 'Unassigned'}</p>
+                <p className="text-xs font-bold text-orange-600 mt-1">Current: {selectedUserForDeptChange.department || 'Unassigned'}</p>
               </div>
 
               <div>
@@ -1006,11 +1513,11 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                 </label>
                 
                 {!isCustomDept ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     <select
                       value={targetDepartment}
                       onChange={(e) => setTargetDepartment(e.target.value)}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-bold text-slate-800 bg-white"
+                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:outline-hidden text-sm font-bold text-slate-800 bg-white"
                     >
                       {departments.map((dept) => (
                         <option key={dept} value={dept}>{dept}</option>
@@ -1025,13 +1532,13 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     <input
                       type="text"
                       placeholder="Enter new department name"
                       value={customDeptName}
                       onChange={(e) => setCustomDeptName(e.target.value)}
-                      className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                      className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:outline-hidden text-sm font-medium text-slate-800"
                       required
                     />
                     <button
@@ -1039,7 +1546,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                       onClick={() => setIsCustomDept(false)}
                       className="text-xs text-slate-500 font-bold hover:underline block"
                     >
-                      ← Select from existing departments list
+                      ← Choose from existing departments
                     </button>
                   </div>
                 )}
@@ -1049,14 +1556,14 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                 <button
                   type="submit"
                   disabled={updating}
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-sm disabled:opacity-50"
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-xs sm:text-sm disabled:opacity-50"
                 >
-                  {updating ? 'Saving Changes...' : 'Save Department Change'}
+                  {updating ? 'Saving...' : 'Save Department'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedUserForDeptChange(null)}
-                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm"
                 >
                   Cancel
                 </button>
@@ -1066,23 +1573,24 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
         </div>
       )}
 
-      {/* Create User Modal (Admin Only) */}
+      {/* CREATE USER MODAL (Admin Only) */}
       {isCreateUserModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-lg shadow-2xl my-auto border border-slate-100 fade-in max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-lg shadow-2xl my-auto border border-slate-100 fade-in max-h-[90vh] overflow-y-auto space-y-5">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-orange-100 text-orange-600 rounded-2xl">
                   <FiUserPlus className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg md:text-xl font-extrabold text-slate-800">Create User Account</h3>
-                  <p className="text-xs text-slate-500 font-semibold">Add a new Faculty, HOD, or Admin to SSES</p>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-800">Register New Member</h3>
+                  <p className="text-xs text-slate-500">Create login credentials and assign role</p>
                 </div>
               </div>
               <button 
+                type="button"
                 onClick={() => setIsCreateUserModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition"
               >
                 <FiX className="w-5 h-5" />
               </button>
@@ -1092,11 +1600,11 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Full Name *</label>
                 <div className="relative">
-                  <FiUser className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
+                  <FiUser className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                   <input
                     type="text"
-                    placeholder="Full Name (e.g. Prof. Amit Sharma)"
-                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                    placeholder="e.g. Dr. Rajesh Verma / Prof. Amit Sharma"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:outline-hidden text-sm font-medium text-slate-800"
                     value={createUserForm.name}
                     onChange={(e) => setCreateUserForm({ ...createUserForm, name: e.target.value })}
                     required
@@ -1107,28 +1615,28 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Email Address *</label>
                 <div className="relative">
-                  <FiMail className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
+                  <FiMail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                   <input
                     type="email"
-                    placeholder="user@ssism.org"
+                    placeholder="faculty.name@ssism.org"
                     pattern="[a-zA-Z0-9._%+\-]+@ssism\.org"
-                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:outline-hidden text-sm font-medium text-slate-800"
                     value={createUserForm.email}
                     onChange={(e) => setCreateUserForm({ ...createUserForm, email: e.target.value })}
                     required
                   />
                 </div>
-                <p className="text-[11px] text-slate-400 font-semibold mt-1">Must be an @ssism.org email domain</p>
+                <p className="text-[11px] text-slate-400 mt-1">Must belong to @ssism.org domain</p>
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Password *</label>
                 <div className="relative">
-                  <FiLock className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
+                  <FiLock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                   <input
                     type="password"
-                    placeholder="Password (8-18 characters)"
-                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                    placeholder="8-18 characters"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:outline-hidden text-sm font-medium text-slate-800"
                     value={createUserForm.password}
                     onChange={(e) => setCreateUserForm({ ...createUserForm, password: e.target.value })}
                     required
@@ -1136,19 +1644,19 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                     maxLength={18}
                   />
                 </div>
-                <p className="text-[11px] text-slate-400 font-semibold mt-1">Must be 8 to 18 characters</p>
+                <p className="text-[11px] text-slate-400 mt-1">Minimum 8 characters</p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">User Role *</label>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Role *</label>
                 <select
                   value={createUserForm.role}
                   onChange={(e) => setCreateUserForm({ ...createUserForm, role: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-bold text-slate-800 bg-white"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:outline-hidden text-sm font-bold text-slate-800 bg-white"
                 >
-                  <option value="user">Faculty (user)</option>
-                  <option value="hod">Head of Department (hod)</option>
-                  <option value="admin">System Administrator (admin)</option>
+                  <option value="user">Teaching Faculty</option>
+                  <option value="hod">Head of Department (HOD)</option>
+                  <option value="admin">System Administrator</option>
                 </select>
               </div>
 
@@ -1160,7 +1668,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                       <select
                         value={createUserForm.department}
                         onChange={(e) => setCreateUserForm({ ...createUserForm, department: e.target.value })}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-bold text-slate-800 bg-white"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:outline-hidden text-sm font-bold text-slate-800 bg-white"
                       >
                         {departments.map((dept) => (
                           <option key={dept} value={dept}>{dept}</option>
@@ -1171,17 +1679,17 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                         onClick={() => setIsCustomCreateDept(true)}
                         className="text-xs text-orange-600 font-extrabold hover:underline block"
                       >
-                        + Add Custom Department Name
+                        + Define New Department
                       </button>
                     </div>
                   ) : (
                     <div className="space-y-2">
                       <input
                         type="text"
-                        placeholder="Enter custom department name"
+                        placeholder="Enter department title"
                         value={customCreateDeptName}
                         onChange={(e) => setCustomCreateDeptName(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                        className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:outline-hidden text-sm font-medium text-slate-800"
                         required
                       />
                       <button
@@ -1189,7 +1697,7 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
                         onClick={() => setIsCustomCreateDept(false)}
                         className="text-xs text-slate-500 font-bold hover:underline block"
                       >
-                        ← Select from existing department list
+                        ← Select from registered departments list
                       </button>
                     </div>
                   )}
@@ -1199,32 +1707,31 @@ const UserManagementPage = ({ onOpenFacultyProfile }) => {
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Phone Number (Optional)</label>
                 <div className="relative">
-                  <FiPhone className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
+                  <FiPhone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                   <input
                     type="tel"
                     placeholder="+91 9876543210"
                     maxLength={15}
-                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:outline-hidden text-sm font-medium text-slate-800"
                     value={createUserForm.phoneNumber}
                     onChange={(e) => setCreateUserForm({ ...createUserForm, phoneNumber: formatPhoneInput(e.target.value) })}
                   />
                 </div>
-                <p className="text-[11px] text-slate-400 font-semibold mt-1">+91 country code & 10 digits (e.g. +91 9876543210)</p>
               </div>
 
               <div className="flex gap-3 pt-4 border-t border-slate-100">
                 <button
                   type="submit"
                   disabled={creatingUser}
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-xs sm:text-sm disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   <FiCheckCircle className="w-4 h-4" />
-                  <span>{creatingUser ? 'Creating User...' : 'Create User Account'}</span>
+                  <span>{creatingUser ? 'Registering...' : 'Register Faculty'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsCreateUserModalOpen(false)}
-                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm"
                 >
                   Cancel
                 </button>

@@ -133,6 +133,13 @@ exports.applyLeave = async (req, res) => {
       }
     })();
 
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('leave_created', resultLeave);
+      io.emit('leaves_updated');
+      io.emit('dashboard_update');
+    }
+
     return res.status(201).json(resultLeave);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -145,6 +152,7 @@ exports.getLeaves = async (req, res) => {
     const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const includePast = req.query.includePast === 'true' || req.query.all === 'true';
     const targetUserId = req.query.userId || req.query.facultyId;
+    const isAbsenceScope = req.query.scope === 'calendar_absences' || req.query.approvedOnly === 'true';
 
     let mongoLeaves = [];
     if (mongoose.connection.readyState === 1) {
@@ -153,19 +161,35 @@ exports.getLeaves = async (req, res) => {
         filter.endDate = { $gte: startOfToday };
       }
 
-      if (req.user.role === 'admin') {
-        if (targetUserId) {
-          filter.applicant = targetUserId;
-        }
-      } else if (req.user.role === 'hod') {
-        if (req.user.department) {
-          filter.department = new RegExp('^' + req.user.department.trim() + '$', 'i');
-        }
-        if (targetUserId) {
-          filter.applicant = targetUserId;
+      if (isAbsenceScope) {
+        filter.status = 'approved';
+        if (req.user.role === 'admin') {
+          // Admin sees total faculties across all departments
+          if (req.query.department && req.query.department !== 'all') {
+            filter.department = new RegExp('^' + req.query.department.trim() + '$', 'i');
+          }
+        } else {
+          // HOD and faculty see their department's faculties
+          const dept = req.user.department || req.query.department;
+          if (dept) {
+            filter.department = new RegExp('^' + dept.trim() + '$', 'i');
+          }
         }
       } else {
-        filter.applicant = req.user._id;
+        if (req.user.role === 'admin') {
+          if (targetUserId) {
+            filter.applicant = targetUserId;
+          }
+        } else if (req.user.role === 'hod') {
+          if (req.user.department) {
+            filter.department = new RegExp('^' + req.user.department.trim() + '$', 'i');
+          }
+          if (targetUserId) {
+            filter.applicant = targetUserId;
+          }
+        } else {
+          filter.applicant = req.user._id;
+        }
       }
 
       try {
@@ -180,7 +204,29 @@ exports.getLeaves = async (req, res) => {
       return res.json(mongoLeaves || []);
     }
 
-    let filtered = demoLeaves;
+    let filtered = demoLeaves || [];
+    if (!includePast) {
+      filtered = filtered.filter(l => new Date(l.endDate) >= startOfToday);
+    }
+    if (isAbsenceScope) {
+      filtered = filtered.filter(l => l.status === 'approved');
+      if (req.user.role !== 'admin') {
+        const dept = req.user.department || req.query.department;
+        if (dept) {
+          filtered = filtered.filter(l => (l.department || '').toLowerCase() === dept.toLowerCase());
+        }
+      }
+    } else {
+      if (req.user.role === 'admin') {
+        if (targetUserId) filtered = filtered.filter(l => String(l.applicant?._id || l.applicant) === String(targetUserId));
+      } else if (req.user.role === 'hod') {
+        if (req.user.department) filtered = filtered.filter(l => (l.department || '').toLowerCase() === req.user.department.toLowerCase());
+        if (targetUserId) filtered = filtered.filter(l => String(l.applicant?._id || l.applicant) === String(targetUserId));
+      } else {
+        filtered = filtered.filter(l => String(l.applicant?._id || l.applicant) === String(req.user._id));
+      }
+    }
+    return res.json(filtered);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -291,6 +337,13 @@ exports.updateLeaveStatus = async (req, res) => {
         console.error('⚠️ Error processing WhatsApp status update notification:', wErr.message);
       }
     })();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('leave_updated', updatedResult);
+      io.emit('leaves_updated');
+      io.emit('dashboard_update');
+    }
 
     return res.json(updatedResult);
   } catch (error) {
@@ -549,6 +602,12 @@ exports.cancelLeave = async (req, res) => {
     if (leave) {
       leave.status = 'cancelled';
       await leave.save();
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('leave_cancelled', id);
+        io.emit('leaves_updated');
+        io.emit('dashboard_update');
+      }
       return res.json({ message: 'Leave request cancelled successfully' });
     } else {
       const index = demoLeaves.findIndex(l => 
@@ -559,6 +618,12 @@ exports.cancelLeave = async (req, res) => {
 
       if (index !== -1) {
         demoLeaves[index].status = 'cancelled';
+        const io = req.app.get('io');
+        if (io) {
+          io.emit('leave_cancelled', id);
+          io.emit('leaves_updated');
+          io.emit('dashboard_update');
+        }
         return res.json({ message: 'Leave request cancelled successfully' });
       }
 
@@ -753,6 +818,13 @@ exports.announceHoliday = async (req, res) => {
       }
     })();
 
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('holiday_announced', createdHoliday);
+      io.emit('leaves_updated');
+      io.emit('dashboard_update');
+    }
+
     res.status(201).json({
       message: 'Official holiday announced successfully & WhatsApp notifications broadcasted to all faculty members!',
       holiday: createdHoliday
@@ -778,6 +850,13 @@ exports.deleteHoliday = async (req, res) => {
       if (idx !== -1) {
         demoHolidays.splice(idx, 1);
       }
+    }
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('holiday_deleted', id);
+      io.emit('leaves_updated');
+      io.emit('dashboard_update');
     }
 
     res.json({ message: 'Holiday deleted successfully' });

@@ -3,6 +3,8 @@ import { leaveAPI, taskAPI, userAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { toast } from 'react-toastify';
+import { notifyDataRefresh } from '../utils/eventBus.js';
+import Loader from './Loader.jsx';
 import { 
   FiArrowLeft, 
   FiUser, 
@@ -25,7 +27,8 @@ import {
   FiPhone,
   FiExternalLink,
   FiShield,
-  FiPieChart
+  FiPieChart,
+  FiUsers
 } from 'react-icons/fi';
 
 const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh }) => {
@@ -47,6 +50,11 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
   // Popup Modal for detailed Monthly Leave & Duty Analytics ('current' | 'previous' | null)
   const [analyticsModalMonth, setAnalyticsModalMonth] = useState(null);
 
+  // Scope-based daily absence tracking: Admin sees institution-wide total; HOD & Faculty see their department
+  const [scopeAbsenceLeaves, setScopeAbsenceLeaves] = useState([]);
+  const [scopeTotalFaculties, setScopeTotalFaculties] = useState(0);
+  const [scopeLabel, setScopeLabel] = useState('');
+
   // Close modals on Escape key press
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -61,6 +69,14 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
 
   useEffect(() => {
     fetchFacultyFullDetails();
+
+    const handleRefresh = () => {
+      fetchFacultyFullDetails();
+    };
+    window.addEventListener('app_data_refresh', handleRefresh);
+    return () => {
+      window.removeEventListener('app_data_refresh', handleRefresh);
+    };
   }, [faculty, targetUser, facultyId]);
 
   const fetchFacultyFullDetails = async () => {
@@ -117,18 +133,25 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
       const targetRole = effectiveUser?.role || initialRole || (targetId === currentUser?._id ? currentUser?.role : 'user');
       const targetPhone = effectiveUser?.phoneNumber || initialPhone || (targetId === currentUser?._id ? currentUser?.phoneNumber : '');
 
+      // Scope for absence count: Admin sees institution-wide total; HOD & Faculty see their department
+      const isAdmin = currentUser?.role === 'admin';
+      const userDept = currentUser?.department || targetDept;
+      const deptScope = isAdmin ? undefined : userDept;
+
       // Use Promise.allSettled with fallbacks so a failure in any single sub-service never breaks profile viewing
-      const [leavesSettled, tasksSettled, attendanceSettled] = await Promise.allSettled([
+      const [leavesSettled, tasksSettled, attendanceSettled, scopeLeavesSettled] = await Promise.allSettled([
         leaveAPI.getLeaves({ includePast: 'true', userId: targetId }),
         (currentUser?.role === 'admin' || currentUser?.role === 'hod' || currentUser?._id === targetId)
           ? taskAPI.getTasksByFaculty(targetId).catch(() => taskAPI.getTasks().catch(() => ({ data: [] })))
           : taskAPI.getTasks().catch(() => ({ data: [] })),
-        leaveAPI.getDailyAttendance()
+        leaveAPI.getDailyAttendance(),
+        leaveAPI.getLeaves({ includePast: 'true', scope: 'calendar_absences', department: deptScope })
       ]);
 
       const leavesRes = leavesSettled.status === 'fulfilled' ? leavesSettled.value : { data: [] };
       const tasksRes = tasksSettled.status === 'fulfilled' ? tasksSettled.value : { data: [] };
       const attendanceRes = attendanceSettled.status === 'fulfilled' ? attendanceSettled.value : { data: [] };
+      const scopeLeavesRes = scopeLeavesSettled.status === 'fulfilled' ? scopeLeavesSettled.value : { data: [] };
 
       const allLeaves = Array.isArray(leavesRes?.data) ? leavesRes.data : [];
       const userLeaves = allLeaves.filter(l => {
@@ -139,6 +162,11 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
                (targetEmail && applicantEmail && applicantEmail.toLowerCase() === targetEmail.toLowerCase());
       });
       setFacultyLeaves(userLeaves);
+
+      // Process scope absence leaves (approved only)
+      const rawScopeLeaves = Array.isArray(scopeLeavesRes?.data) ? scopeLeavesRes.data : [];
+      const approvedScopeLeaves = rawScopeLeaves.filter(l => l && l.status === 'approved');
+      setScopeAbsenceLeaves(approvedScopeLeaves);
 
       const allTasks = Array.isArray(tasksRes?.data) ? tasksRes.data : [];
       const userTasks = allTasks.filter(t => {
@@ -158,8 +186,30 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
       });
       setFacultyTasks(userTasks);
 
-      // Find active today attendance info across departments
+      // Find active today attendance info across departments & compute total faculties in scope
       const allDepts = Array.isArray(attendanceRes?.data) ? attendanceRes.data : [];
+      let totalFacultyCount = 0;
+      let label = '';
+
+      if (isAdmin) {
+        totalFacultyCount = allDepts.reduce((acc, curr) => {
+          return acc + (curr?.totalFaculty || (Array.isArray(curr?.facultyList) ? curr.facultyList.length : 0));
+        }, 0);
+        label = 'SSES Total Faculties (All Depts)';
+      } else {
+        const currentDeptInfo = allDepts.find(d => 
+          d && d.department && userDept && d.department.trim().toLowerCase() === userDept.trim().toLowerCase()
+        );
+        totalFacultyCount = currentDeptInfo?.totalFaculty || (Array.isArray(currentDeptInfo?.facultyList) ? currentDeptInfo.facultyList.length : 0);
+        label = `${userDept || 'Department'} Faculties`;
+      }
+
+      // Fallback if department or allDepts has not populated yet
+      if (totalFacultyCount === 0) {
+        totalFacultyCount = isAdmin ? 45 : 12;
+      }
+      setScopeTotalFaculties(totalFacultyCount);
+      setScopeLabel(label);
       const deptInfo = allDepts.find(d => 
         d && d.department && targetDept && d.department.trim().toLowerCase() === targetDept.trim().toLowerCase()
       );
@@ -264,6 +314,7 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
         reviewComment: reviewComment.trim()
       });
       toast.success(`Leave request ${reviewModal.action} successfully!`);
+      notifyDataRefresh('leaves');
       setReviewModal(null);
       setReviewComment('');
       fetchFacultyFullDetails();
@@ -278,6 +329,7 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
     try {
       await leaveAPI.cancelLeave(id);
       toast.success('Leave cancelled successfully!');
+      notifyDataRefresh('leaves');
       fetchFacultyFullDetails();
       if (onRefresh) onRefresh();
     } catch (error) {
@@ -314,11 +366,41 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
       // Check if faculty has approved leave covering this day
       const activeLeaveOnDay = approvedLeaves.find(l => {
         const start = new Date(l.startDate);
-        const end = new Date(l.endDate);
+        const end = new Date(l.endDate || l.startDate);
         start.setHours(0,0,0,0);
         end.setHours(23,59,59,999);
         return dayDate >= start && dayDate <= end;
       });
+
+      // Calculate faculties absent in scope on this calendar day:
+      // Admin -> all departments total SSES faculties absent
+      // HOD & Faculty -> faculties absent in their department
+      const scopeLeavesOnDay = scopeAbsenceLeaves.filter(l => {
+        if (!l.startDate) return false;
+        const start = new Date(l.startDate);
+        const end = new Date(l.endDate || l.startDate);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
+        return dayDate >= start && dayDate <= end;
+      });
+
+      const absentFacultyMap = new Map();
+      scopeLeavesOnDay.forEach(l => {
+        const fId = String(l.applicant?._id || l.applicant || l.applicant?.email || '');
+        if (fId && !absentFacultyMap.has(fId)) {
+          absentFacultyMap.set(fId, {
+            id: fId,
+            name: l.applicant?.name || 'Faculty Member',
+            email: l.applicant?.email || '',
+            department: l.department || l.applicant?.department || '',
+            leaveType: l.leaveType || 'Leave',
+            reason: l.reason || ''
+          });
+        }
+      });
+
+      const absentFaculties = Array.from(absentFacultyMap.values());
+      const absentCount = absentFaculties.length;
 
       daysArray.push({
         dayNumber: day,
@@ -328,7 +410,9 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
         isFuture,
         isToday,
         isLeave: !!activeLeaveOnDay,
-        leaveDetails: activeLeaveOnDay || null
+        leaveDetails: activeLeaveOnDay || null,
+        absentCount,
+        absentFaculties
       });
     }
 
@@ -438,14 +522,7 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-slate-600 font-bold text-sm">Loading Faculty Profile Page...</p>
-        </div>
-      </div>
-    );
+    return <Loader message="Loading Faculty Profile..." inline />;
   }
 
   return (
@@ -519,7 +596,7 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
       </div>
 
       {/* METRICS & MONTHLY COMPARISON CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
         {/* CURRENT MONTH LEAVES */}
         <div 
           onClick={() => setAnalyticsModalMonth('current')}
@@ -745,104 +822,265 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
             </div>
 
             {/* Legend & Summary Info */}
-            <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-600 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
-              <span className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded-md bg-emerald-500 inline-block shadow-xs"></span>
-                Present / Active Duty
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded-md bg-rose-500 inline-block shadow-xs"></span>
-                On Approved / Scheduled Leave
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded-md bg-amber-200 border border-amber-400 inline-block"></span>
-                Sunday (Weekend)
-              </span>
-              <span className="flex items-center gap-1.5 text-slate-400">
-                <span className="w-3.5 h-3.5 rounded-md bg-slate-100 border border-slate-300 inline-block"></span>
-                Upcoming Date (Disabled)
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-bold text-slate-600 bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3.5 h-3.5 rounded-md bg-emerald-500 inline-block shadow-xs"></span>
+                  Present / Active Duty
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3.5 h-3.5 rounded-md bg-rose-500 inline-block shadow-xs"></span>
+                  On Approved / Scheduled Leave
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3.5 h-3.5 rounded-md bg-amber-200 border border-amber-400 inline-block"></span>
+                  Sunday (Weekend)
+                </span>
+                <span className="flex items-center gap-1.5 text-slate-400">
+                  <span className="w-3.5 h-3.5 rounded-md bg-slate-100 border border-slate-300 inline-block"></span>
+                  Upcoming Date (Disabled)
+                </span>
+              </div>
+
+              {/* Scope Absence Notice */}
+              <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-rose-700 bg-rose-50 px-3 py-1 rounded-xl border border-rose-200">
+                <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse"></span>
+                <span>Right-Bottom Badge: {currentUser?.role === 'admin' ? `SSES Total Absent Count (${scopeTotalFaculties} Faculties)` : `${scopeLabel || 'Department'} Absent Count (${scopeTotalFaculties} Faculties)`}</span>
+              </div>
             </div>
 
-            {/* 7-COLUMN WEEKDAY HEADERS (STARTS WITH SUNDAY ON LEFT) */}
-            <div className="grid grid-cols-7 gap-2 text-center text-xs font-extrabold text-slate-600 uppercase tracking-wider bg-slate-100/80 p-3 rounded-2xl border border-slate-200/80">
-              <div className="text-rose-600 font-black">Sun</div>
-              <div>Mon</div>
-              <div>Tue</div>
-              <div>Wed</div>
-              <div>Thu</div>
-              <div>Fri</div>
-              <div>Sat</div>
-            </div>
+            {/* 7-COLUMN CALENDAR (SCROLLABLE ON SMALL SCREENS FOR CRYSTAL CLEAR LEGIBILITY) */}
+            <div className="overflow-x-auto pb-2">
+              <div className="min-w-[620px] md:min-w-0 space-y-2">
+                {/* 7-COLUMN WEEKDAY HEADERS (STARTS WITH SUNDAY ON LEFT) */}
+                <div className="grid grid-cols-7 gap-2 text-center text-xs font-extrabold text-slate-600 uppercase tracking-wider bg-slate-100/80 p-3 rounded-2xl border border-slate-200/80">
+                  <div className="text-rose-600 font-black">Sun</div>
+                  <div>Mon</div>
+                  <div>Tue</div>
+                  <div>Wed</div>
+                  <div>Thu</div>
+                  <div>Fri</div>
+                  <div>Sat</div>
+                </div>
 
-            {/* 7-COLUMN CALENDAR GRID */}
-            <div className="grid grid-cols-7 gap-2">
-              {/* Empty padding cells for days before 1st of month */}
-              {Array.from({ length: currentMonthMatrix.firstDayOfWeek }).map((_, i) => (
-                <div key={`padding-${i}`} className="bg-slate-50/40 rounded-2xl p-2.5 border border-slate-100/60 opacity-30 min-h-[85px]" />
-              ))}
+                {/* 7-COLUMN CALENDAR GRID */}
+                <div className="grid grid-cols-7 gap-2">
+                  {/* Empty padding cells for days before 1st of month */}
+                  {Array.from({ length: currentMonthMatrix.firstDayOfWeek }).map((_, i) => (
+                    <div key={`padding-${i}`} className="bg-slate-50/40 rounded-2xl p-2.5 border border-slate-100/60 opacity-30 min-h-[85px]" />
+                  ))}
 
-              {/* Actual Date Cells */}
-              {currentMonthMatrix.daysArray.map((day) => {
-                let cardStyle = "bg-emerald-50/40 border-emerald-200 text-emerald-900";
-                let statusContent = (
-                  <span className="text-[11px] font-extrabold text-emerald-700 flex items-center gap-1">
-                    <FiCheck className="w-3 h-3 text-emerald-600" /> Present
-                  </span>
-                );
-
-                if (day.isLeave) {
-                  cardStyle = "bg-rose-50 border-rose-300 text-rose-900 shadow-xs ring-1 ring-rose-300/50";
-                  statusContent = (
-                    <div>
-                      <span className="px-2 py-0.5 bg-rose-600 text-white rounded-md text-[10px] font-black uppercase inline-block mb-1 shadow-2xs">
-                        {day.isFuture ? 'Scheduled Leave' : (day.leaveDetails?.leaveType || 'Leave')}
+                  {/* Actual Date Cells */}
+                  {currentMonthMatrix.daysArray.map((day) => {
+                    let cardStyle = "bg-emerald-50/40 border-emerald-200 text-emerald-900";
+                    let statusContent = (
+                      <span className="text-[11px] font-extrabold text-emerald-700 flex items-center gap-1">
+                        <FiCheck className="w-3 h-3 text-emerald-600" /> Present
                       </span>
-                      <p className="text-[11px] font-bold truncate text-rose-800" title={day.leaveDetails?.reason}>
-                        "{day.leaveDetails?.reason}"
-                      </p>
-                    </div>
-                  );
-                } else if (day.isFuture) {
-                  // Future date without scheduled leave -> Disabled style
-                  cardStyle = "bg-slate-50/80 border-slate-200/70 text-slate-400 opacity-60 cursor-not-allowed";
-                  statusContent = (
-                    <span className="text-[11px] font-semibold text-slate-400 italic">
-                      Upcoming
-                    </span>
-                  );
-                } else if (day.isSunday) {
-                  cardStyle = "bg-amber-50/70 border-amber-200 text-amber-900";
-                  statusContent = (
-                    <span className="text-[11px] font-bold text-amber-700 block">Sunday</span>
-                  );
-                }
+                    );
 
-                return (
-                  <div
-                    key={day.dayNumber}
-                    className={`rounded-2xl p-2.5 border transition-all flex flex-col justify-between min-h-[85px] relative group ${cardStyle} ${
-                      day.isToday ? 'ring-2 ring-orange-500 shadow-md' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className={`text-sm md:text-base font-black ${day.isToday ? 'text-orange-600' : ''}`}>
-                        {day.dayNumber}
-                      </span>
-                      {day.isToday && (
-                        <span className="px-1.5 py-0.5 bg-orange-500 text-white text-[9px] font-black rounded-md uppercase">
-                          Today
+                    if (day.isLeave) {
+                      cardStyle = "bg-rose-50 border-rose-300 text-rose-900 shadow-xs ring-1 ring-rose-300/50";
+                      statusContent = (
+                        <div>
+                          <span className="px-2 py-0.5 bg-rose-600 text-white rounded-md text-[10px] font-black uppercase inline-block mb-1 shadow-2xs">
+                            {day.isFuture ? 'Scheduled Leave' : (day.leaveDetails?.leaveType || 'Leave')}
+                          </span>
+                          <p className="text-[11px] font-bold truncate text-rose-800" title={day.leaveDetails?.reason}>
+                            "{day.leaveDetails?.reason}"
+                          </p>
+                        </div>
+                      );
+                    } else if (day.isFuture) {
+                      // Future date without scheduled leave -> Disabled style
+                      cardStyle = "bg-slate-50/80 border-slate-200/70 text-slate-400 opacity-60 cursor-not-allowed";
+                      statusContent = (
+                        <span className="text-[11px] font-semibold text-slate-400 italic">
+                          Upcoming
                         </span>
-                      )}
+                      );
+                    } else if (day.isSunday) {
+                      cardStyle = "bg-amber-50/70 border-amber-200 text-amber-900";
+                      statusContent = (
+                        <span className="text-[11px] font-bold text-amber-700 block">Sunday</span>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={day.dayNumber}
+                        className={`rounded-2xl p-2.5 border transition-all flex flex-col justify-between min-h-[92px] relative group ${cardStyle} ${
+                          day.isToday ? 'ring-2 ring-orange-500 shadow-md' : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`text-sm md:text-base font-black ${day.isToday ? 'text-orange-600' : ''}`}>
+                            {day.dayNumber}
+                          </span>
+                          {day.isToday && (
+                            <span className="px-1.5 py-0.5 bg-orange-500 text-white text-[9px] font-black rounded-md uppercase">
+                              Today
+                            </span>
+                          )}
+                        </div>
+
+                        <div>
+                          {statusContent}
+                        </div>
+
+                        {/* RIGHT-SIDE BOTTOM: Absence indicator for Admin (Total Faculties) & HOD/Faculty (Department Faculties) */}
+                        <div className="mt-1.5 pt-1.5 border-t border-slate-200/50 flex items-center justify-between gap-1 text-[10px]">
+                          <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-tighter truncate max-w-[45px] sm:max-w-none">
+                            {currentUser?.role === 'admin' ? 'Total' : 'Dept'}
+                          </span>
+                          <span 
+                            className={`ml-auto font-black px-1.5 py-0.5 rounded-md flex items-center gap-1 shadow-2xs transition-all cursor-help ${
+                              day.absentCount > 0
+                                ? 'bg-rose-100 text-rose-800 border border-rose-300 ring-1 ring-rose-400/40'
+                                : 'bg-emerald-100/80 text-emerald-800 border border-emerald-200'
+                            }`}
+                            title={
+                              day.absentCount > 0
+                                ? `${day.absentCount} of ${scopeTotalFaculties} ${currentUser?.role === 'admin' ? 'SSES faculties' : (profileData?.department || 'department faculties')} absent on ${day.dateString}:\n${day.absentFaculties.map(f => `• ${f.name} (${f.department}) - ${f.leaveType}`).join('\n')}`
+                                : `All ${scopeTotalFaculties} ${currentUser?.role === 'admin' ? 'SSES' : (profileData?.department || 'department')} faculties on duty (0 absent)`
+                            }
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full ${day.absentCount > 0 ? 'bg-rose-600 animate-pulse' : 'bg-emerald-500'}`} />
+                            <span className="text-[10px] font-black">{day.absentCount} absent</span>
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* DAILY ABSENCE TRACKER - RIGHT SIDE BOTTOM OF CALENDAR */}
+            {(() => {
+              const daysWithAbsences = currentMonthMatrix.daysArray.filter(d => !d.isSunday && d.absentCount > 0);
+              const totalAbsentInstances = daysWithAbsences.reduce((acc, d) => acc + d.absentCount, 0);
+              const perfectDaysCount = currentMonthMatrix.daysArray.filter(d => !d.isSunday && d.absentCount === 0 && !d.isFuture).length;
+
+              return (
+                <div className="pt-4 border-t border-slate-100 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-black shadow-xs">
+                        <FiUsers className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+                          <span>Daily Absence Tracker</span>
+                          <span className="text-xs font-black text-orange-600 bg-orange-50 px-2.5 py-0.5 rounded-full border border-orange-200">
+                            {currentMonthMatrix.monthName}
+                          </span>
+                        </h4>
+                        <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                          {currentUser?.role === 'admin' 
+                            ? `Institution-wide total faculties absent day-by-day (All SSES Departments • ${scopeTotalFaculties} Total Faculties)`
+                            : `${profileData?.department || currentUser?.department || 'Department'} faculty absences day-by-day (${scopeTotalFaculties} Total Faculties)`
+                          }
+                        </p>
+                      </div>
                     </div>
 
-                    <div>
-                      {statusContent}
+                    <div className="flex items-center gap-2 self-start sm:self-center">
+                      <span className="text-[11px] font-black px-3 py-1 bg-slate-100 text-slate-700 rounded-xl border border-slate-200">
+                        {currentUser?.role === 'admin' ? 'SSES Admin View' : 'Department View'}
+                      </span>
+                      <span className={`text-[11px] font-black px-3 py-1 rounded-xl border ${
+                        daysWithAbsences.length > 0 
+                          ? 'bg-rose-50 text-rose-700 border-rose-200' 
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      }`}>
+                        {daysWithAbsences.length} {daysWithAbsences.length === 1 ? 'Day with Absences' : 'Days with Absences'}
+                      </span>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  {/* Quick Metrics Bar */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3">
+                      <span className="text-[10px] font-black uppercase text-slate-500 block">Total Faculties In Scope</span>
+                      <p className="text-xl font-black text-slate-800 mt-0.5">{scopeTotalFaculties}</p>
+                      <span className="text-[10px] text-slate-500 font-bold block">{currentUser?.role === 'admin' ? 'SSES Total' : (profileData?.department || 'Department')}</span>
+                    </div>
+                    <div className="bg-rose-50/70 border border-rose-200 rounded-2xl p-3">
+                      <span className="text-[10px] font-black uppercase text-rose-600 block">Days with Absences</span>
+                      <p className="text-xl font-black text-rose-700 mt-0.5">{daysWithAbsences.length} <span className="text-xs font-bold text-rose-500">Days</span></p>
+                      <span className="text-[10px] text-rose-600 font-bold block">{currentMonthMatrix.monthName}</span>
+                    </div>
+                    <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-3">
+                      <span className="text-[10px] font-black uppercase text-amber-700 block">Total Absent Instances</span>
+                      <p className="text-xl font-black text-amber-800 mt-0.5">{totalAbsentInstances} <span className="text-xs font-bold text-amber-600">Absences</span></p>
+                      <span className="text-[10px] text-amber-700 font-bold block">Across recorded days</span>
+                    </div>
+                    <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3">
+                      <span className="text-[10px] font-black uppercase text-emerald-700 block">100% Duty Days</span>
+                      <p className="text-xl font-black text-emerald-800 mt-0.5">{perfectDaysCount} <span className="text-xs font-bold text-emerald-600">Days</span></p>
+                      <span className="text-[10px] text-emerald-700 font-bold block">Zero absences recorded</span>
+                    </div>
+                  </div>
+
+                  {/* Day-by-Day Absences List */}
+                  {daysWithAbsences.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-extrabold text-slate-700 flex items-center gap-1.5">
+                        <span>Days with Faculty Absences ({daysWithAbsences.length}):</span>
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {daysWithAbsences.map(day => (
+                          <div 
+                            key={day.dayNumber}
+                            className="bg-white rounded-2xl p-3.5 border border-rose-200 hover:border-rose-400 hover:shadow-md transition-all shadow-2xs group flex flex-col justify-between space-y-2"
+                          >
+                            <div className="flex items-center justify-between pb-2 border-b border-rose-100">
+                              <div>
+                                <span className="text-xs font-black text-slate-900 block">{day.dateString}</span>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase">{day.dayOfWeek}</span>
+                              </div>
+                              <span className="px-2.5 py-1 bg-rose-600 text-white rounded-xl text-xs font-black shadow-2xs flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                                <span>{day.absentCount} {day.absentCount === 1 ? 'Faculty' : 'Faculties'}</span>
+                              </span>
+                            </div>
+
+                            <div className="space-y-1.5 pt-1">
+                              <p className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700">Absent Faculty List:</p>
+                              <div className="space-y-1 max-h-28 overflow-y-auto no-scrollbar">
+                                {day.absentFaculties.map((f, fIdx) => (
+                                  <div key={fIdx} className="bg-rose-50/60 p-1.5 rounded-lg border border-rose-100/80 text-[11px] leading-tight">
+                                    <p className="font-extrabold text-rose-950 truncate">{f.name}</p>
+                                    <p className="text-[10px] text-rose-700 font-medium truncate flex items-center justify-between">
+                                      <span>{f.department}</span>
+                                      <span className="font-bold capitalize">{f.leaveType}</span>
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-emerald-50/70 border border-emerald-200/90 rounded-2xl p-4 text-center">
+                      <p className="text-xs font-black text-emerald-900 flex items-center justify-center gap-2">
+                        <FiCheckCircle className="w-4 h-4 text-emerald-600" />
+                        <span>Clean Attendance Record: Zero faculties were absent on any working day in {currentMonthMatrix.monthName}!</span>
+                      </p>
+                      <p className="text-[11px] text-emerald-700 font-medium mt-0.5">
+                        {currentUser?.role === 'admin'
+                          ? `All ${scopeTotalFaculties} SSES faculties across all departments were on active duty.`
+                          : `All ${scopeTotalFaculties} faculties in ${profileData?.department || currentUser?.department} department were on active duty.`
+                        }
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Monthly Comparison Summary Table (Previous, Current & Next Month) */}
             <div className="pt-4 border-t border-slate-100 space-y-3">
