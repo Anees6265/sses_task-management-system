@@ -18,8 +18,8 @@ exports.getAllUsers = async (req, res) => {
   }
 
   let filtered = demoUsers;
-  if (req.user.role === 'hod') {
-    filtered = demoUsers.filter(u => u.department === req.user.department);
+  if (req.user.role !== 'admin' && req.user.department) {
+    filtered = demoUsers.filter(u => (u.department || '').toLowerCase() === req.user.department.toLowerCase());
   }
   return res.json(filtered.map(u => ({ 
     _id: u._id, 

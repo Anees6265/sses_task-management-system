@@ -152,6 +152,7 @@ exports.getLeaves = async (req, res) => {
     const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const includePast = req.query.includePast === 'true' || req.query.all === 'true';
     const targetUserId = req.query.userId || req.query.facultyId;
+    const isAbsenceScope = req.query.scope === 'calendar_absences' || req.query.approvedOnly === 'true';
 
     let mongoLeaves = [];
     if (mongoose.connection.readyState === 1) {
@@ -160,19 +161,35 @@ exports.getLeaves = async (req, res) => {
         filter.endDate = { $gte: startOfToday };
       }
 
-      if (req.user.role === 'admin') {
-        if (targetUserId) {
-          filter.applicant = targetUserId;
-        }
-      } else if (req.user.role === 'hod') {
-        if (req.user.department) {
-          filter.department = new RegExp('^' + req.user.department.trim() + '$', 'i');
-        }
-        if (targetUserId) {
-          filter.applicant = targetUserId;
+      if (isAbsenceScope) {
+        filter.status = 'approved';
+        if (req.user.role === 'admin') {
+          // Admin sees total faculties across all departments
+          if (req.query.department && req.query.department !== 'all') {
+            filter.department = new RegExp('^' + req.query.department.trim() + '$', 'i');
+          }
+        } else {
+          // HOD and faculty see their department's faculties
+          const dept = req.user.department || req.query.department;
+          if (dept) {
+            filter.department = new RegExp('^' + dept.trim() + '$', 'i');
+          }
         }
       } else {
-        filter.applicant = req.user._id;
+        if (req.user.role === 'admin') {
+          if (targetUserId) {
+            filter.applicant = targetUserId;
+          }
+        } else if (req.user.role === 'hod') {
+          if (req.user.department) {
+            filter.department = new RegExp('^' + req.user.department.trim() + '$', 'i');
+          }
+          if (targetUserId) {
+            filter.applicant = targetUserId;
+          }
+        } else {
+          filter.applicant = req.user._id;
+        }
       }
 
       try {
@@ -187,7 +204,29 @@ exports.getLeaves = async (req, res) => {
       return res.json(mongoLeaves || []);
     }
 
-    let filtered = demoLeaves;
+    let filtered = demoLeaves || [];
+    if (!includePast) {
+      filtered = filtered.filter(l => new Date(l.endDate) >= startOfToday);
+    }
+    if (isAbsenceScope) {
+      filtered = filtered.filter(l => l.status === 'approved');
+      if (req.user.role !== 'admin') {
+        const dept = req.user.department || req.query.department;
+        if (dept) {
+          filtered = filtered.filter(l => (l.department || '').toLowerCase() === dept.toLowerCase());
+        }
+      }
+    } else {
+      if (req.user.role === 'admin') {
+        if (targetUserId) filtered = filtered.filter(l => String(l.applicant?._id || l.applicant) === String(targetUserId));
+      } else if (req.user.role === 'hod') {
+        if (req.user.department) filtered = filtered.filter(l => (l.department || '').toLowerCase() === req.user.department.toLowerCase());
+        if (targetUserId) filtered = filtered.filter(l => String(l.applicant?._id || l.applicant) === String(targetUserId));
+      } else {
+        filtered = filtered.filter(l => String(l.applicant?._id || l.applicant) === String(req.user._id));
+      }
+    }
+    return res.json(filtered);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
