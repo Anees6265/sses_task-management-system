@@ -2,18 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSocket } from '../context/SocketContext';
 import { chatAPI } from '../services/api.jsx';
 import { showNotification } from '../utils/notifications';
-import { 
-  FiSend, 
-  FiMessageSquare, 
-  FiUser, 
-  FiArrowLeft, 
-  FiWifi, 
-  FiWifiOff, 
+import {
+  FiSend,
+  FiMessageSquare,
+  FiUser,
+  FiArrowLeft,
+  FiWifi,
+  FiWifiOff,
   FiCheck,
   FiCheckCircle,
   FiSearch
 } from 'react-icons/fi';
-
 const Chat = () => {
   const { socket, onlineUsers, connected } = useSocket();
   const [conversations, setConversations] = useState([]);
@@ -28,14 +27,14 @@ const Chat = () => {
 
   useEffect(() => {
     fetchConversations();
-    
+
     let intervalId;
     if (!connected) {
       intervalId = setInterval(() => {
         fetchConversations();
       }, 5000);
     }
-    
+
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
@@ -68,13 +67,13 @@ const Chat = () => {
       });
       fetchConversations();
     };
-    
+
     const handleMessageError = (error) => {
       console.error('Socket message error:', error);
     };
-    
+
     const handleMessageDelivered = ({ messageId }) => {
-      setMessages(prev => prev.map(msg => 
+      setMessages(prev => prev.map(msg =>
         msg._id === messageId ? { ...msg, delivered: true } : msg
       ));
     };
@@ -194,7 +193,7 @@ const Chat = () => {
     return text.replace(/\uFFFD/g, '');
   };
 
-  const filteredConversations = conversations.filter(c => 
+  const filteredConversations = conversations.filter(c =>
     c.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.user?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.user?.department?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -203,9 +202,8 @@ const Chat = () => {
   return (
     <div className="flex flex-col md:flex-row h-[calc(100vh-120px)] bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-100 fade-in">
       {/* Conversations List */}
-      <div className={`${
-        selectedUser ? 'hidden md:flex' : 'flex'
-      } w-full md:w-80 lg:w-96 bg-white border-r border-slate-100 flex-col`}>
+      <div className={`${selectedUser ? 'hidden md:flex' : 'flex'
+        } w-full md:w-80 lg:w-96 bg-white border-r border-slate-100 flex-col`}>
         <div className="p-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white sticky top-0 z-10">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-extrabold flex items-center gap-2">
@@ -229,7 +227,7 @@ const Chat = () => {
             />
           </div>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto">
           {filteredConversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 p-6 text-center">
@@ -241,9 +239,8 @@ const Chat = () => {
               <div
                 key={user._id}
                 onClick={() => fetchMessages(user)}
-                className={`p-3.5 border-b border-slate-100 cursor-pointer transition ${
-                  selectedUser?._id === user._id ? 'bg-orange-50/70 border-l-4 border-l-orange-500' : 'hover:bg-slate-50'
-                }`}
+                className={`p-3.5 border-b border-slate-100 cursor-pointer transition ${selectedUser?._id === user._id ? 'bg-orange-50/70 border-l-4 border-l-orange-500' : 'hover:bg-slate-50'
+                  }`}
               >
                 <div className="flex items-center gap-3">
                   <div className="relative flex-shrink-0">
@@ -254,7 +251,7 @@ const Chat = () => {
                       <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white" />
                     )}
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-baseline mb-0.5">
                       <h3 className="font-bold text-slate-800 text-sm truncate">{user.name}</h3>
@@ -286,9 +283,8 @@ const Chat = () => {
       </div>
 
       {/* Chat Area */}
-      <div className={`${
-        selectedUser ? 'flex' : 'hidden md:flex'
-      } flex-1 flex-col bg-slate-50/50`}>
+      <div className={`${selectedUser ? 'flex' : 'hidden md:flex'
+        } flex-1 flex-col bg-slate-50/50`}>
         {selectedUser ? (
           <>
             {/* Chat Header */}
@@ -332,11 +328,10 @@ const Chat = () => {
                     return (
                       <div key={msg._id || Math.random()} className={`flex ${isSent ? 'justify-end' : 'justify-start'}`}>
                         <div
-                          className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-xs md:text-sm font-medium shadow-xs ${
-                            isSent
+                          className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-xs md:text-sm font-medium shadow-xs ${isSent
                               ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-br-xs shadow-orange-500/10'
                               : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs'
-                          }`}
+                            }`}
                         >
                           <p className="break-words leading-relaxed">{formatMessageText(msg.message)}</p>
                           <div className={`flex items-center justify-end gap-1 text-[10px] mt-1 ${isSent ? 'text-orange-100' : 'text-slate-400'}`}>
