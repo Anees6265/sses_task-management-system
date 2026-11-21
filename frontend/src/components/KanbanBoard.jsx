@@ -257,8 +257,8 @@ const KanbanBoard = () => {
       window.history.replaceState({ view: 'board' }, '', '/board');
     }
 
+    fetchDepartments();
     if (user?.role === 'admin' || user?.role === 'hod') {
-      fetchDepartments();
       fetchTemplates();
     }
     fetchTasks();
@@ -272,8 +272,11 @@ const KanbanBoard = () => {
   useEffect(() => {
     const handleDataRefresh = (e) => {
       const type = e.detail?.type;
-      if (type === 'tasks' || type === 'all') {
+      if (!type || type === 'tasks' || type === 'all') {
         fetchTasks();
+      }
+      if (!type || type === 'departments' || type === 'all') {
+        fetchDepartments();
       }
     };
     window.addEventListener('app_data_refresh', handleDataRefresh);

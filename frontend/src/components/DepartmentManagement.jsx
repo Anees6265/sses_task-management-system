@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { departmentAPI, userAPI } from '../services/api.jsx';
 import { toast } from 'react-toastify';
 import Loader from './Loader.jsx';
+import { validatePhoneNumber, formatPhoneInput } from '../utils/validation.js';
+import { notifyDataRefresh } from '../utils/eventBus.js';
 import { 
   FiBriefcase, 
   FiUsers, 
@@ -28,7 +30,7 @@ const DepartmentManagement = ({ onSelectDepartment, onOpenFacultyProfile }) => {
   // Modals state
   const [showAddEditModal, setShowAddEditModal] = useState(false);
   const [editingDept, setEditingDept] = useState(null);
-  const [formData, setFormData] = useState({ name: '', code: '', description: '', status: 'active' });
+  const [formData, setFormData] = useState({ name: '', code: '', description: '', phoneNumber: '+91 ', status: 'active' });
   const [modalLoading, setModalLoading] = useState(false);
 
   // HOD Assignment modal state
@@ -77,7 +79,7 @@ const DepartmentManagement = ({ onSelectDepartment, onOpenFacultyProfile }) => {
 
   const handleOpenCreateModal = () => {
     setEditingDept(null);
-    setFormData({ name: '', code: '', description: '', status: 'active' });
+    setFormData({ name: '', code: '', description: '', phoneNumber: '+91 ', status: 'active' });
     setShowAddEditModal(true);
   };
 
@@ -87,6 +89,7 @@ const DepartmentManagement = ({ onSelectDepartment, onOpenFacultyProfile }) => {
       name: dept.name,
       code: dept.code,
       description: dept.description || '',
+      phoneNumber: dept.phoneNumber || '+91 ',
       status: dept.status || 'active'
     });
     setShowAddEditModal(true);
@@ -94,17 +97,45 @@ const DepartmentManagement = ({ onSelectDepartment, onOpenFacultyProfile }) => {
 
   const handleSaveDepartment = async (e) => {
     e.preventDefault();
+
+    if (!formData.name || !formData.name.trim()) {
+      toast.error('Department name is required', { position: 'top-center' });
+      return;
+    }
+
+    if (!formData.code || !formData.code.trim()) {
+      toast.error('Department code is required', { position: 'top-center' });
+      return;
+    }
+
+    // 10-digit mobile number validation
+    const phoneCheck = validatePhoneNumber(formData.phoneNumber, true);
+    if (!phoneCheck.isValid) {
+      toast.error(phoneCheck.error || 'Please enter a valid 10-digit mobile number', { position: 'top-center' });
+      return;
+    }
+
     setModalLoading(true);
     try {
+      const payload = {
+        ...formData,
+        name: formData.name.trim(),
+        code: formData.code.trim().toUpperCase(),
+        phoneNumber: phoneCheck.formatted
+      };
+
       if (editingDept) {
-        await departmentAPI.updateDepartment(editingDept._id, formData);
+        await departmentAPI.updateDepartment(editingDept._id, payload);
         toast.success('✅ Department updated successfully!');
       } else {
-        await departmentAPI.createDepartment(formData);
+        await departmentAPI.createDepartment(payload);
         toast.success('✅ Department created successfully!');
       }
       setShowAddEditModal(false);
       fetchDepartments();
+      // Notify all other components (Sidebar, Kanban, UserManagement) to dynamically refresh departments
+      notifyDataRefresh('departments');
+      notifyDataRefresh('all');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to save department');
     } finally {
@@ -120,6 +151,8 @@ const DepartmentManagement = ({ onSelectDepartment, onOpenFacultyProfile }) => {
       toast.success(`Department ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully!`);
       setStatusConfirmDept(null);
       fetchDepartments();
+      notifyDataRefresh('departments');
+      notifyDataRefresh('all');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to update department status');
     }
@@ -156,6 +189,8 @@ const DepartmentManagement = ({ onSelectDepartment, onOpenFacultyProfile }) => {
       }
       setShowHODModal(false);
       fetchDepartments();
+      notifyDataRefresh('departments');
+      notifyDataRefresh('all');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to assign HOD');
     } finally {
@@ -339,9 +374,16 @@ const DepartmentManagement = ({ onSelectDepartment, onOpenFacultyProfile }) => {
                         </span>
                         <div>
                           <div className="font-bold text-slate-900">{dept.name}</div>
-                          {dept.description && (
-                            <div className="text-[11px] text-slate-400 truncate max-w-xs">{dept.description}</div>
-                          )}
+                          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                            {dept.phoneNumber && (
+                              <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
+                                📞 {dept.phoneNumber}
+                              </span>
+                            )}
+                            {dept.description && (
+                              <div className="text-[11px] text-slate-400 truncate max-w-xs">{dept.description}</div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -456,6 +498,22 @@ const DepartmentManagement = ({ onSelectDepartment, onOpenFacultyProfile }) => {
                   onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                   className="w-full px-3.5 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 text-sm uppercase"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Department Contact / Mobile Number * (10 Digits)</label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="+91 9876543210"
+                  maxLength={15}
+                  value={formData.phoneNumber}
+                  onChange={(e) => setFormData({ ...formData, phoneNumber: formatPhoneInput(e.target.value) })}
+                  className="w-full px-3.5 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                />
+                <p className="text-[11px] text-gray-400 font-medium mt-1">
+                  Must be a valid 10-digit mobile number with +91 (e.g. +91 9876543210)
+                </p>
               </div>
 
               <div>

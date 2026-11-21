@@ -45,7 +45,7 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
   const [users, setUsers] = useState([]);
   const [tasksList, setTasksList] = useState([]);
   const [unassignedUsers, setUnassignedUsers] = useState([]);
-  const [departments, setDepartments] = useState(['Computer Science', 'Information Technology', 'Management', 'Electronics & Comm.']);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Filters & Tabs
@@ -105,6 +105,9 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
       if (type === 'users' || type === 'all') {
         fetchUsersData();
       }
+      if (type === 'departments' || type === 'all') {
+        fetchDepartmentsData();
+      }
     };
 
     window.addEventListener('app_data_refresh', handleRefresh);
@@ -150,9 +153,9 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
   const fetchDepartmentsData = async () => {
     try {
       const { data } = await departmentAPI.getAllDepartments();
-      if (data && data.length > 0) {
-        const fetchedDepts = data.map(d => typeof d === 'object' ? (d.name || d.code) : String(d));
-        setDepartments(Array.from(new Set([...departments, ...fetchedDepts])));
+      if (data && Array.isArray(data) && data.length > 0) {
+        const fetchedDepts = data.map(d => typeof d === 'object' ? (d.name || d.code) : String(d)).filter(Boolean);
+        setDepartments(Array.from(new Set(fetchedDepts)));
       }
     } catch (error) {
       console.error('Error fetching departments:', error);

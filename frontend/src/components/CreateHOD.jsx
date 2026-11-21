@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { authAPI } from '../services/api.jsx';
+import React, { useState, useEffect } from 'react';
+import { authAPI, departmentAPI } from '../services/api.jsx';
 import { toast } from 'react-toastify';
 import { FiUserPlus, FiUser, FiMail, FiLock, FiBriefcase, FiPhone, FiCheckCircle } from 'react-icons/fi';
 import { 
@@ -9,6 +9,7 @@ import {
   validateName, 
   formatPhoneInput 
 } from '../utils/validation.js';
+import { notifyDataRefresh } from '../utils/eventBus.js';
 
 const CreateHOD = ({ onClose, isModal }) => {
   const [formData, setFormData] = useState({
@@ -16,9 +17,29 @@ const CreateHOD = ({ onClose, isModal }) => {
     email: '',
     password: '',
     department: '',
-    phoneNumber: ''
+    phoneNumber: '+91 '
   });
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchDepartments();
+  }, []);
+
+  const fetchDepartments = async () => {
+    try {
+      const { data } = await departmentAPI.getAllDepartments();
+      if (data && Array.isArray(data)) {
+        setDepartments(data);
+        if (data.length > 0 && !formData.department) {
+          const firstDept = typeof data[0] === 'object' ? data[0].name : data[0];
+          setFormData(prev => ({ ...prev, department: firstDept }));
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching departments in CreateHOD:', err);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,9 +67,9 @@ const CreateHOD = ({ onClose, isModal }) => {
       return;
     }
 
-    const phoneCheck = validatePhoneNumber(formData.phoneNumber, false);
+    const phoneCheck = validatePhoneNumber(formData.phoneNumber, true);
     if (!phoneCheck.isValid) {
-      toast.error(phoneCheck.error, { position: 'top-center' });
+      toast.error(phoneCheck.error || 'Please enter a valid 10-digit mobile number', { position: 'top-center' });
       return;
     }
 
@@ -63,7 +84,9 @@ const CreateHOD = ({ onClose, isModal }) => {
       });
       
       toast.success('HOD created successfully!', { position: 'top-center', autoClose: 2000 });
-      setFormData({ name: '', email: '', password: '', department: '', phoneNumber: '' });
+      setFormData({ name: '', email: '', password: '', department: '', phoneNumber: '+91 ' });
+      notifyDataRefresh('departments');
+      notifyDataRefresh('all');
       if (onClose) onClose();
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to create HOD', { 
@@ -143,31 +166,47 @@ const CreateHOD = ({ onClose, isModal }) => {
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Department *</label>
             <div className="relative">
               <FiBriefcase className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="e.g., Computer Science, IT"
-                className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
-                value={formData.department}
-                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                required
-              />
+              {departments.length > 0 ? (
+                <select
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 bg-white"
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  required
+                >
+                  <option value="">-- Select Department --</option>
+                  {departments.map(dept => {
+                    const deptName = typeof dept === 'object' ? (dept.name || '') : String(dept || '');
+                    return <option key={deptName} value={deptName}>{deptName}</option>;
+                  })}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  placeholder="e.g., Computer Science, IT"
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  required
+                />
+              )}
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Phone Number</label>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Phone Number * (10 Digits)</label>
             <div className="relative">
               <FiPhone className="absolute left-3.5 top-3.5 text-slate-400 w-4 h-4" />
               <input
                 type="tel"
                 placeholder="+91 9876543210"
                 maxLength={15}
+                required
                 className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800"
                 value={formData.phoneNumber}
                 onChange={(e) => setFormData({ ...formData, phoneNumber: formatPhoneInput(e.target.value) })}
               />
             </div>
-            <p className="text-[11px] text-slate-400 font-semibold mt-1">+91 country code & 10 digits (e.g. +91 9876543210)</p>
+            <p className="text-[11px] text-slate-400 font-semibold mt-1">Must be exactly 10 digits with +91 (e.g. +91 9876543210)</p>
           </div>
 
           <button

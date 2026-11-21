@@ -1,10 +1,39 @@
+const mongoose = require('mongoose');
 const Department = require('../models/Department');
 const User = require('../models/User');
 const Task = require('../models/Task');
 const ActivityLog = require('../models/ActivityLog');
+const { demoUsers } = require('../utils/mockStore');
+
+// Helper to validate 10-digit mobile number with or without +91
+const validateAndFormatPhone = (phoneNumber) => {
+  if (!phoneNumber || !String(phoneNumber).trim()) {
+    return { isValid: false, message: 'Department mobile number is required' };
+  }
+  const cleanPhone = String(phoneNumber).replace(/[\s-]/g, '');
+  let digits = cleanPhone;
+  if (digits.startsWith('+91')) {
+    digits = digits.slice(3);
+  } else if (digits.startsWith('91') && digits.length === 12) {
+    digits = digits.slice(2);
+  }
+
+  if (!/^\d{10}$/.test(digits)) {
+    return {
+      isValid: false,
+      message: 'Mobile number must be exactly 10 digits (e.g. +91 9876543210 or 9876543210)'
+    };
+  }
+
+  return {
+    isValid: true,
+    formatted: `+91 ${digits}`
+  };
+};
 
 // Helper to auto-seed existing department strings if Department collection is empty
 const autoSeedDepartments = async () => {
+  if (mongoose.connection.readyState !== 1) return;
   try {
     const count = await Department.countDocuments();
     if (count === 0) {
@@ -44,14 +73,19 @@ const autoSeedDepartments = async () => {
 // 1. Get All Departments (Simple array of name strings for dropdowns, Register, Sidebar, Kanban)
 exports.getAllDepartments = async (req, res) => {
   try {
-    await autoSeedDepartments();
-    const depts = await Department.find({ status: 'active' }).select('name').sort({ name: 1 });
-    if (depts.length > 0) {
-      return res.json(depts.map(d => d.name));
+    if (mongoose.connection.readyState === 1) {
+      await autoSeedDepartments();
+      const depts = await Department.find({ status: 'active' }).select('name').sort({ name: 1 });
+      if (depts.length > 0) {
+        return res.json(depts.map(d => d.name));
+      }
+      // Fallback to User distinct
+      const departments = await User.distinct('department', { department: { $ne: null, $ne: '' } });
+      return res.json(departments.sort());
+    } else {
+      const mockDepts = Array.from(new Set(demoUsers.map(u => u.department).filter(Boolean)));
+      return res.json(mockDepts.sort());
     }
-    // Fallback to User distinct
-    const departments = await User.distinct('department', { department: { $ne: null, $ne: '' } });
-    res.json(departments.sort());
   } catch (error) {
     console.error('getAllDepartments error:', error);
     res.status(500).json({ message: error.message });
@@ -144,43 +178,76 @@ exports.getAdminDepartments = async (req, res) => {
 // 2. Create Department
 exports.createDepartment = async (req, res) => {
   try {
-    const { name, code, description, status } = req.body;
+    const { name, code, description, phoneNumber, status } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ message: 'Department name is required' });
     }
 
+    // 10-digit mobile number validation
+    const phoneCheck = validateAndFormatPhone(phoneNumber);
+    if (!phoneCheck.isValid) {
+      return res.status(400).json({ message: phoneCheck.message });
+    }
+
     const cleanName = name.trim();
     const cleanCode = code ? code.trim().toUpperCase() : cleanName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 4).toUpperCase();
 
-    // Check duplicates
-    const existingName = await Department.findOne({ name: { $regex: `^${cleanName}$`, $options: 'i' } });
-    if (existingName) {
-      return res.status(400).json({ message: 'A department with this name already exists' });
+    if (mongoose.connection.readyState === 1) {
+      // Check duplicates
+      const existingName = await Department.findOne({ name: { $regex: `^${cleanName}$`, $options: 'i' } });
+      if (existingName) {
+        return res.status(400).json({ message: 'A department with this name already exists' });
+      }
+
+      const existingCode = await Department.findOne({ code: cleanCode });
+      if (existingCode) {
+        return res.status(400).json({ message: 'A department with this code already exists' });
+      }
+
+      const department = await Department.create({
+        name: cleanName,
+        code: cleanCode,
+        description: description ? description.trim() : '',
+        phoneNumber: phoneCheck.formatted,
+        status: status || 'active'
+      });
+
+      // Log Activity
+      await ActivityLog.create({
+        performedBy: req.user._id,
+        action: 'DEPARTMENT_CREATED',
+        department: department._id,
+        departmentName: department.name,
+        details: { name: department.name, code: department.code, phoneNumber: department.phoneNumber, description: department.description }
+      });
+
+      // Broadcast socket event for real-time synchronization
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('department-updated', { action: 'created', department });
+      }
+
+      return res.status(201).json(department);
+    } else {
+      // Offline mock fallback
+      const mockDept = {
+        _id: 'mock_dept_' + Date.now(),
+        name: cleanName,
+        code: cleanCode,
+        description: description ? description.trim() : '',
+        phoneNumber: phoneCheck.formatted,
+        status: status || 'active',
+        hod: null
+      };
+
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('department-updated', { action: 'created', department: mockDept });
+      }
+
+      return res.status(201).json(mockDept);
     }
-
-    const existingCode = await Department.findOne({ code: cleanCode });
-    if (existingCode) {
-      return res.status(400).json({ message: 'A department with this code already exists' });
-    }
-
-    const department = await Department.create({
-      name: cleanName,
-      code: cleanCode,
-      description: description ? description.trim() : '',
-      status: status || 'active'
-    });
-
-    // Log Activity
-    await ActivityLog.create({
-      performedBy: req.user._id,
-      action: 'DEPARTMENT_CREATED',
-      department: department._id,
-      departmentName: department.name,
-      details: { name: department.name, code: department.code, description: department.description }
-    });
-
-    res.status(201).json(department);
   } catch (error) {
     console.error('createDepartment error:', error);
     res.status(500).json({ message: error.message });
@@ -287,7 +354,7 @@ exports.getDepartmentById = async (req, res) => {
 exports.updateDepartment = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, code, description, status } = req.body;
+    const { name, code, description, phoneNumber, status } = req.body;
 
     const department = await Department.findById(id);
     if (!department) {
@@ -315,6 +382,14 @@ exports.updateDepartment = async (req, res) => {
       department.code = cleanCode;
     }
 
+    if (phoneNumber !== undefined) {
+      const phoneCheck = validateAndFormatPhone(phoneNumber);
+      if (!phoneCheck.isValid) {
+        return res.status(400).json({ message: phoneCheck.message });
+      }
+      department.phoneNumber = phoneCheck.formatted;
+    }
+
     if (description !== undefined) {
       department.description = description.trim();
     }
@@ -337,8 +412,13 @@ exports.updateDepartment = async (req, res) => {
       action: 'DEPARTMENT_UPDATED',
       department: department._id,
       departmentName: department.name,
-      details: { oldName, newName: department.name, oldCode, newCode: department.code }
+      details: { oldName, newName: department.name, oldCode, newCode: department.code, phoneNumber: department.phoneNumber }
     });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('department-updated', { action: 'updated', department });
+    }
 
     res.json(department);
   } catch (error) {
@@ -374,6 +454,11 @@ exports.toggleDepartmentStatus = async (req, res) => {
       departmentName: department.name,
       details: { status }
     });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('department-updated', { action: 'status_changed', department });
+    }
 
     res.json({ message: `Department ${status === 'active' ? 'activated' : 'deactivated'} successfully`, department });
   } catch (error) {
@@ -416,6 +501,11 @@ exports.assignHOD = async (req, res) => {
       departmentName: department.name,
       details: { hodId: hodUser._id, hodName: hodUser.name, hodEmail: hodUser.email }
     });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('department-updated', { action: 'hod_assigned', department });
+    }
 
     res.json({ message: 'HOD assigned successfully', department });
   } catch (error) {
@@ -464,6 +554,11 @@ exports.changeHOD = async (req, res) => {
         newHod: { _id: newHodUser._id, name: newHodUser.name, email: newHodUser.email }
       }
     });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('department-updated', { action: 'hod_changed', department });
+    }
 
     res.json({
       message: 'HOD changed successfully',

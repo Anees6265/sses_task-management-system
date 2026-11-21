@@ -48,6 +48,17 @@ const Sidebar = ({
     if (userRole === 'admin') {
       fetchDepartments();
     }
+
+    const handleRefresh = (e) => {
+      const type = e?.detail?.type;
+      if (!type || type === 'all' || type === 'departments') {
+        if (userRole === 'admin') {
+          fetchDepartments();
+        }
+      }
+    };
+    window.addEventListener('app_data_refresh', handleRefresh);
+    return () => window.removeEventListener('app_data_refresh', handleRefresh);
   }, [userRole, refreshTrigger]);
 
   const fetchDepartments = async () => {
