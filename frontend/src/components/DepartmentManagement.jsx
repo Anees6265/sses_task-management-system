@@ -244,7 +244,7 @@ const DepartmentManagement = ({ onSelectDepartment, onOpenFacultyProfile }) => {
             className="px-5 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold rounded-2xl transition shadow-lg shadow-orange-500/30 flex items-center gap-2 text-xs md:text-sm active:scale-95 cursor-pointer"
           >
             <FiPlus className="w-4 h-4" />
-            <span>+ Register Academic Department</span>
+            <span>+ Add Department</span>
           </button>
         </div>
       </div>

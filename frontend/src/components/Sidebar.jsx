@@ -11,6 +11,7 @@ import {
   FiChevronDown,
   FiBriefcase,
   FiUsers,
+  FiPlus,
   FiX
 } from 'react-icons/fi';
 
@@ -299,6 +300,21 @@ const Sidebar = ({
                         </button>
                       );
                     })}
+
+                    {/* Add Department Shortcut for Admin */}
+                    {userRole === 'admin' && (
+                      <button
+                        onClick={() => {
+                          setActiveView('departments');
+                          setIsMobileOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 text-orange-600 hover:bg-orange-50 border border-dashed border-orange-300 mt-2 cursor-pointer"
+                        title="Manage and Add Academic Departments"
+                      >
+                        <FiPlus className="w-3.5 h-3.5" />
+                        <span>+ Add Department</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
