@@ -18,10 +18,11 @@ import {
   FiUserX,
   FiX,
   FiChevronRight,
-  FiMessageSquare
+  FiMessageSquare,
+  FiPlus
 } from 'react-icons/fi';
 
-const Dashboard = ({ onFacultyClick, onSelectDepartment, onSelectDepartmentPerformance, onOpenFacultyProfile }) => {
+const Dashboard = ({ onFacultyClick, onSelectDepartment, onSelectDepartmentPerformance, onOpenFacultyProfile, onOpenCreateTask }) => {
   const [stats, setStats] = useState(null);
   const [attendanceData, setAttendanceData] = useState([]);
   const [leaves, setLeaves] = useState([]);
@@ -124,13 +125,25 @@ const Dashboard = ({ onFacultyClick, onSelectDepartment, onSelectDepartmentPerfo
           </h2>
           <p className="text-xs md:text-sm text-slate-300 mt-1">Overview of Tasks, Department Performance, Attendance & Leaves</p>
         </div>
-        <div className="bg-white/10 backdrop-blur-md px-6 py-3.5 rounded-2xl border border-white/10 flex items-center gap-4 relative z-10">
-          <div>
-            <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">{t('overallProgress')}</p>
-            <p className="text-2xl md:text-3xl font-extrabold text-white mt-0.5">{overallProgress}%</p>
-          </div>
-          <div className="w-12 h-12 rounded-full border-4 border-orange-500 border-t-transparent animate-spin-slow flex items-center justify-center font-bold text-xs text-orange-400">
-            <FiTrendingUp className="w-6 h-6 text-orange-400" />
+        <div className="flex items-center gap-3 relative z-10">
+          {(user?.role === 'admin' || user?.role === 'hod') && onOpenCreateTask && (
+            <button
+              onClick={onOpenCreateTask}
+              className="px-4 py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs md:text-sm rounded-2xl shadow-lg shadow-orange-500/20 flex items-center gap-2 transition active:scale-95 cursor-pointer"
+              title="Create a new task"
+            >
+              <FiPlus className="w-4 h-4" />
+              <span>{t('createTaskBtn')}</span>
+            </button>
+          )}
+          <div className="bg-white/10 backdrop-blur-md px-6 py-3.5 rounded-2xl border border-white/10 flex items-center gap-4">
+            <div>
+              <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">{t('overallProgress')}</p>
+              <p className="text-2xl md:text-3xl font-extrabold text-white mt-0.5">{overallProgress}%</p>
+            </div>
+            <div className="w-12 h-12 rounded-full border-4 border-orange-500 border-t-transparent animate-spin-slow flex items-center justify-center font-bold text-xs text-orange-400">
+              <FiTrendingUp className="w-6 h-6 text-orange-400" />
+            </div>
           </div>
         </div>
       </div>

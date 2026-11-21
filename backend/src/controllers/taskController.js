@@ -195,6 +195,15 @@ exports.createTask = async (req, res) => {
         }).select('_id');
         taskData.assignedTo = validFaculty.map(f => f._id);
       }
+    } else if (req.user.role === 'admin') {
+      // Verify assigned faculty belong to selected department if specified
+      if (taskData.department && taskData.assignedTo && taskData.assignedTo.length > 0 && mongoose.connection.readyState === 1) {
+        const validFaculty = await User.find({
+          _id: { $in: taskData.assignedTo },
+          department: taskData.department
+        }).select('_id');
+        taskData.assignedTo = validFaculty.map(f => f._id);
+      }
     } else if (req.user.role === 'user') {
       taskData.assignedTo = [req.user._id];
       taskData.department = req.user.department;
