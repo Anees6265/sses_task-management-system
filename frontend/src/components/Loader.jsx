@@ -24,7 +24,7 @@ const Loader = ({ message = 'Loading SSES Portal...', inline = false }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[9999] fade-in">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[9999] fade-in">
       <div className="bg-white/95 backdrop-blur-md px-8 py-6 rounded-3xl shadow-2xl border border-slate-100 max-w-sm w-full mx-4">
         {content}
       </div>

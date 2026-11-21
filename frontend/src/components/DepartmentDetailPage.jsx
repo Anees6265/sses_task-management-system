@@ -53,6 +53,17 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
     };
   }, [departmentName, user]);
 
+  // Handle Escape key to close review modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && reviewModal) {
+        setReviewModal(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [reviewModal]);
+
   const fetchDepartmentDetail = async () => {
     setLoading(true);
     try {
@@ -586,8 +597,23 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
 
       {/* Review Modal (HOD / Admin Approval Dialog) */}
       {reviewModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 text-center fade-in">
+        <div 
+          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setReviewModal(null); }}
+        >
+          <div 
+            className="bg-white p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 text-center fade-in relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setReviewModal(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer"
+              title="Close"
+            >
+              <FiX className="w-5 h-5" />
+            </button>
+
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
               reviewModal.action === 'approved' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
             }`}>
@@ -612,7 +638,7 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
             <div className="flex gap-3">
               <button
                 onClick={handleReviewAction}
-                className={`flex-1 text-white py-2.5 rounded-xl font-bold text-sm shadow-md transition ${
+                className={`flex-1 text-white py-2.5 rounded-xl font-bold text-sm shadow-md transition cursor-pointer ${
                   reviewModal.action === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20' : 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'
                 }`}
               >
@@ -620,7 +646,7 @@ const DepartmentDetailPage = ({ departmentName, onBack, onOpenFacultyProfile }) 
               </button>
               <button
                 onClick={() => setReviewModal(null)}
-                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-200 transition"
+                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-200 transition cursor-pointer"
               >
                 Cancel
               </button>

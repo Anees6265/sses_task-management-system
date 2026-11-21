@@ -1,8 +1,47 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const Department = require('../models/Department');
 const Task = require('../models/Task');
 const ActivityLog = require('../models/ActivityLog');
 const { demoUsers, demoTasks } = require('../utils/mockStore');
+
+// Get Available HODs (role = 'hod', status = 'active', not assigned to another active department)
+exports.getAvailableHODs = async (req, res) => {
+  try {
+    const { excludeDepartmentId } = req.query;
+
+    if (mongoose.connection.readyState === 1) {
+      // Find all active departments
+      let deptQuery = { status: 'active' };
+      if (excludeDepartmentId && mongoose.Types.ObjectId.isValid(excludeDepartmentId)) {
+        deptQuery._id = { $ne: excludeDepartmentId };
+      }
+
+      const activeDepts = await Department.find(deptQuery).select('hod hodId');
+      const assignedHodIds = activeDepts
+        .map(d => d.hodId || d.hod)
+        .filter(Boolean);
+
+      // Return only active users with role 'hod' who are NOT currently managing an active department
+      const availableHODs = await User.find({
+        role: 'hod',
+        status: 'active',
+        _id: { $nin: assignedHodIds }
+      }).select('_id name email phoneNumber department role status').sort({ name: 1 });
+
+      return res.json(availableHODs);
+    } else {
+      const available = demoUsers.filter(u => 
+        u.role === 'hod' && 
+        (u.status || 'active') === 'active'
+      );
+      return res.json(available.map(u => ({ _id: u._id, name: u.name, email: u.email, phoneNumber: u.phoneNumber })));
+    }
+  } catch (error) {
+    console.error('getAvailableHODs error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
 
 exports.getAllUsers = async (req, res) => {
   try {
@@ -129,12 +168,12 @@ exports.createUser = async (req, res) => {
       return res.status(400).json({ message: 'Only valid @ssism.org email addresses are allowed' });
     }
 
-    if (!['admin', 'hod', 'user'].includes(role)) {
+    if (!['admin', 'hod', 'user', 'faculty'].includes(role)) {
       return res.status(400).json({ message: 'Invalid user role specified' });
     }
 
-    if (role !== 'admin' && !department) {
-      return res.status(400).json({ message: 'Department is required for HOD and Faculty roles' });
+    if ((role === 'user' || role === 'faculty') && !department) {
+      return res.status(400).json({ message: 'Department is required for Faculty role' });
     }
 
     if (password.length < 8 || password.length > 18) {
@@ -164,7 +203,7 @@ exports.createUser = async (req, res) => {
         phoneNumber: formattedPhone
       };
       if (role !== 'admin') {
-        userData.department = department;
+        userData.department = department ? department.trim() : (role === 'hod' ? 'Unassigned' : '');
       }
 
       const user = await User.create(userData);

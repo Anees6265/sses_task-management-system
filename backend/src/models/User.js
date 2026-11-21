@@ -42,18 +42,25 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true,
     required: function() {
-      return this.role !== 'admin';
+      return this.role === 'user' || this.role === 'faculty';
     }
+  },
+  departmentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Department',
+    default: null
   },
   role: {
     type: String,
-    enum: ['admin', 'hod', 'user'],
-    default: 'user'
+    enum: ['admin', 'hod', 'user', 'faculty', 'ADMIN', 'HOD', 'FACULTY'],
+    default: 'user',
+    set: v => v ? v.toLowerCase() : v
   },
   status: {
     type: String,
-    enum: ['active', 'inactive'],
-    default: 'active'
+    enum: ['active', 'inactive', 'ACTIVE', 'INACTIVE'],
+    default: 'active',
+    set: v => v ? v.toLowerCase() : v
   },
   phoneNumber: {
     type: String,

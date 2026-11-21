@@ -86,7 +86,7 @@ const Sidebar = ({
       {/* Mobile Overlay */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 md:hidden"
+          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md z-40 md:hidden"
           onClick={() => setIsMobileOpen(false)}
         />
       )}

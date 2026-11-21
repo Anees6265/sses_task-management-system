@@ -12,11 +12,13 @@ const {
   assignFacultyDepartment,
   removeFacultyDepartment,
   getUnassignedFaculty,
-  getUserById
+  getUserById,
+  getAvailableHODs
 } = require('../controllers/userController');
 const { protect, admin } = require('../middleware/auth');
 
 router.get('/', protect, getAllUsers);
+router.get('/available-hods', protect, admin, getAvailableHODs);
 router.get('/workload', protect, getFacultyWorkload);
 router.get('/performance', protect, getFacultyPerformance);
 router.get('/unassigned', protect, getUnassignedFaculty);

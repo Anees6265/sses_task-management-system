@@ -359,8 +359,24 @@ const Register = ({ onClose, isModal = false }) => {
 
   if (isModal) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-        <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-md p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
+      <div 
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/65 backdrop-blur-md p-4 overflow-y-auto"
+        onClick={(e) => { if (e.target === e.currentTarget && onClose) onClose(); }}
+      >
+        <div 
+          className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-md p-6 sm:p-8 max-h-[90vh] overflow-y-auto relative"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition cursor-pointer"
+              title="Close"
+            >
+              <FiX className="w-5 h-5" />
+            </button>
+          )}
           {formContent}
         </div>
       </div>

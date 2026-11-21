@@ -208,6 +208,7 @@ export const leaveAPI = {
 
 export const userAPI = {
   getAllUsers: () => api.get('/users'),
+  getAvailableHODs: (params) => api.get('/users/available-hods', { params }),
   getUserById: (id) => api.get(`/users/${id}`),
   createUser: (data) => api.post('/users', data),
   updateUserDepartment: (id, department) => api.put(`/users/${id}/department`, { department }),

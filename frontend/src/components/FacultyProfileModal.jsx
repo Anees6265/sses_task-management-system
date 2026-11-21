@@ -507,7 +507,7 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
 
   return (
     <div 
-      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
+      className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -522,7 +522,8 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
         <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-4 sm:p-6 md:p-8 rounded-t-3xl text-white relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 z-10 p-2 text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition backdrop-blur-md"
+            className="absolute top-4 right-4 z-10 p-2 text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition backdrop-blur-md cursor-pointer"
+            title="Close"
           >
             <FiX className="w-5 h-5" />
           </button>
@@ -1330,8 +1331,23 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
 
       {/* Review Modal Dialog */}
       {reviewModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 overflow-y-auto">
-          <div className="bg-white p-6 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in">
+        <div 
+          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-[60] p-4 overflow-y-auto"
+          onClick={(e) => { if (e.target === e.currentTarget) setReviewModal(null); }}
+        >
+          <div 
+            className="bg-white p-6 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setReviewModal(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer"
+              title="Close"
+            >
+              <FiX className="w-5 h-5" />
+            </button>
+
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
               reviewModal.action === 'approved' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
             }`}>
@@ -1356,7 +1372,7 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
             <div className="flex gap-3">
               <button
                 onClick={handleReviewAction}
-                className={`flex-1 text-white py-2.5 rounded-xl font-bold text-sm shadow-md transition ${
+                className={`flex-1 text-white py-2.5 rounded-xl font-bold text-sm shadow-md transition cursor-pointer ${
                   reviewModal.action === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20' : 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'
                 }`}
               >
@@ -1364,7 +1380,7 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
               </button>
               <button
                 onClick={() => setReviewModal(null)}
-                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-200 transition"
+                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-200 transition cursor-pointer"
               >
                 Cancel
               </button>
@@ -1375,7 +1391,7 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
       {/* Comprehensive Monthly Leave & Attendance Analytics Popup Modal */}
       {analyticsModalMonth && (
         <div 
-          className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center z-[90] p-3 sm:p-6 overflow-y-auto"
+          className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center z-[90] p-3 sm:p-6 overflow-y-auto"
           onClick={() => setAnalyticsModalMonth(null)}
         >
           <div 
@@ -1400,7 +1416,7 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
 
                 <button
                   onClick={() => setAnalyticsModalMonth(null)}
-                  className="p-2 rounded-2xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition"
+                  className="p-2 rounded-2xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition cursor-pointer"
                   title="Close (Esc)"
                 >
                   <FiX className="w-5 h-5" />

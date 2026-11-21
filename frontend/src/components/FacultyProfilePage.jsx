@@ -1439,8 +1439,22 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
 
       {/* Review Modal Dialog for HOD / Admin */}
       {reviewModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-          <div className="bg-white p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 text-center fade-in">
+        <div 
+          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-[60] p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setReviewModal(null); }}
+        >
+          <div 
+            className="bg-white p-6 rounded-3xl w-full max-w-sm shadow-2xl border border-slate-100 text-center fade-in relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setReviewModal(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer"
+              title="Close"
+            >
+              <FiX className="w-5 h-5" />
+            </button>
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
               reviewModal.action === 'approved' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
             }`}>
@@ -1485,7 +1499,7 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
       {/* Comprehensive Monthly Leave & Attendance Analytics Popup Modal */}
       {analyticsModalMonth && (
         <div 
-          className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-[70] p-3 sm:p-6 overflow-y-auto"
+          className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center z-[70] p-3 sm:p-6 overflow-y-auto"
           onClick={() => setAnalyticsModalMonth(null)}
         >
           <div 
@@ -1510,7 +1524,7 @@ const FacultyProfilePage = ({ faculty, targetUser, facultyId, onBack, onRefresh 
 
                 <button
                   onClick={() => setAnalyticsModalMonth(null)}
-                  className="p-2 rounded-2xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition"
+                  className="p-2 rounded-2xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white transition cursor-pointer"
                   title="Close (Esc)"
                 >
                   <FiX className="w-5 h-5" />
