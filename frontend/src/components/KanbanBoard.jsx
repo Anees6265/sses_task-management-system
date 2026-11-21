@@ -242,6 +242,18 @@ const KanbanBoard = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [user]);
 
+  // Handle Escape key to close modals
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (deleteConfirm) setDeleteConfirm(null);
+        else if (showModal) setShowModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [deleteConfirm, showModal]);
+
   useEffect(() => {
     const urlState = getViewFromUrl();
     if (urlState) {
@@ -257,8 +269,8 @@ const KanbanBoard = () => {
       window.history.replaceState({ view: 'board' }, '', '/board');
     }
 
+    fetchDepartments();
     if (user?.role === 'admin' || user?.role === 'hod') {
-      fetchDepartments();
       fetchTemplates();
     }
     fetchTasks();
@@ -272,8 +284,11 @@ const KanbanBoard = () => {
   useEffect(() => {
     const handleDataRefresh = (e) => {
       const type = e.detail?.type;
-      if (type === 'tasks' || type === 'all') {
+      if (!type || type === 'tasks' || type === 'all') {
         fetchTasks();
+      }
+      if (!type || type === 'departments' || type === 'all') {
+        fetchDepartments();
       }
     };
     window.addEventListener('app_data_refresh', handleDataRefresh);
@@ -1124,7 +1139,11 @@ const KanbanBoard = () => {
             )}
 
             {activeView === 'departments' && (
-              <DepartmentManagement onSelectDepartment={handleSelectDepartment} onOpenFacultyProfile={handleOpenFacultyProfile} />
+              <DepartmentManagement 
+                setActiveView={setActiveView}
+                onSelectDepartment={handleSelectDepartment} 
+                onOpenFacultyProfile={handleOpenFacultyProfile} 
+              />
             )}
 
             {activeView === 'all-hods' && (
@@ -1136,7 +1155,7 @@ const KanbanBoard = () => {
         {/* Create / Edit Task Modal with HOD Features */}
         {showModal && (
           <div
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
+            className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto"
             onClick={() => setShowModal(false)}
           >
             <div 
@@ -1158,7 +1177,8 @@ const KanbanBoard = () => {
                 </div>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition"
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                  title="Close"
                 >
                   <FiX className="w-5 h-5" />
                 </button>
@@ -1546,8 +1566,22 @@ const KanbanBoard = () => {
 
         {/* Delete Confirmation Modal */}
         {deleteConfirm && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in">
+          <div 
+            className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto"
+            onClick={(e) => { if (e.target === e.currentTarget) setDeleteConfirm(null); }}
+          >
+            <div 
+              className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                title="Close"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
               <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <FiTrash2 className="w-6 h-6" />
               </div>
@@ -1556,13 +1590,13 @@ const KanbanBoard = () => {
               <div className="flex gap-3">
                 <button
                   onClick={() => handleDeleteTask(deleteConfirm)}
-                  className="flex-1 bg-rose-600 text-white py-2.5 rounded-xl font-bold hover:bg-rose-700 transition text-sm shadow-md shadow-rose-600/20"
+                  className="flex-1 bg-rose-600 text-white py-2.5 rounded-xl font-bold hover:bg-rose-700 transition text-sm shadow-md shadow-rose-600/20 cursor-pointer"
                 >
                   {t('delete')}
                 </button>
                 <button
                   onClick={() => setDeleteConfirm(null)}
-                  className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+                  className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-sm cursor-pointer"
                 >
                   {t('cancel')}
                 </button>

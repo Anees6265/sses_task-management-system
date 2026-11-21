@@ -1,14 +1,12 @@
 import React, { useContext, useState, useRef, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
-import CreateHOD from './CreateHOD.jsx';
 import CreateFaculty from './CreateFaculty.jsx';
 import FacultyProfileModal from './FacultyProfileModal.jsx';
 import logo from '../assets/images/singaji_educational_society_logo.jpg';
 import { 
   FiMenu, 
   FiGlobe, 
-  FiPlusCircle, 
   FiUserPlus, 
   FiUser, 
   FiSettings, 
@@ -23,7 +21,6 @@ import {
 const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
   const { user, logout } = useContext(AuthContext);
   const { language, toggleLanguage, t } = useLanguage();
-  const [showCreateHODModal, setShowCreateHODModal] = useState(false);
   const [showCreateFacultyModal, setShowCreateFacultyModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -43,7 +40,6 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         setShowUserMenu(false);
-        setShowCreateHODModal(false);
         setShowCreateFacultyModal(false);
         setShowSettingsModal(false);
         setShowLogoutConfirm(false);
@@ -124,17 +120,6 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
               <FiGlobe className="w-4 h-4 text-orange-500" />
               <span>{language === 'en' ? 'हिन्दी' : 'English'}</span>
             </button>
-            
-            {user?.role === 'admin' && (
-              <button
-                onClick={() => setShowCreateHODModal(true)}
-                className="px-3 md:px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl transition font-bold text-xs md:text-sm flex items-center gap-2 shadow-md shadow-orange-500/20 active:scale-95"
-              >
-                <FiPlusCircle className="w-4 h-4" />
-                <span className="hidden sm:inline">+ Register Department</span>
-                <span className="sm:hidden">+ Dept</span>
-              </button>
-            )}
             
             {user?.role === 'hod' && (
               <button
@@ -240,33 +225,11 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
         />
       )}
 
-      {/* Create HOD Modal */}
-      {showCreateHODModal && (
-        <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowCreateHODModal(false); }}
-        >
-          <div 
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-md my-auto max-h-[90vh] overflow-y-auto relative border border-slate-100 fade-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setShowCreateHODModal(false)}
-              className="absolute top-4 right-4 z-10 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition"
-            >
-              <FiX className="w-5 h-5" />
-            </button>
-            <div className="p-6 md:p-8">
-              <CreateHOD onClose={() => setShowCreateHODModal(false)} isModal={true} />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Create Faculty Modal */}
       {showCreateFacultyModal && (
         <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setShowCreateFacultyModal(false); }}
         >
           <div 
@@ -275,7 +238,8 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
           >
             <button
               onClick={() => setShowCreateFacultyModal(false)}
-              className="absolute top-4 right-4 z-10 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition"
+              className="absolute top-4 right-4 z-10 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition cursor-pointer"
+              title="Close"
             >
               <FiX className="w-5 h-5" />
             </button>
@@ -292,7 +256,7 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
       {/* Profile Settings Modal */}
       {showSettingsModal && (
         <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-[60] p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setShowSettingsModal(false); }}
         >
           <div 
@@ -304,7 +268,12 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
                 <FiSettings className="w-5 h-5 text-orange-500" />
                 <span>{t('updateProfile')}</span>
               </h3>
-              <button onClick={() => setShowSettingsModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button 
+                type="button"
+                onClick={() => setShowSettingsModal(false)} 
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                title="Close"
+              >
                 <FiX className="w-5 h-5" />
               </button>
             </div>
@@ -340,14 +309,14 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2.5 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 transition text-sm shadow-md shadow-orange-500/20"
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-2.5 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 transition text-sm shadow-md shadow-orange-500/20 cursor-pointer"
                 >
                   {t('update')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowSettingsModal(false)}
-                  className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+                  className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-sm cursor-pointer"
                 >
                   {t('cancel')}
                 </button>
@@ -360,13 +329,21 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
       {/* Logout Confirmation */}
       {showLogoutConfirm && (
         <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-[60] p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setShowLogoutConfirm(false); }}
         >
           <div 
-            className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in"
+            className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in relative"
             onClick={(e) => e.stopPropagation()}
           >
+            <button
+              type="button"
+              onClick={() => setShowLogoutConfirm(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer"
+              title="Close"
+            >
+              <FiX className="w-5 h-5" />
+            </button>
             <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <FiLogOut className="w-6 h-6" />
             </div>
@@ -378,13 +355,13 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
                   logout();
                   setShowLogoutConfirm(false);
                 }}
-                className="flex-1 bg-rose-600 text-white py-2.5 rounded-xl font-bold hover:bg-rose-700 transition text-sm shadow-md shadow-rose-600/20"
+                className="flex-1 bg-rose-600 text-white py-2.5 rounded-xl font-bold hover:bg-rose-700 transition text-sm shadow-md shadow-rose-600/20 cursor-pointer"
               >
                 {t('logout')}
               </button>
               <button
                 onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-sm"
+                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-sm cursor-pointer"
               >
                 {t('cancel')}
               </button>

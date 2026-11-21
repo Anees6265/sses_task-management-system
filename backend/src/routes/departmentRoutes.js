@@ -31,6 +31,7 @@ router.get('/activity-logs', protect, admin, getActivityLogs);
 router.get('/:id', protect, admin, getDepartmentById);
 router.put('/:id', protect, admin, updateDepartment);
 router.patch('/:id/status', protect, admin, toggleDepartmentStatus);
+router.patch('/:id/hod', protect, admin, changeHOD);
 router.post('/:id/assign-hod', protect, admin, assignHOD);
 router.post('/:id/change-hod', protect, admin, changeHOD);
 router.get('/:id/faculty', protect, admin, getDepartmentFaculty);
