@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { taskAPI, userAPI, departmentAPI, taskTemplateAPI, getBackendBaseUrl } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
@@ -326,9 +326,18 @@ const KanbanBoard = () => {
       toast.success(`✅ Department "${payload.name}" created successfully!`, { position: 'top-center' });
       setShowAddDeptModal(false);
       setNewDeptForm({ name: '', code: '', phoneNumber: '+91 ', description: '' });
+      // Immediately update departments list so it shows in sidebar instantly
+      setDepartments(prev => {
+        const exists = prev.some(d => {
+          const n = typeof d === 'object' ? d.name : d;
+          return n && n.toLowerCase() === payload.name.toLowerCase();
+        });
+        return exists ? prev : [...prev, payload.name];
+      });
       // Auto select this newly created department in the task creation form
       setNewTask(prev => ({ ...prev, department: payload.name }));
       await fetchDepartments();
+      setSidebarRefreshTrigger(prev => prev + 1);
       notifyDataRefresh('departments');
       notifyDataRefresh('all');
     } catch (err) {
@@ -506,6 +515,13 @@ const KanbanBoard = () => {
     setSelectedFile(null);
   };
 
+  const handleOpenCreateTaskModal = () => {
+    resetTaskForm();
+    fetchDepartments();
+    fetchUsers();
+    setShowModal(true);
+  };
+
   const handleEditTask = (task) => {
     setEditingTask(task);
     const assignedIds = Array.isArray(task.assignedTo)
@@ -667,10 +683,47 @@ const KanbanBoard = () => {
     }
   };
 
-  // Filter department faculty for HOD
-  const availableFaculty = user?.role === 'hod'
-    ? users.filter(u => u.role === 'user' && u.department === user.department)
-    : users.filter(u => u.role === 'user');
+  const handleDepartmentChange = (selectedDept) => {
+    setNewTask(prev => ({
+      ...prev,
+      department: selectedDept,
+      assignedTo: '',       // Clear single faculty selection from previous department
+      assignedUsers: []     // Clear multiple faculty selection from previous department
+    }));
+    setUserSearchQuery(''); // Reset search query
+  };
+
+  // Filter department faculty for HOD or Admin selected department
+  const activeTaskDept = user?.role === 'hod' ? user?.department : newTask.department;
+
+  const availableFaculty = useMemo(() => {
+    if (!activeTaskDept || !activeTaskDept.trim()) {
+      return [];
+    }
+
+    const cleanDept = activeTaskDept.trim().toLowerCase();
+
+    // Check if department has an alias or code in departments list
+    const matchingDeptObj = departments.find(d => {
+      if (typeof d === 'object' && d !== null) {
+        return (d.name && d.name.trim().toLowerCase() === cleanDept) ||
+          (d.code && d.code.trim().toLowerCase() === cleanDept);
+      }
+      return String(d || '').trim().toLowerCase() === cleanDept;
+    });
+
+    const targetNames = [cleanDept];
+    if (matchingDeptObj && typeof matchingDeptObj === 'object') {
+      if (matchingDeptObj.name) targetNames.push(matchingDeptObj.name.trim().toLowerCase());
+      if (matchingDeptObj.code) targetNames.push(matchingDeptObj.code.trim().toLowerCase());
+    }
+
+    return users.filter(u => {
+      if (u.role !== 'user') return false;
+      const uDept = (u.department || '').trim().toLowerCase();
+      return targetNames.includes(uDept);
+    });
+  }, [users, departments, user, activeTaskDept]);
 
   const Column = ({ title, subtitle, tasks, droppableId, icon: IconComponent, badgeColor }) => {
     return (
@@ -837,17 +890,16 @@ const KanbanBoard = () => {
                         {/* Priority Badge */}
                         <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={`px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider text-[10px] flex items-center gap-1 ${
-                              task.priority === 'critical' ? 'bg-rose-600 text-white shadow-xs' :
+                            <span className={`px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider text-[10px] flex items-center gap-1 ${task.priority === 'critical' ? 'bg-rose-600 text-white shadow-xs' :
                               task.priority === 'high' ? 'bg-rose-100 text-rose-700 border border-rose-200' :
-                              task.priority === 'medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                              'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                            }`}>
+                                task.priority === 'medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                  'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                              }`}>
                               <span>
                                 {task.priority === 'critical' ? '🚨 Critical / Statutory' :
-                                 task.priority === 'high' ? 'High Urgency' :
-                                 task.priority === 'medium' ? 'Standard Academic' :
-                                 'Routine Operational'}
+                                  task.priority === 'high' ? 'High Urgency' :
+                                    task.priority === 'medium' ? 'Standard Academic' :
+                                      'Routine Operational'}
                               </span>
                             </span>
 
@@ -929,6 +981,8 @@ const KanbanBoard = () => {
             }}
             onOpenProfile={() => handleOpenFacultyProfile(user)}
             selectedFacultyForProfile={selectedFacultyForProfile}
+            onOpenAddDepartment={() => setShowAddDeptModal(true)}
+            departments={departments}
           />
 
           <main className={`flex-1 p-3 sm:p-4 md:p-6 overflow-x-hidden transition-all duration-300 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
@@ -938,6 +992,7 @@ const KanbanBoard = () => {
                 onFacultyClick={handleFacultyClick}
                 onSelectDepartment={handleSelectDepartment}
                 onOpenFacultyProfile={handleOpenFacultyProfile}
+                onOpenCreateTask={handleOpenCreateTaskModal}
               />
             )}
 
@@ -1004,10 +1059,10 @@ const KanbanBoard = () => {
                             )}
                           </div>
                           <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">
-                            {selectedFacultyId 
-                              ? 'Faculty Workload & Deliverables' 
-                              : activeView === 'board' 
-                                ? (user?.role === 'hod' ? `${user?.department} Academic Sprint Board` : 'Academic Task & Operations Board') 
+                            {selectedFacultyId
+                              ? 'Faculty Workload & Deliverables'
+                              : activeView === 'board'
+                                ? (user?.role === 'hod' ? `${user?.department} Academic Sprint Board` : 'Academic Task & Operations Board')
                                 : `${activeView} Department Board`}
                           </h2>
                           <p className="text-xs text-slate-500 mt-0.5">
@@ -1025,17 +1080,6 @@ const KanbanBoard = () => {
                           <FiRefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-orange-500' : ''}`} />
                           <span>Refresh</span>
                         </button>
-
-                        {user?.role === 'admin' && (
-                          <button
-                            onClick={() => setShowAddDeptModal(true)}
-                            className="px-3.5 md:px-4 py-2.5 bg-white border border-slate-300 hover:border-orange-500 text-slate-700 hover:text-orange-600 rounded-xl font-bold transition text-xs md:text-sm flex items-center gap-2 active:scale-95 shadow-xs"
-                            title="Add Academic Department"
-                          >
-                            <FiBriefcase className="w-4 h-4 text-orange-500" />
-                            <span>+ Add Department</span>
-                          </button>
-                        )}
 
                         <button
                           onClick={() => {
@@ -1174,8 +1218,8 @@ const KanbanBoard = () => {
             })()}
 
             {activeView === 'users' && (
-              <UserManagementPage 
-                onOpenFacultyProfile={handleOpenFacultyProfile} 
+              <UserManagementPage
+                onOpenFacultyProfile={handleOpenFacultyProfile}
                 onFacultyClick={handleFacultyClick}
               />
             )}
@@ -1200,7 +1244,7 @@ const KanbanBoard = () => {
             className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
             onClick={() => setShowModal(false)}
           >
-            <div 
+            <div
               className="bg-white p-4 sm:p-6 md:p-8 rounded-3xl w-full max-w-2xl shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in space-y-5"
               onClick={(e) => e.stopPropagation()}
             >
@@ -1258,14 +1302,14 @@ const KanbanBoard = () => {
                       <div className="flex items-center justify-between mb-1.5">
                         <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                           <FiLayers className="text-orange-500 w-4 h-4" />
-                          <span>Use Department Task Template</span>
+                          <span>Task Template (Optional)</span>
                         </label>
                         <button
                           type="button"
                           onClick={handleSaveAsTemplate}
-                          className="text-[11px] font-extrabold text-orange-600 hover:underline"
+                          className="text-[11px] font-bold text-orange-600 hover:underline cursor-pointer"
                         >
-                          + Save Current Form as Template
+                          + Save Form as Template
                         </button>
                       </div>
                       <select
@@ -1273,7 +1317,7 @@ const KanbanBoard = () => {
                         onChange={(e) => handleSelectTemplate(e.target.value)}
                         className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 bg-white"
                       >
-                        <option value="">-- Select Task Template (Optional) --</option>
+                        <option value="">None (Custom Task)</option>
                         {templates.map(tmpl => (
                           <option key={tmpl._id} value={tmpl._id}>{tmpl.title} ({tmpl.priority})</option>
                         ))}
@@ -1282,7 +1326,7 @@ const KanbanBoard = () => {
                   )}
 
                   <div>
-                    <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">{t('taskTitle')} *</label>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">{t('taskTitle')} *</label>
                     <input
                       type="text"
                       placeholder={t('enterTitle')}
@@ -1291,11 +1335,10 @@ const KanbanBoard = () => {
                       onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                       required
                     />
-                    <p className="field-hint">Provide an action-oriented title identifying the academic duty, syllabus milestone, or accreditation deliverable.</p>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">{t('description')}</label>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">{t('description')}</label>
                     <textarea
                       placeholder={t('enterDescription')}
                       className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition resize-none bg-white"
@@ -1303,29 +1346,27 @@ const KanbanBoard = () => {
                       onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                       rows="3"
                     />
-                    <p className="field-hint">Detail syllabus guidelines, meeting decisions, statutory benchmarks, and deliverable standards.</p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Priority Selector (Low, Medium, High, Critical) */}
+                    {/* Priority Selector */}
                     <div>
-                      <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">{t('priority')} *</label>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">{t('priority')} *</label>
                       <select
                         className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-bold text-slate-800 transition bg-white"
                         value={newTask.priority}
                         onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
                       >
-                        <option value="low">▫️ Routine Operational (Low)</option>
-                        <option value="medium">🔹 Standard Academic (Medium)</option>
-                        <option value="high">🔺 High Institutional Urgency (High)</option>
-                        <option value="critical">🚨 Statutory / Accreditation Deadline (Critical)</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="critical">Critical</option>
                       </select>
-                      <p className="field-hint">Select urgency tier based on academic calendar and regulatory guidelines.</p>
                     </div>
 
-                    {/* Due Date / Deadline Picker */}
+                    {/* Due Date Picker */}
                     <div>
-                      <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">{t('dueDate')}</label>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">{t('dueDate')}</label>
                       <input
                         type="date"
                         className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition bg-white"
@@ -1333,7 +1374,6 @@ const KanbanBoard = () => {
                         onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
                         min={new Date().toISOString().split('T')[0]}
                       />
-                      <p className="field-hint">Target completion and submission deadline for verification.</p>
                     </div>
                   </div>
 
@@ -1346,15 +1386,15 @@ const KanbanBoard = () => {
                         onChange={(e) => setNewTask({ ...newTask, isRecurring: e.target.checked })}
                         className="rounded text-orange-500 w-4 h-4"
                       />
-                      <span className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
-                        <FiRepeat className="text-orange-500 w-4 h-4" /> Make this a Recurring Department Task
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <FiRepeat className="text-orange-500 w-4 h-4" /> Recurring Task
                       </span>
                     </label>
 
                     {newTask.isRecurring && (
                       <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
                         <div>
-                          <label className="block text-[11px] font-bold text-slate-600 mb-1">Recurrence Pattern</label>
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">Repeat Pattern</label>
                           <select
                             value={newTask.recurrencePattern}
                             onChange={(e) => setNewTask({ ...newTask, recurrencePattern: e.target.value })}
@@ -1363,17 +1403,17 @@ const KanbanBoard = () => {
                             <option value="daily">Daily</option>
                             <option value="weekly">Weekly</option>
                             <option value="monthly">Monthly</option>
-                            <option value="custom">Custom (Days Interval)</option>
+                            <option value="custom">Custom</option>
                           </select>
                         </div>
                         <div>
-                          <label className="block text-[11px] font-bold text-slate-600 mb-1">Interval (e.g. Every N days)</label>
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">Repeat Every (Days)</label>
                           <input
                             type="number"
                             min="1"
                             value={newTask.recurrenceInterval}
                             onChange={(e) => setNewTask({ ...newTask, recurrenceInterval: parseInt(e.target.value) || 1 })}
-                            className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                            className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 bg-white"
                           />
                         </div>
                       </div>
@@ -1383,24 +1423,14 @@ const KanbanBoard = () => {
                   {/* Department Assignment for Admin */}
                   {user?.role === 'admin' && (
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-600">{t('selectDepartment')} *</label>
-                        <button
-                          type="button"
-                          onClick={() => setShowAddDeptModal(true)}
-                          className="text-xs font-bold text-orange-600 hover:text-orange-700 hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <FiPlus className="w-3 h-3" />
-                          <span>+ Add New Department</span>
-                        </button>
-                      </div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Department *</label>
                       <select
                         className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition bg-white"
                         value={newTask.department}
-                        onChange={(e) => setNewTask({ ...newTask, department: e.target.value })}
+                        onChange={(e) => handleDepartmentChange(e.target.value)}
                         required
                       >
-                        <option value="">{t('selectDepartment')}</option>
+                        <option value="">Select Department</option>
                         {departments.map(dept => {
                           const deptName = typeof dept === 'object' ? (dept.name || '') : String(dept || '');
                           return <option key={deptName} value={deptName}>{deptName}</option>;
@@ -1412,8 +1442,10 @@ const KanbanBoard = () => {
                   {/* Faculty Assignment (HOD & Admin) */}
                   {(user?.role === 'admin' || user?.role === 'hod') && (
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
-                        {user?.role === 'hod' ? `Assign to ${user.department} Faculty` : t('assignTo')}
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                        {user?.role === 'hod'
+                          ? `Assign Faculty (${user.department})`
+                          : (newTask.department ? `Assign Faculty (${newTask.department})` : 'Assign Faculty')}
                       </label>
 
                       <div className="flex gap-4 mb-3">
@@ -1442,60 +1474,88 @@ const KanbanBoard = () => {
                       </div>
 
                       {newTask.assignType === 'single' && (
-                        <select
-                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition bg-white"
-                          value={newTask.assignedTo}
-                          onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
-                        >
-                          <option value="">{t('unassigned')}</option>
-                          {availableFaculty.map(u => (
-                            <option key={u._id} value={u._id}>{u.name} ({u.email})</option>
-                          ))}
-                        </select>
+                        (user?.role === 'admin' && !newTask.department) ? (
+                          <select
+                            disabled
+                            className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-medium text-slate-400 bg-slate-50 cursor-not-allowed transition"
+                            value=""
+                          >
+                            <option value="" disabled>Please select a department first</option>
+                          </select>
+                        ) : availableFaculty.length === 0 ? (
+                          <select
+                            disabled
+                            className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-medium text-slate-400 bg-slate-50 cursor-not-allowed transition"
+                            value=""
+                          >
+                            <option value="" disabled>No faculty available in this department.</option>
+                          </select>
+                        ) : (
+                          <select
+                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400 text-sm font-medium text-slate-800 transition bg-white"
+                            value={newTask.assignedTo}
+                            onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
+                          >
+                            <option value="">Unassigned</option>
+                            {availableFaculty.map(u => (
+                              <option key={u._id} value={u._id}>{u.name} ({u.email})</option>
+                            ))}
+                          </select>
+                        )
                       )}
 
                       {newTask.assignType === 'multi' && (
-                        <div className="border border-slate-200 rounded-2xl overflow-hidden">
-                          <div className="p-3 bg-slate-50 border-b border-slate-200 relative">
-                            <FiSearch className="absolute left-6 top-5 text-slate-400 w-4 h-4" />
-                            <input
-                              type="text"
-                              placeholder="Search department faculty..."
-                              value={userSearchQuery}
-                              onChange={(e) => setUserSearchQuery(e.target.value)}
-                              className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400"
-                            />
+                        (user?.role === 'admin' && !newTask.department) ? (
+                          <div className="p-4 text-center text-slate-500 bg-slate-50 border border-slate-200 rounded-2xl">
+                            <p className="text-xs font-bold text-slate-700">Please select a department first</p>
                           </div>
-
-                          {newTask.assignedUsers.length > 0 && (
-                            <div className="px-4 py-2 bg-orange-50 text-orange-700 text-xs font-bold border-b border-orange-200">
-                              ✓ {newTask.assignedUsers.length} faculty member(s) selected
+                        ) : availableFaculty.length === 0 ? (
+                          <div className="p-4 text-center text-slate-500 bg-slate-50 border border-slate-200 rounded-2xl">
+                            <p className="text-xs font-bold text-slate-700">No faculty available in this department.</p>
+                          </div>
+                        ) : (
+                          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                            <div className="p-3 bg-slate-50 border-b border-slate-200 relative">
+                              <FiSearch className="absolute left-6 top-5 text-slate-400 w-4 h-4" />
+                              <input
+                                type="text"
+                                placeholder="Search faculty..."
+                                value={userSearchQuery}
+                                onChange={(e) => setUserSearchQuery(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-orange-400"
+                              />
                             </div>
-                          )}
 
-                          <div className="p-3 max-h-40 overflow-y-auto space-y-1">
-                            {availableFaculty.filter(u =>
-                              u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-                              u.email.toLowerCase().includes(userSearchQuery.toLowerCase())
-                            ).map(u => (
-                              <label key={u._id} className="flex items-center gap-2.5 p-2 hover:bg-slate-50 rounded-xl cursor-pointer text-xs font-semibold text-slate-700">
-                                <input
-                                  type="checkbox"
-                                  checked={newTask.assignedUsers.includes(u._id)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setNewTask({ ...newTask, assignedUsers: [...newTask.assignedUsers, u._id] });
-                                    } else {
-                                      setNewTask({ ...newTask, assignedUsers: newTask.assignedUsers.filter(id => id !== u._id) });
-                                    }
-                                  }}
-                                  className="rounded text-orange-500"
-                                />
-                                <span>{u.name} ({u.email})</span>
-                              </label>
-                            ))}
+                            {newTask.assignedUsers.length > 0 && (
+                              <div className="px-4 py-2 bg-orange-50 text-orange-700 text-xs font-bold border-b border-orange-200">
+                                ✓ {newTask.assignedUsers.length} faculty member(s) selected
+                              </div>
+                            )}
+
+                            <div className="p-3 max-h-40 overflow-y-auto space-y-1">
+                              {availableFaculty.filter(u =>
+                                u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                                u.email.toLowerCase().includes(userSearchQuery.toLowerCase())
+                              ).map(u => (
+                                <label key={u._id} className="flex items-center gap-2.5 p-2 hover:bg-slate-50 rounded-xl cursor-pointer text-xs font-semibold text-slate-700">
+                                  <input
+                                    type="checkbox"
+                                    checked={newTask.assignedUsers.includes(u._id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setNewTask({ ...newTask, assignedUsers: [...newTask.assignedUsers, u._id] });
+                                      } else {
+                                        setNewTask({ ...newTask, assignedUsers: newTask.assignedUsers.filter(id => id !== u._id) });
+                                      }
+                                    }}
+                                    className="rounded text-orange-500"
+                                  />
+                                  <span>{u.name} ({u.email})</span>
+                                </label>
+                              ))}
+                            </div>
                           </div>
-                        </div>
+                        )
                       )}
                     </div>
                   )}

@@ -25,7 +25,9 @@ const Sidebar = ({
   isCollapsed: controlledIsCollapsed,
   setIsCollapsed: controlledSetIsCollapsed,
   onOpenProfile,
-  selectedFacultyForProfile
+  selectedFacultyForProfile,
+  onOpenAddDepartment,
+  departments: passedDepartments
 }) => {
   const { user: currentUser } = useContext(AuthContext);
   const [internalIsCollapsed, setInternalIsCollapsed] = useState(false);
@@ -41,9 +43,18 @@ const Sidebar = ({
       setInternalIsCollapsed(value);
     }
   };
-  const [departments, setDepartments] = useState([]);
+  const [internalDepartments, setInternalDepartments] = useState(passedDepartments || []);
+  const departments = (Array.isArray(passedDepartments) && passedDepartments.length > 0)
+    ? passedDepartments
+    : internalDepartments;
   const [isLeaveDropdownOpen, setIsLeaveDropdownOpen] = useState(true);
   const [isTaskDropdownOpen, setIsTaskDropdownOpen] = useState(true);
+
+  useEffect(() => {
+    if (Array.isArray(passedDepartments)) {
+      setInternalDepartments(passedDepartments);
+    }
+  }, [passedDepartments]);
 
   useEffect(() => {
     if (userRole === 'admin') {
@@ -65,7 +76,7 @@ const Sidebar = ({
   const fetchDepartments = async () => {
     try {
       const { data } = await departmentAPI.getAllDepartments();
-      setDepartments(data || []);
+      setInternalDepartments(data || []);
     } catch (error) {
       console.error('Error fetching departments:', error);
     }
@@ -133,8 +144,8 @@ const Sidebar = ({
                   }}
                   title={isCollapsed ? 'Dashboard' : undefined}
                   className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-bold text-xs md:text-sm ${activeView === 'dashboard'
-                      ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                 >
                   <FiPieChart className={`w-5 h-5 ${activeView === 'dashboard' ? 'text-white' : 'text-slate-500'}`} />
@@ -151,8 +162,8 @@ const Sidebar = ({
                   }}
                   title={isCollapsed ? (userRole === 'admin' ? 'Faculty Directory' : 'Department Faculty') : undefined}
                   className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-bold text-xs md:text-sm ${activeView === 'users'
-                      ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                 >
                   <FiUsers className={`w-5 h-5 ${activeView === 'users' ? 'text-white' : 'text-slate-500'}`} />
@@ -172,8 +183,8 @@ const Sidebar = ({
                   }}
                   title={isCollapsed ? 'Leaves' : undefined}
                   className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition font-bold text-xs md:text-sm ${isLeaveActive
-                      ? 'bg-orange-50 text-orange-700 font-extrabold border border-orange-200/80'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-orange-50 text-orange-700 font-extrabold border border-orange-200/80'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                 >
                   <div className="flex items-center space-x-3">
@@ -194,8 +205,8 @@ const Sidebar = ({
                         setIsMobileOpen(false);
                       }}
                       className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${activeView === 'leaves'
-                          ? 'bg-orange-500 text-white shadow-xs'
-                          : 'text-slate-600 hover:bg-slate-100'
+                        ? 'bg-orange-500 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100'
                         }`}
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
@@ -208,8 +219,8 @@ const Sidebar = ({
                         setIsMobileOpen(false);
                       }}
                       className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${activeView === 'departments-overview' || activeView === 'dept-detail'
-                          ? 'bg-orange-500 text-white shadow-xs'
-                          : 'text-slate-600 hover:bg-slate-100'
+                        ? 'bg-orange-500 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100'
                         }`}
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
@@ -226,8 +237,8 @@ const Sidebar = ({
                         setIsMobileOpen(false);
                       }}
                       className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${(activeView === 'faculty-profile' && (!selectedFacultyForProfile || String(selectedFacultyForProfile?._id || '') === String(currentUser?._id || '')))
-                          ? 'bg-orange-500 text-white shadow-xs'
-                          : 'text-slate-600 hover:bg-slate-100'
+                        ? 'bg-orange-500 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100'
                         }`}
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
@@ -249,8 +260,8 @@ const Sidebar = ({
                   }}
                   title={isCollapsed ? 'Tasks' : undefined}
                   className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition font-bold text-xs md:text-sm ${isTaskActive
-                      ? 'bg-orange-50 text-orange-700 font-extrabold border border-orange-200/80'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-orange-50 text-orange-700 font-extrabold border border-orange-200/80'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                 >
                   <div className="flex items-center space-x-3">
@@ -271,8 +282,8 @@ const Sidebar = ({
                         setIsMobileOpen(false);
                       }}
                       className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${activeView === 'board'
-                          ? 'bg-orange-500 text-white shadow-xs'
-                          : 'text-slate-600 hover:bg-slate-100'
+                        ? 'bg-orange-500 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100'
                         }`}
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
@@ -291,8 +302,8 @@ const Sidebar = ({
                             setIsMobileOpen(false);
                           }}
                           className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${activeView === deptName
-                              ? 'bg-orange-500 text-white shadow-xs'
-                              : 'text-slate-600 hover:bg-slate-100'
+                            ? 'bg-orange-500 text-white shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-100'
                             }`}
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
@@ -305,11 +316,15 @@ const Sidebar = ({
                     {userRole === 'admin' && (
                       <button
                         onClick={() => {
-                          setActiveView('departments');
+                          if (onOpenAddDepartment) {
+                            onOpenAddDepartment();
+                          } else {
+                            setActiveView('departments');
+                          }
                           setIsMobileOpen(false);
                         }}
                         className="w-full text-left px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 text-orange-600 hover:bg-orange-50 border border-dashed border-orange-300 mt-2 cursor-pointer"
-                        title="Manage and Add Academic Departments"
+                        title="Add Academic Department"
                       >
                         <FiPlus className="w-3.5 h-3.5" />
                         <span>+ Add Department</span>
@@ -328,8 +343,8 @@ const Sidebar = ({
                   }}
                   title={isCollapsed ? 'Departments' : undefined}
                   className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-bold text-xs md:text-sm ${activeView === 'departments'
-                      ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                 >
                   <FiBriefcase className={`w-5 h-5 ${activeView === 'departments' ? 'text-white' : 'text-slate-500'}`} />
@@ -345,8 +360,8 @@ const Sidebar = ({
                 }}
                 title={isCollapsed ? 'Chats' : undefined}
                 className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-bold text-xs md:text-sm ${activeView === 'chats'
-                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                   }`}
               >
                 <FiMessageSquare className={`w-5 h-5 ${activeView === 'chats' ? 'text-white' : 'text-slate-500'}`} />

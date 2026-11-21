@@ -70,21 +70,23 @@ const autoSeedDepartments = async () => {
   }
 };
 
-// 1. Get All Departments (Simple array of name strings for dropdowns, Register, Sidebar, Kanban)
+// 1. Get All Departments (Complete list of department names for dropdowns, Register, Sidebar, Kanban)
 exports.getAllDepartments = async (req, res) => {
   try {
     if (mongoose.connection.readyState === 1) {
       await autoSeedDepartments();
-      const depts = await Department.find({ status: 'active' }).select('name').sort({ name: 1 });
-      if (depts.length > 0) {
-        return res.json(depts.map(d => d.name));
-      }
-      // Fallback to User distinct
-      const departments = await User.distinct('department', { department: { $ne: null, $ne: '' } });
-      return res.json(departments.sort());
+      const depts = await Department.find().select('name').sort({ name: 1 });
+      const deptNames = depts.map(d => d.name).filter(Boolean);
+      const userDepts = await User.distinct('department', { department: { $ne: null, $ne: '' } });
+      const taskDepts = await Task.distinct('department', { department: { $ne: null, $ne: '' } });
+
+      const allDepts = Array.from(new Set([...deptNames, ...userDepts, ...taskDepts])).filter(Boolean).sort();
+      return res.json(allDepts);
     } else {
-      const mockDepts = Array.from(new Set(demoUsers.map(u => u.department).filter(Boolean)));
-      return res.json(mockDepts.sort());
+      const userDepts = demoUsers.map(u => u.department).filter(Boolean);
+      const taskDepts = demoTasks.map(t => t.department).filter(Boolean);
+      const allDepts = Array.from(new Set([...userDepts, ...taskDepts, 'Computer Science', 'Management', 'Commerce', 'Science', 'Arts'])).filter(Boolean).sort();
+      return res.json(allDepts);
     }
   } catch (error) {
     console.error('getAllDepartments error:', error);
