@@ -473,41 +473,53 @@ exports.assignHOD = async (req, res) => {
     const { id } = req.params;
     const { hodId } = req.body;
 
-    const department = await Department.findById(id);
-    if (!department) {
-      return res.status(404).json({ message: 'Department not found' });
-    }
-
     if (!hodId) {
-      return res.status(400).json({ message: 'HOD User ID is required' });
+      return res.status(400).json({ message: 'Faculty User ID is required' });
     }
 
-    const hodUser = await User.findById(hodId);
-    if (!hodUser || hodUser.role !== 'hod') {
-      return res.status(400).json({ message: 'Selected user is not an HOD' });
+    if (mongoose.connection.readyState === 1) {
+      const department = await Department.findById(id);
+      if (!department) {
+        return res.status(404).json({ message: 'Department not found' });
+      }
+
+      const hodUser = await User.findById(hodId);
+      if (!hodUser) {
+        return res.status(404).json({ message: 'Selected faculty member not found' });
+      }
+
+      if (hodUser.role === 'admin') {
+        return res.status(400).json({ message: 'Administrator accounts cannot be appointed as department HOD' });
+      }
+
+      // Promote faculty/user to HOD role and assign department
+      hodUser.role = 'hod';
+      hodUser.department = department.name;
+      await hodUser.save();
+
+      department.hod = hodUser._id;
+      await department.save();
+
+      await ActivityLog.create({
+        performedBy: req.user._id,
+        action: 'HOD_ASSIGNED',
+        department: department._id,
+        departmentName: department.name,
+        details: { hodId: hodUser._id, hodName: hodUser.name, hodEmail: hodUser.email }
+      });
+
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('department-updated', { action: 'hod_assigned', department });
+      }
+
+      return res.json({ message: `Prof./Dr. ${hodUser.name} appointed as HOD of ${department.name} successfully`, department });
+    } else {
+      const user = demoUsers.find(u => u._id === hodId);
+      if (!user) return res.status(404).json({ message: 'User not found' });
+      user.role = 'hod';
+      return res.json({ message: 'HOD assigned successfully' });
     }
-
-    department.hod = hodUser._id;
-    await department.save();
-
-    // Sync HOD user department field
-    hodUser.department = department.name;
-    await hodUser.save();
-
-    await ActivityLog.create({
-      performedBy: req.user._id,
-      action: 'HOD_ASSIGNED',
-      department: department._id,
-      departmentName: department.name,
-      details: { hodId: hodUser._id, hodName: hodUser.name, hodEmail: hodUser.email }
-    });
-
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('department-updated', { action: 'hod_assigned', department });
-    }
-
-    res.json({ message: 'HOD assigned successfully', department });
   } catch (error) {
     console.error('assignHOD error:', error);
     res.status(500).json({ message: error.message });
@@ -520,52 +532,75 @@ exports.changeHOD = async (req, res) => {
     const { id } = req.params;
     const { newHodId } = req.body;
 
-    const department = await Department.findById(id).populate('hod', 'name email');
-    if (!department) {
-      return res.status(404).json({ message: 'Department not found' });
-    }
-
     if (!newHodId) {
       return res.status(400).json({ message: 'New HOD User ID is required' });
     }
 
-    const newHodUser = await User.findById(newHodId);
-    if (!newHodUser || newHodUser.role !== 'hod') {
-      return res.status(400).json({ message: 'Selected new user is not an HOD' });
-    }
-
-    const previousHod = department.hod;
-
-    // Update Department HOD link
-    department.hod = newHodUser._id;
-    await department.save();
-
-    // Update new HOD's department field
-    newHodUser.department = department.name;
-    await newHodUser.save();
-
-    await ActivityLog.create({
-      performedBy: req.user._id,
-      action: 'HOD_CHANGED',
-      department: department._id,
-      departmentName: department.name,
-      details: {
-        previousHod: previousHod ? { _id: previousHod._id, name: previousHod.name, email: previousHod.email } : null,
-        newHod: { _id: newHodUser._id, name: newHodUser.name, email: newHodUser.email }
+    if (mongoose.connection.readyState === 1) {
+      const department = await Department.findById(id).populate('hod', 'name email role');
+      if (!department) {
+        return res.status(404).json({ message: 'Department not found' });
       }
-    });
 
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('department-updated', { action: 'hod_changed', department });
+      const newHodUser = await User.findById(newHodId);
+      if (!newHodUser) {
+        return res.status(404).json({ message: 'Selected faculty member not found' });
+      }
+
+      if (newHodUser.role === 'admin') {
+        return res.status(400).json({ message: 'Administrator accounts cannot be appointed as department HOD' });
+      }
+
+      const previousHod = department.hod;
+
+      // Promote new faculty/user to HOD and assign department
+      newHodUser.role = 'hod';
+      newHodUser.department = department.name;
+      await newHodUser.save();
+
+      // If previous HOD exists and is not HOD of any other active department, revert their role to faculty ('user')
+      if (previousHod && String(previousHod._id) !== String(newHodUser._id)) {
+        const otherDeptsAsHod = await Department.findOne({
+          _id: { $ne: department._id },
+          hod: previousHod._id
+        });
+        if (!otherDeptsAsHod) {
+          await User.findByIdAndUpdate(previousHod._id, { role: 'user' });
+        }
+      }
+
+      // Update Department HOD link
+      department.hod = newHodUser._id;
+      await department.save();
+
+      await ActivityLog.create({
+        performedBy: req.user._id,
+        action: 'HOD_CHANGED',
+        department: department._id,
+        departmentName: department.name,
+        details: {
+          previousHod: previousHod ? { _id: previousHod._id, name: previousHod.name, email: previousHod.email } : null,
+          newHod: { _id: newHodUser._id, name: newHodUser.name, email: newHodUser.email }
+        }
+      });
+
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('department-updated', { action: 'hod_changed', department });
+      }
+
+      return res.json({
+        message: `HOD changed to ${newHodUser.name} successfully`,
+        previousHod: previousHod ? { _id: previousHod._id, name: previousHod.name, email: previousHod.email } : null,
+        newHod: { _id: newHodUser._id, name: newHodUser.name, email: newHodUser.email },
+        department
+      });
+    } else {
+      const user = demoUsers.find(u => u._id === newHodId);
+      if (!user) return res.status(404).json({ message: 'User not found' });
+      user.role = 'hod';
+      return res.json({ message: 'HOD changed successfully' });
     }
-
-    res.json({
-      message: 'HOD changed successfully',
-      previousHod: previousHod ? { _id: previousHod._id, name: previousHod.name, email: previousHod.email } : null,
-      newHod: { _id: newHodUser._id, name: newHodUser.name, email: newHodUser.email },
-      department
-    });
   } catch (error) {
     console.error('changeHOD error:', error);
     res.status(500).json({ message: error.message });

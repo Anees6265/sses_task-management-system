@@ -1,14 +1,12 @@
 import React, { useContext, useState, useRef, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
-import CreateHOD from './CreateHOD.jsx';
 import CreateFaculty from './CreateFaculty.jsx';
 import FacultyProfileModal from './FacultyProfileModal.jsx';
 import logo from '../assets/images/singaji_educational_society_logo.jpg';
 import { 
   FiMenu, 
   FiGlobe, 
-  FiPlusCircle, 
   FiUserPlus, 
   FiUser, 
   FiSettings, 
@@ -23,7 +21,6 @@ import {
 const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
   const { user, logout } = useContext(AuthContext);
   const { language, toggleLanguage, t } = useLanguage();
-  const [showCreateHODModal, setShowCreateHODModal] = useState(false);
   const [showCreateFacultyModal, setShowCreateFacultyModal] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -43,7 +40,6 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         setShowUserMenu(false);
-        setShowCreateHODModal(false);
         setShowCreateFacultyModal(false);
         setShowSettingsModal(false);
         setShowLogoutConfirm(false);
@@ -124,17 +120,6 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
               <FiGlobe className="w-4 h-4 text-orange-500" />
               <span>{language === 'en' ? 'हिन्दी' : 'English'}</span>
             </button>
-            
-            {user?.role === 'admin' && (
-              <button
-                onClick={() => setShowCreateHODModal(true)}
-                className="px-3 md:px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl transition font-bold text-xs md:text-sm flex items-center gap-2 shadow-md shadow-orange-500/20 active:scale-95"
-              >
-                <FiPlusCircle className="w-4 h-4" />
-                <span className="hidden sm:inline">+ Register Department</span>
-                <span className="sm:hidden">+ Dept</span>
-              </button>
-            )}
             
             {user?.role === 'hod' && (
               <button
@@ -240,28 +225,6 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
         />
       )}
 
-      {/* Create HOD Modal */}
-      {showCreateHODModal && (
-        <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowCreateHODModal(false); }}
-        >
-          <div 
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-md my-auto max-h-[90vh] overflow-y-auto relative border border-slate-100 fade-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setShowCreateHODModal(false)}
-              className="absolute top-4 right-4 z-10 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition"
-            >
-              <FiX className="w-5 h-5" />
-            </button>
-            <div className="p-6 md:p-8">
-              <CreateHOD onClose={() => setShowCreateHODModal(false)} isModal={true} />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Create Faculty Modal */}
       {showCreateFacultyModal && (
