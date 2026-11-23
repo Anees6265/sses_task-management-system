@@ -108,6 +108,12 @@ export const SocketProvider = ({ children }) => {
         notifyDataRefresh('all');
       });
 
+      newSocket.on('department-updated', () => {
+        console.log('⚡ Socket event: department-updated -> refreshing departments');
+        notifyDataRefresh('departments');
+        notifyDataRefresh('all');
+      });
+
       setSocket(newSocket);
     };
 

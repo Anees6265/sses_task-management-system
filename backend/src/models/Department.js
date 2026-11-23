@@ -19,12 +19,28 @@ const departmentSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
+  phoneNumber: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   status: {
     type: String,
-    enum: ['active', 'inactive'],
-    default: 'active'
+    enum: ['active', 'inactive', 'ACTIVE', 'INACTIVE'],
+    default: 'active',
+    set: v => v ? v.toLowerCase() : v
+  },
+  hodId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
   },
   hod: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     default: null
@@ -32,5 +48,21 @@ const departmentSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Pre-save hook to ensure hodId and hod stay synchronized
+departmentSchema.pre('save', function(next) {
+  if (this.hodId && !this.hod) {
+    this.hod = this.hodId;
+  } else if (this.hod && !this.hodId) {
+    this.hodId = this.hod;
+  }
+  next();
+});
+
+// Indexes for performance and uniqueness
+departmentSchema.index({ code: 1 }, { unique: true });
+departmentSchema.index({ name: 1 }, { unique: true });
+departmentSchema.index({ hodId: 1 });
+departmentSchema.index({ status: 1 });
 
 module.exports = mongoose.model('Department', departmentSchema);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { userAPI, departmentAPI, taskAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { toast } from 'react-toastify';
@@ -45,7 +46,7 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
   const [users, setUsers] = useState([]);
   const [tasksList, setTasksList] = useState([]);
   const [unassignedUsers, setUnassignedUsers] = useState([]);
-  const [departments, setDepartments] = useState(['Computer Science', 'Information Technology', 'Management', 'Electronics & Comm.']);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Filters & Tabs
@@ -105,11 +106,30 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
       if (type === 'users' || type === 'all') {
         fetchUsersData();
       }
+      if (type === 'departments' || type === 'all') {
+        fetchDepartmentsData();
+      }
     };
 
     window.addEventListener('app_data_refresh', handleRefresh);
     return () => window.removeEventListener('app_data_refresh', handleRefresh);
   }, []);
+
+  // Handle Escape key to close any active modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (statusConfirmUser) setStatusConfirmUser(null);
+        else if (removeConfirmUser) setRemoveConfirmUser(null);
+        else if (selectedUserForDeptChange) setSelectedUserForDeptChange(null);
+        else if (editingFaculty) setEditingFaculty(null);
+        else if (isAssignModalOpen) setIsAssignModalOpen(false);
+        else if (isCreateUserModalOpen) setIsCreateUserModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [statusConfirmUser, removeConfirmUser, selectedUserForDeptChange, editingFaculty, isAssignModalOpen, isCreateUserModalOpen]);
 
   const fetchInitialData = async (showLoader = false) => {
     if (showLoader) setLoading(true);
@@ -150,9 +170,9 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
   const fetchDepartmentsData = async () => {
     try {
       const { data } = await departmentAPI.getAllDepartments();
-      if (data && data.length > 0) {
-        const fetchedDepts = data.map(d => typeof d === 'object' ? (d.name || d.code) : String(d));
-        setDepartments(Array.from(new Set([...departments, ...fetchedDepts])));
+      if (data && Array.isArray(data) && data.length > 0) {
+        const fetchedDepts = data.map(d => typeof d === 'object' ? (d.name || d.code) : String(d)).filter(Boolean);
+        setDepartments(Array.from(new Set(fetchedDepts)));
       }
     } catch (error) {
       console.error('Error fetching departments:', error);
@@ -437,8 +457,8 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
     }
 
     const finalDept = isCustomCreateDept ? customCreateDeptName.trim() : createUserForm.department;
-    if (createUserForm.role !== 'admin' && !finalDept) {
-      toast.error('Please select or specify a department for this user');
+    if ((createUserForm.role === 'user' || createUserForm.role === 'faculty') && !finalDept) {
+      toast.error('Please select or specify a department for Faculty');
       return;
     }
 
@@ -452,7 +472,7 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
         phoneNumber: phoneCheck.formatted
       };
       if (createUserForm.role !== 'admin') {
-        payload.department = finalDept;
+        payload.department = finalDept || (createUserForm.role === 'hod' ? 'Unassigned' : '');
       }
 
       await userAPI.createUser(payload);
@@ -1246,9 +1266,15 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
       {/* ================= MODALS ================= */}
 
       {/* EDIT FACULTY MODAL */}
-      {editingFaculty && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in space-y-5">
+      {editingFaculty && createPortal(
+        <div 
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
+          onClick={(e) => { if (e.target === e.currentTarget) setEditingFaculty(null); }}
+        >
+          <div 
+            className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-orange-100 text-orange-600 rounded-2xl">
@@ -1262,7 +1288,8 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
               <button 
                 type="button"
                 onClick={() => setEditingFaculty(null)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                title="Close"
               >
                 <FiX className="w-5 h-5" />
               </button>
@@ -1311,27 +1338,34 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
                 <button
                   type="submit"
                   disabled={savingEdit}
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-xs sm:text-sm disabled:opacity-50"
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-xs sm:text-sm disabled:opacity-50 cursor-pointer"
                 >
                   {savingEdit ? 'Saving...' : 'Save Profile Changes'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditingFaculty(null)}
-                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm"
+                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm cursor-pointer"
                 >
                   Cancel
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ASSIGN FACULTY MODAL (HOD / Admin) */}
-      {isAssignModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in space-y-5">
+      {isAssignModalOpen && createPortal(
+        <div 
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
+          onClick={(e) => { if (e.target === e.currentTarget) setIsAssignModalOpen(false); }}
+        >
+          <div 
+            className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-orange-100 text-orange-600 rounded-2xl">
@@ -1345,7 +1379,8 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
               <button 
                 type="button"
                 onClick={() => setIsAssignModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                title="Close"
               >
                 <FiX className="w-5 h-5" />
               </button>
@@ -1379,27 +1414,43 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
                 <button
                   type="submit"
                   disabled={assigning || unassignedUsers.length === 0}
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-xs sm:text-sm disabled:opacity-50"
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-xs sm:text-sm disabled:opacity-50 cursor-pointer"
                 >
                   {assigning ? 'Assigning...' : 'Assign to Department'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsAssignModalOpen(false)}
-                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm"
+                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm cursor-pointer"
                 >
                   Cancel
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* STATUS TOGGLE CONFIRMATION DIALOG */}
-      {statusConfirmUser && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in space-y-4">
+      {statusConfirmUser && createPortal(
+        <div 
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
+          onClick={(e) => { if (e.target === e.currentTarget) setStatusConfirmUser(null); }}
+        >
+          <div 
+            className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in space-y-4 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setStatusConfirmUser(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer"
+              title="Close"
+            >
+              <FiX className="w-5 h-5" />
+            </button>
+
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto ${
               statusConfirmUser.status === 'inactive' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
             }`}>
@@ -1420,7 +1471,7 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
               <button
                 type="button"
                 onClick={handleConfirmToggleStatus}
-                className={`flex-1 text-white py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md transition ${
+                className={`flex-1 text-white py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md transition cursor-pointer ${
                   statusConfirmUser.status === 'inactive' 
                     ? 'bg-emerald-600 hover:bg-emerald-700' 
                     : 'bg-rose-600 hover:bg-rose-700'
@@ -1431,19 +1482,35 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
               <button
                 type="button"
                 onClick={() => setStatusConfirmUser(null)}
-                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm"
+                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm cursor-pointer"
               >
                 Cancel
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* REMOVE FACULTY CONFIRMATION DIALOG */}
-      {removeConfirmUser && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in space-y-4">
+      {removeConfirmUser && createPortal(
+        <div 
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
+          onClick={(e) => { if (e.target === e.currentTarget) setRemoveConfirmUser(null); }}
+        >
+          <div 
+            className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-2xl my-auto border border-slate-100 text-center fade-in space-y-4 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setRemoveConfirmUser(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer"
+              title="Close"
+            >
+              <FiX className="w-5 h-5" />
+            </button>
+
             <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto">
               <FiUserMinus className="w-6 h-6" />
             </div>
@@ -1460,26 +1527,33 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
               <button
                 type="button"
                 onClick={handleConfirmRemoveFaculty}
-                className="flex-1 bg-rose-600 text-white py-2.5 rounded-xl font-bold hover:bg-rose-700 transition text-xs sm:text-sm shadow-md shadow-rose-600/20"
+                className="flex-1 bg-rose-600 text-white py-2.5 rounded-xl font-bold hover:bg-rose-700 transition text-xs sm:text-sm shadow-md shadow-rose-600/20 cursor-pointer"
               >
                 Confirm Removal
               </button>
               <button
                 type="button"
                 onClick={() => setRemoveConfirmUser(null)}
-                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm"
+                className="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm cursor-pointer"
               >
                 Cancel
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* CHANGE DEPARTMENT MODAL (Admin Only) */}
-      {selectedUserForDeptChange && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in space-y-5">
+      {selectedUserForDeptChange && createPortal(
+        <div 
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedUserForDeptChange(null); }}
+        >
+          <div 
+            className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[90vh] overflow-y-auto border border-slate-100 fade-in space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div className="p-2.5 bg-orange-100 text-orange-600 rounded-2xl">
@@ -1493,7 +1567,8 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
               <button 
                 type="button"
                 onClick={() => setSelectedUserForDeptChange(null)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                title="Close"
               >
                 <FiX className="w-5 h-5" />
               </button>
@@ -1526,7 +1601,7 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
                     <button
                       type="button"
                       onClick={() => setIsCustomDept(true)}
-                      className="text-xs text-orange-600 font-extrabold hover:underline block"
+                      className="text-xs text-orange-600 font-extrabold hover:underline block cursor-pointer"
                     >
                       + Add New Custom Department
                     </button>
@@ -1544,7 +1619,7 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
                     <button
                       type="button"
                       onClick={() => setIsCustomDept(false)}
-                      className="text-xs text-slate-500 font-bold hover:underline block"
+                      className="text-xs text-slate-500 font-bold hover:underline block cursor-pointer"
                     >
                       ← Choose from existing departments
                     </button>
@@ -1556,27 +1631,34 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
                 <button
                   type="submit"
                   disabled={updating}
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-xs sm:text-sm disabled:opacity-50"
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-xs sm:text-sm disabled:opacity-50 cursor-pointer"
                 >
                   {updating ? 'Saving...' : 'Save Department'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedUserForDeptChange(null)}
-                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm"
+                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm cursor-pointer"
                 >
                   Cancel
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* CREATE USER MODAL (Admin Only) */}
-      {isCreateUserModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-lg shadow-2xl my-auto border border-slate-100 fade-in max-h-[90vh] overflow-y-auto space-y-5">
+      {isCreateUserModalOpen && createPortal(
+        <div 
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
+          onClick={(e) => { if (e.target === e.currentTarget) setIsCreateUserModalOpen(false); }}
+        >
+          <div 
+            className="bg-white p-6 md:p-8 rounded-3xl w-full max-w-lg shadow-2xl my-auto border border-slate-100 fade-in max-h-[90vh] overflow-y-auto space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-orange-100 text-orange-600 rounded-2xl">
@@ -1590,7 +1672,8 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
               <button 
                 type="button"
                 onClick={() => setIsCreateUserModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                title="Close"
               >
                 <FiX className="w-5 h-5" />
               </button>
@@ -1723,7 +1806,7 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
                 <button
                   type="submit"
                   disabled={creatingUser}
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-xs sm:text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 rounded-xl font-bold transition shadow-md shadow-orange-500/20 text-xs sm:text-sm disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <FiCheckCircle className="w-4 h-4" />
                   <span>{creatingUser ? 'Registering...' : 'Register Faculty'}</span>
@@ -1731,14 +1814,15 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
                 <button
                   type="button"
                   onClick={() => setIsCreateUserModalOpen(false)}
-                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm"
+                  className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-xs sm:text-sm cursor-pointer"
                 >
                   Cancel
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

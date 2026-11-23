@@ -11,6 +11,7 @@ import {
   FiChevronDown,
   FiBriefcase,
   FiUsers,
+  FiPlus,
   FiX
 } from 'react-icons/fi';
 
@@ -43,11 +44,23 @@ const Sidebar = ({
   const [departments, setDepartments] = useState([]);
   const [isLeaveDropdownOpen, setIsLeaveDropdownOpen] = useState(true);
   const [isTaskDropdownOpen, setIsTaskDropdownOpen] = useState(true);
+  const [isDeptDropdownOpen, setIsDeptDropdownOpen] = useState(true);
 
   useEffect(() => {
     if (userRole === 'admin') {
       fetchDepartments();
     }
+
+    const handleRefresh = (e) => {
+      const type = e?.detail?.type;
+      if (!type || type === 'all' || type === 'departments') {
+        if (userRole === 'admin') {
+          fetchDepartments();
+        }
+      }
+    };
+    window.addEventListener('app_data_refresh', handleRefresh);
+    return () => window.removeEventListener('app_data_refresh', handleRefresh);
   }, [userRole, refreshTrigger]);
 
   const fetchDepartments = async () => {
@@ -66,12 +79,14 @@ const Sidebar = ({
     return deptName && activeView === deptName;
   }));
 
+  const isDeptActive = activeView === 'departments';
+
   return (
     <>
       {/* Mobile Overlay */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 md:hidden"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-40 md:hidden"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
@@ -267,7 +282,7 @@ const Sidebar = ({
                       <span>{userRole === 'admin' ? 'All Tasks' : userRole === 'hod' ? 'Department Tasks' : 'My Tasks'}</span>
                     </button>
 
-                    {/* Department Task Boards */}
+                    {/* Department Task Boards (All Tasks Task-Wise) */}
                     {userRole === 'admin' && departments.map(dept => {
                       const deptName = typeof dept === 'object' ? (dept.name || '') : String(dept || '');
                       if (!deptName) return null;
@@ -292,22 +307,68 @@ const Sidebar = ({
                 )}
               </div>
 
-              {/* Department Management (Admin Only) */}
+              {/* DEPARTMENTS DROPDOWN (Admin Only) */}
               {userRole === 'admin' && (
-                <button
-                  onClick={() => {
-                    setActiveView('departments');
-                    setIsMobileOpen(false);
-                  }}
-                  title={isCollapsed ? 'Departments' : undefined}
-                  className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl transition font-bold text-xs md:text-sm ${activeView === 'departments'
-                      ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
-                >
-                  <FiBriefcase className={`w-5 h-5 ${activeView === 'departments' ? 'text-white' : 'text-slate-500'}`} />
-                  {!isCollapsed && <span className="truncate">Departments</span>}
-                </button>
+                <div className="space-y-1">
+                  <button
+                    onClick={() => {
+                      if (isCollapsed) {
+                        setActiveView('departments');
+                      } else {
+                        setIsDeptDropdownOpen(!isDeptDropdownOpen);
+                      }
+                    }}
+                    title={isCollapsed ? 'Departments' : undefined}
+                    className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition font-bold text-xs md:text-sm ${isDeptActive
+                        ? 'bg-orange-50 text-orange-700 font-extrabold border border-orange-200/80'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <FiBriefcase className={`w-5 h-5 ${isDeptActive ? 'text-orange-600' : 'text-slate-500'}`} />
+                      {!isCollapsed && <span className="truncate">Departments</span>}
+                    </div>
+                    {!isCollapsed && (
+                      <FiChevronDown className={`w-4 h-4 transition-transform duration-200 ${isDeptDropdownOpen ? 'rotate-180 text-orange-600' : 'text-slate-400'}`} />
+                    )}
+                  </button>
+
+                  {/* Departments Submenu Items */}
+                  {isDeptDropdownOpen && !isCollapsed && (
+                    <div className="pl-6 space-y-1 border-l-2 border-orange-200 ml-5 my-1">
+                      {/* + Add Department Button */}
+                      <button
+                        onClick={() => {
+                          setActiveView('departments');
+                          setIsMobileOpen(false);
+                          setTimeout(() => {
+                            window.dispatchEvent(new CustomEvent('open_add_department_modal'));
+                          }, 50);
+                        }}
+                        className="w-full text-left px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 text-orange-600 hover:bg-orange-50 border border-dashed border-orange-300 mb-1 cursor-pointer"
+                        title="Add Academic Department"
+                      >
+                        <FiPlus className="w-3.5 h-3.5" />
+                        <span>+ Add Department</span>
+                      </button>
+
+                      {/* Manage All Departments */}
+                      <button
+                        onClick={() => {
+                          setActiveView('departments');
+                          setIsMobileOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 ${activeView === 'departments'
+                            ? 'bg-orange-500 text-white shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-100'
+                          }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                        <span>Manage Departments</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* Chats */}

@@ -16,9 +16,7 @@ const Message = require('./src/models/Message');
 const jwt = require('jsonwebtoken');
 const helmet = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
-
 const app = express();
-
 // 1. Security HTTP Headers via Helmet
 app.use(helmet({
   contentSecurityPolicy: false, // Disabled for static upload serving & socket connections; customize as needed
@@ -101,13 +99,14 @@ app.get('/', (req, res) => {
 
 // Socket.IO for real-time chat
 const onlineUsers = new Map();
+const JWT_SECRET = process.env.JWT_SECRET || 'sses_task_management_default_jwt_secret_dev_key';
 
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
   if (!token) return next(new Error('Authentication error'));
-  
+
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     socket.userId = decoded.id;
     next();
   } catch (error) {
@@ -117,38 +116,38 @@ io.use((socket, next) => {
 
 io.on('connection', (socket) => {
   console.log('✅ User connected:', socket.userId);
-  
+
   onlineUsers.set(socket.userId, socket.id);
   io.emit('user-online', { userId: socket.userId });
   socket.emit('online-users', Array.from(onlineUsers.keys()));
   socket.join(socket.userId);
-  
+
   socket.on('send-message', async (data) => {
     try {
       const encryptedMessage = encrypt(data.message);
-      
+
       const message = await Message.create({
         sender: socket.userId,
         receiver: data.receiver,
         message: encryptedMessage
       });
-      
+
       const populatedMessage = await Message.findById(message._id)
         .populate('sender', 'name email')
         .populate('receiver', 'name email');
-      
+
       const decryptedMessage = {
         ...populatedMessage.toObject(),
         message: decrypt(populatedMessage.message)
       };
-      
+
       const receiverSocketId = onlineUsers.get(data.receiver);
       if (receiverSocketId) {
         io.to(receiverSocketId).emit('receive-message', decryptedMessage);
         await Message.findByIdAndUpdate(message._id, { delivered: true });
         socket.emit('message-delivered', { messageId: message._id });
       }
-      
+
       socket.emit('message-sent', decryptedMessage);
 
       if (!receiverSocketId) {
@@ -164,28 +163,28 @@ io.on('connection', (socket) => {
       socket.emit('message-error', { error: error.message });
     }
   });
-  
+
   socket.on('typing', (data) => {
     const receiverSocketId = onlineUsers.get(data.receiver);
     if (receiverSocketId) {
       io.to(receiverSocketId).emit('user-typing', { userId: socket.userId });
     }
   });
-  
+
   socket.on('stop-typing', (data) => {
     const receiverSocketId = onlineUsers.get(data.receiver);
     if (receiverSocketId) {
       io.to(receiverSocketId).emit('user-stop-typing', { userId: socket.userId });
     }
   });
-  
+
   socket.on('mark-read', async (data) => {
     try {
       await Message.updateMany(
         { sender: data.sender, receiver: socket.userId, read: false },
         { read: true }
       );
-      
+
       const senderSocketId = onlineUsers.get(data.sender);
       if (senderSocketId) {
         io.to(senderSocketId).emit('messages-read', { userId: socket.userId });
@@ -194,7 +193,7 @@ io.on('connection', (socket) => {
       console.error('Mark read error:', error);
     }
   });
-  
+
   socket.on('disconnect', () => {
     console.log('❌ User disconnected:', socket.userId);
     onlineUsers.delete(socket.userId);
@@ -209,6 +208,7 @@ server.listen(PORT, HOST, () => {
   console.log(`Server running on http://${HOST}:${PORT}`);
   console.log(`Local access: http://localhost:${PORT}`);
   console.log(`Network access: http://172.19.16.1:${PORT}`);
-  console.log(`\n📧 Email Config: ${process.env.EMAIL_USER ? '✅ Configured' : '❌ Not Configured'}`);
+  console.log(`\n🔐 JWT Secret: ${process.env.JWT_SECRET ? '✅ Configured' : '⚠️ Using fallback dev secret (set JWT_SECRET in .env)'}`);
+  console.log(`📧 Email Config: ${process.env.EMAIL_USER ? '✅ Configured' : '❌ Not Configured'}`);
   console.log('💬 Socket.IO chat enabled');
 });

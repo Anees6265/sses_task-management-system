@@ -1,10 +1,39 @@
+const mongoose = require('mongoose');
 const Department = require('../models/Department');
 const User = require('../models/User');
 const Task = require('../models/Task');
 const ActivityLog = require('../models/ActivityLog');
+const { demoUsers } = require('../utils/mockStore');
+
+// Helper to validate 10-digit mobile number with or without +91
+const validateAndFormatPhone = (phoneNumber) => {
+  if (!phoneNumber || !String(phoneNumber).trim()) {
+    return { isValid: false, message: 'Department mobile number is required' };
+  }
+  const cleanPhone = String(phoneNumber).replace(/[\s-]/g, '');
+  let digits = cleanPhone;
+  if (digits.startsWith('+91')) {
+    digits = digits.slice(3);
+  } else if (digits.startsWith('91') && digits.length === 12) {
+    digits = digits.slice(2);
+  }
+
+  if (!/^\d{10}$/.test(digits)) {
+    return {
+      isValid: false,
+      message: 'Mobile number must be exactly 10 digits (e.g. +91 9876543210 or 9876543210)'
+    };
+  }
+
+  return {
+    isValid: true,
+    formatted: `+91 ${digits}`
+  };
+};
 
 // Helper to auto-seed existing department strings if Department collection is empty
 const autoSeedDepartments = async () => {
+  if (mongoose.connection.readyState !== 1) return;
   try {
     const count = await Department.countDocuments();
     if (count === 0) {
@@ -44,14 +73,27 @@ const autoSeedDepartments = async () => {
 // 1. Get All Departments (Simple array of name strings for dropdowns, Register, Sidebar, Kanban)
 exports.getAllDepartments = async (req, res) => {
   try {
-    await autoSeedDepartments();
-    const depts = await Department.find({ status: 'active' }).select('name').sort({ name: 1 });
-    if (depts.length > 0) {
-      return res.json(depts.map(d => d.name));
+    // If query parameters or admin management view requested, delegate to full getAdminDepartments
+    if (req.query.search !== undefined || req.query.page !== undefined || req.query.limit !== undefined || (req.query.status && req.query.status !== 'active')) {
+      return exports.getAdminDepartments(req, res);
     }
-    // Fallback to User distinct
-    const departments = await User.distinct('department', { department: { $ne: null, $ne: '' } });
-    res.json(departments.sort());
+
+    if (mongoose.connection.readyState === 1) {
+      await autoSeedDepartments();
+      const depts = await Department.find({ status: 'active' }).select('name code hod hodId').populate('hod', 'name email').sort({ name: 1 });
+      if (depts.length > 0) {
+        if (req.query.simple === 'true') {
+          return res.json(depts.map(d => d.name));
+        }
+        return res.json(depts);
+      }
+      // Fallback to User distinct
+      const departments = await User.distinct('department', { department: { $ne: null, $ne: '' } });
+      return res.json(departments.sort());
+    } else {
+      const mockDepts = Array.from(new Set(demoUsers.map(u => u.department).filter(Boolean)));
+      return res.json(mockDepts.sort());
+    }
   } catch (error) {
     console.error('getAllDepartments error:', error);
     res.status(500).json({ message: error.message });
@@ -63,24 +105,36 @@ exports.getAdminDepartments = async (req, res) => {
   try {
     await autoSeedDepartments();
 
-    const { status, search } = req.query;
+    const { status, search, page, limit } = req.query;
     let query = {};
 
     if (status && status !== 'all') {
-      query.status = status;
+      query.status = status.toLowerCase();
     }
 
-    if (search) {
+    if (search && search.trim()) {
+      const q = search.trim();
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { code: { $regex: search, $options: 'i' } }
+        { name: { $regex: q, $options: 'i' } },
+        { code: { $regex: q, $options: 'i' } }
       ];
     }
 
-    const departments = await Department.find(query)
-      .populate('hod', 'name email role status phoneNumber')
-      .sort({ name: 1 });
+    const total = await Department.countDocuments(query);
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 0; // 0 means return all
+    const skip = limitNum > 0 ? (pageNum - 1) * limitNum : 0;
 
+    let deptQuery = Department.find(query)
+      .populate('hod', 'name email role status phoneNumber')
+      .populate('hodId', 'name email role status phoneNumber')
+      .sort({ createdAt: -1, name: 1 });
+
+    if (limitNum > 0) {
+      deptQuery = deptQuery.skip(skip).limit(limitNum);
+    }
+
+    const departments = await deptQuery;
     const now = new Date();
 
     const enrichedDepartments = await Promise.all(
@@ -89,11 +143,15 @@ exports.getAdminDepartments = async (req, res) => {
         const deptIdentifier = [dept.name, dept.code];
 
         const facultyList = await User.find({
-          role: 'user',
-          department: { $in: deptIdentifier }
-        }).select('_id');
+          role: { $in: ['user', 'faculty'] },
+          $or: [
+            { departmentId: dept._id },
+            { department: { $in: deptIdentifier } }
+          ]
+        }).select('_id name email status');
 
         const totalFaculty = facultyList.length;
+        const activeFaculty = facultyList.filter(f => (f.status || 'active') === 'active').length;
 
         const tasks = await Task.find({
           department: { $in: deptIdentifier }
@@ -120,9 +178,12 @@ exports.getAdminDepartments = async (req, res) => {
 
         return {
           ...deptObj,
+          hod: deptObj.hod || deptObj.hodId || null,
+          hodId: deptObj.hodId || deptObj.hod || null,
           totalFaculty,
-          activeFaculty: totalFaculty,
-          inactiveFaculty: 0,
+          facultyCount: totalFaculty,
+          activeFaculty,
+          inactiveFaculty: totalFaculty - activeFaculty,
           totalTasks,
           todoTasks: todo,
           inprogressTasks: inprogress,
@@ -134,6 +195,16 @@ exports.getAdminDepartments = async (req, res) => {
       })
     );
 
+    // If paginated response is requested with page/limit, attach metadata
+    if (limitNum > 0) {
+      return res.json({
+        departments: enrichedDepartments,
+        total,
+        page: pageNum,
+        totalPages: Math.ceil(total / limitNum)
+      });
+    }
+
     res.json(enrichedDepartments);
   } catch (error) {
     console.error('getAdminDepartments error:', error);
@@ -144,43 +215,141 @@ exports.getAdminDepartments = async (req, res) => {
 // 2. Create Department
 exports.createDepartment = async (req, res) => {
   try {
-    const { name, code, description, status } = req.body;
+    // Only ADMIN can create departments
+    if (req.user && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden. Only administrators can create departments.' });
+    }
+
+    const { name, code, description, phoneNumber, status } = req.body;
+    const targetHodId = req.body.hodId || req.body.hod;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ message: 'Department name is required' });
     }
 
+    if (!code || !code.trim()) {
+      return res.status(400).json({ message: 'Department code is required' });
+    }
+
+    // HOD selection is MANDATORY for active departments
+    if (!targetHodId) {
+      return res.status(400).json({ message: 'HOD selection is mandatory. Every active department must have exactly one active HOD assigned.' });
+    }
+
     const cleanName = name.trim();
-    const cleanCode = code ? code.trim().toUpperCase() : cleanName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 4).toUpperCase();
+    const cleanCode = code.trim().toUpperCase();
 
-    // Check duplicates
-    const existingName = await Department.findOne({ name: { $regex: `^${cleanName}$`, $options: 'i' } });
-    if (existingName) {
-      return res.status(400).json({ message: 'A department with this name already exists' });
+    // 10-digit mobile number validation (if provided)
+    let formattedPhone = '';
+    if (phoneNumber && String(phoneNumber).replace(/[\s-]/g, '') !== '+91' && String(phoneNumber).trim() !== '') {
+      const phoneCheck = validateAndFormatPhone(phoneNumber);
+      if (!phoneCheck.isValid) {
+        return res.status(400).json({ message: phoneCheck.message });
+      }
+      formattedPhone = phoneCheck.formatted;
     }
 
-    const existingCode = await Department.findOne({ code: cleanCode });
-    if (existingCode) {
-      return res.status(400).json({ message: 'A department with this code already exists' });
+    if (mongoose.connection.readyState === 1) {
+      // 1. Check duplicate department name (case-insensitive)
+      const existingName = await Department.findOne({ name: { $regex: `^${cleanName}$`, $options: 'i' } });
+      if (existingName) {
+        return res.status(400).json({ message: 'A department with this name already exists' });
+      }
+
+      // 2. Check duplicate department code
+      const existingCode = await Department.findOne({ code: cleanCode });
+      if (existingCode) {
+        return res.status(400).json({ message: 'A department with this code already exists' });
+      }
+
+      // 3. Validate selected HOD
+      const hodUser = await User.findById(targetHodId);
+      if (!hodUser) {
+        return res.status(404).json({ message: 'Selected HOD user does not exist' });
+      }
+
+      // HOD's role must be 'hod'
+      if (hodUser.role !== 'hod') {
+        return res.status(400).json({ message: 'Selected user must have the HOD role. Faculty members cannot be appointed as HOD.' });
+      }
+
+      // HOD must have an active account
+      if ((hodUser.status || 'active') !== 'active') {
+        return res.status(400).json({ message: 'Selected HOD account is inactive. Only active HODs can be assigned.' });
+      }
+
+      // One HOD can manage only ONE active department
+      const existingActiveDept = await Department.findOne({
+        status: 'active',
+        $or: [{ hod: hodUser._id }, { hodId: hodUser._id }]
+      });
+      if (existingActiveDept) {
+        return res.status(400).json({
+          message: `This HOD is already assigned to the active "${existingActiveDept.name}" department. One HOD can manage only one active department.`
+        });
+      }
+
+      // 4. Create Department
+      const department = await Department.create({
+        name: cleanName,
+        code: cleanCode,
+        description: description ? description.trim() : '',
+        phoneNumber: formattedPhone,
+        status: status || 'active',
+        hodId: hodUser._id,
+        hod: hodUser._id,
+        createdBy: req.user._id
+      });
+
+      // 5. Assign the new departmentId to the selected HOD
+      hodUser.departmentId = department._id;
+      hodUser.department = department.name;
+      await hodUser.save();
+
+      // Log Activity
+      await ActivityLog.create({
+        performedBy: req.user._id,
+        action: 'DEPARTMENT_CREATED',
+        department: department._id,
+        departmentName: department.name,
+        details: { name: department.name, code: department.code, hodId: hodUser._id, hodName: hodUser.name }
+      });
+
+      // Broadcast socket event for real-time synchronization
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('department-updated', { action: 'created', department });
+      }
+
+      await department.populate('hod', 'name email role phoneNumber status');
+
+      return res.status(201).json({
+        message: `Department "${department.name}" created successfully with HOD ${hodUser.name}`,
+        department
+      });
+    } else {
+      // Offline mock fallback
+      const mockDept = {
+        _id: 'mock_dept_' + Date.now(),
+        name: cleanName,
+        code: cleanCode,
+        description: description ? description.trim() : '',
+        phoneNumber: formattedPhone,
+        status: status || 'active',
+        hodId: targetHodId,
+        hod: targetHodId
+      };
+
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('department-updated', { action: 'created', department: mockDept });
+      }
+
+      return res.status(201).json({
+        message: `Department "${cleanName}" created successfully`,
+        department: mockDept
+      });
     }
-
-    const department = await Department.create({
-      name: cleanName,
-      code: cleanCode,
-      description: description ? description.trim() : '',
-      status: status || 'active'
-    });
-
-    // Log Activity
-    await ActivityLog.create({
-      performedBy: req.user._id,
-      action: 'DEPARTMENT_CREATED',
-      department: department._id,
-      departmentName: department.name,
-      details: { name: department.name, code: department.code, description: department.description }
-    });
-
-    res.status(201).json(department);
   } catch (error) {
     console.error('createDepartment error:', error);
     res.status(500).json({ message: error.message });
@@ -287,7 +456,7 @@ exports.getDepartmentById = async (req, res) => {
 exports.updateDepartment = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, code, description, status } = req.body;
+    const { name, code, description, phoneNumber, status } = req.body;
 
     const department = await Department.findById(id);
     if (!department) {
@@ -315,6 +484,14 @@ exports.updateDepartment = async (req, res) => {
       department.code = cleanCode;
     }
 
+    if (phoneNumber !== undefined) {
+      const phoneCheck = validateAndFormatPhone(phoneNumber);
+      if (!phoneCheck.isValid) {
+        return res.status(400).json({ message: phoneCheck.message });
+      }
+      department.phoneNumber = phoneCheck.formatted;
+    }
+
     if (description !== undefined) {
       department.description = description.trim();
     }
@@ -337,8 +514,13 @@ exports.updateDepartment = async (req, res) => {
       action: 'DEPARTMENT_UPDATED',
       department: department._id,
       departmentName: department.name,
-      details: { oldName, newName: department.name, oldCode, newCode: department.code }
+      details: { oldName, newName: department.name, oldCode, newCode: department.code, phoneNumber: department.phoneNumber }
     });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('department-updated', { action: 'updated', department });
+    }
 
     res.json(department);
   } catch (error) {
@@ -353,29 +535,83 @@ exports.toggleDepartmentStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!['active', 'inactive'].includes(status)) {
+    if (!['active', 'inactive', 'ACTIVE', 'INACTIVE'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status. Must be active or inactive' });
     }
 
-    const department = await Department.findById(id);
+    const cleanStatus = status.toLowerCase();
+    const department = await Department.findById(id).populate('hod', 'name email role status');
     if (!department) {
       return res.status(404).json({ message: 'Department not found' });
     }
 
-    department.status = status;
+    // Validation before status change
+    if (cleanStatus === 'active') {
+      // Must not leave an active department without an eligible active HOD
+      const assignedHod = department.hod;
+      if (!assignedHod) {
+        return res.status(400).json({
+          message: 'Cannot activate department without an assigned HOD. Every active department must have exactly one active HOD assigned.'
+        });
+      }
+
+      if (assignedHod.status !== 'active') {
+        return res.status(400).json({
+          message: `Cannot activate department because assigned HOD (${assignedHod.name}) is inactive. Please assign an active HOD first.`
+        });
+      }
+
+      // Check if this HOD is already managing another active department
+      const otherActiveDept = await Department.findOne({
+        _id: { $ne: department._id },
+        status: 'active',
+        $or: [{ hod: assignedHod._id }, { hodId: assignedHod._id }]
+      });
+      if (otherActiveDept) {
+        return res.status(400).json({
+          message: `Cannot activate department: HOD ${assignedHod.name} is already managing active department "${otherActiveDept.name}". Please assign a different eligible HOD.`
+        });
+      }
+    } else {
+      // Deactivating department: Validate active users and pending records to ensure safety
+      const activeFacultyCount = await User.countDocuments({
+        role: { $in: ['user', 'faculty'] },
+        status: 'active',
+        $or: [{ departmentId: department._id }, { department: department.name }]
+      });
+
+      const pendingTasksCount = await Task.countDocuments({
+        department: department.name,
+        status: { $ne: 'completed' }
+      });
+
+      if (activeFacultyCount > 0 || pendingTasksCount > 0) {
+        console.log(`Notice: Department "${department.name}" deactivated with ${activeFacultyCount} active faculty and ${pendingTasksCount} pending tasks. Records preserved.`);
+      }
+    }
+
+    department.status = cleanStatus;
     await department.save();
 
-    const action = status === 'active' ? 'DEPARTMENT_ACTIVATED' : 'DEPARTMENT_DEACTIVATED';
+    const action = cleanStatus === 'active' ? 'DEPARTMENT_ACTIVATED' : 'DEPARTMENT_DEACTIVATED';
 
     await ActivityLog.create({
       performedBy: req.user._id,
       action,
       department: department._id,
       departmentName: department.name,
-      details: { status }
+      details: { status: cleanStatus }
     });
 
-    res.json({ message: `Department ${status === 'active' ? 'activated' : 'deactivated'} successfully`, department });
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('department-updated', { action: 'status_changed', department });
+    }
+
+    res.json({
+      message: `Department ${cleanStatus === 'active' ? 'activated' : 'deactivated'} successfully`,
+      department
+    });
   } catch (error) {
     console.error('toggleDepartmentStatus error:', error);
     res.status(500).json({ message: error.message });
@@ -384,93 +620,109 @@ exports.toggleDepartmentStatus = async (req, res) => {
 
 // 6. Assign HOD to Department
 exports.assignHOD = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { hodId } = req.body;
-
-    const department = await Department.findById(id);
-    if (!department) {
-      return res.status(404).json({ message: 'Department not found' });
-    }
-
-    if (!hodId) {
-      return res.status(400).json({ message: 'HOD User ID is required' });
-    }
-
-    const hodUser = await User.findById(hodId);
-    if (!hodUser || hodUser.role !== 'hod') {
-      return res.status(400).json({ message: 'Selected user is not an HOD' });
-    }
-
-    department.hod = hodUser._id;
-    await department.save();
-
-    // Sync HOD user department field
-    hodUser.department = department.name;
-    await hodUser.save();
-
-    await ActivityLog.create({
-      performedBy: req.user._id,
-      action: 'HOD_ASSIGNED',
-      department: department._id,
-      departmentName: department.name,
-      details: { hodId: hodUser._id, hodName: hodUser.name, hodEmail: hodUser.email }
-    });
-
-    res.json({ message: 'HOD assigned successfully', department });
-  } catch (error) {
-    console.error('assignHOD error:', error);
-    res.status(500).json({ message: error.message });
-  }
+  return exports.changeHOD(req, res);
 };
 
 // 7. Change HOD of Department
 exports.changeHOD = async (req, res) => {
   try {
     const { id } = req.params;
-    const { newHodId } = req.body;
-
-    const department = await Department.findById(id).populate('hod', 'name email');
-    if (!department) {
-      return res.status(404).json({ message: 'Department not found' });
-    }
+    const newHodId = req.body.newHodId || req.body.hodId;
 
     if (!newHodId) {
       return res.status(400).json({ message: 'New HOD User ID is required' });
     }
 
-    const newHodUser = await User.findById(newHodId);
-    if (!newHodUser || newHodUser.role !== 'hod') {
-      return res.status(400).json({ message: 'Selected new user is not an HOD' });
-    }
-
-    const previousHod = department.hod;
-
-    // Update Department HOD link
-    department.hod = newHodUser._id;
-    await department.save();
-
-    // Update new HOD's department field
-    newHodUser.department = department.name;
-    await newHodUser.save();
-
-    await ActivityLog.create({
-      performedBy: req.user._id,
-      action: 'HOD_CHANGED',
-      department: department._id,
-      departmentName: department.name,
-      details: {
-        previousHod: previousHod ? { _id: previousHod._id, name: previousHod.name, email: previousHod.email } : null,
-        newHod: { _id: newHodUser._id, name: newHodUser.name, email: newHodUser.email }
+    if (mongoose.connection.readyState === 1) {
+      const department = await Department.findById(id).populate('hod', 'name email role status departmentId');
+      if (!department) {
+        return res.status(404).json({ message: 'Department not found' });
       }
-    });
 
-    res.json({
-      message: 'HOD changed successfully',
-      previousHod: previousHod ? { _id: previousHod._id, name: previousHod.name, email: previousHod.email } : null,
-      newHod: { _id: newHodUser._id, name: newHodUser.name, email: newHodUser.email },
-      department
-    });
+      const newHodUser = await User.findById(newHodId);
+      if (!newHodUser) {
+        return res.status(404).json({ message: 'Selected HOD user does not exist' });
+      }
+
+      // 1. Role must be HOD
+      if (newHodUser.role !== 'hod') {
+        return res.status(400).json({ message: 'Selected user must have role HOD. Faculty members cannot be appointed as HOD.' });
+      }
+
+      // 2. Status must be active
+      if ((newHodUser.status || 'active') !== 'active') {
+        return res.status(400).json({ message: 'Selected HOD account is inactive. Only active HODs can be assigned.' });
+      }
+
+      // 3. New HOD must not already be assigned to another active department
+      const existingDept = await Department.findOne({
+        _id: { $ne: department._id },
+        status: 'active',
+        $or: [{ hod: newHodUser._id }, { hodId: newHodUser._id }]
+      });
+      if (existingDept) {
+        return res.status(400).json({
+          message: `This HOD is already managing the active "${existingDept.name}" department. One HOD can manage only one active department.`
+        });
+      }
+
+      const previousHod = department.hod;
+
+      // 4. Update Department HOD link
+      department.hodId = newHodUser._id;
+      department.hod = newHodUser._id;
+      await department.save();
+
+      // 5. Update New HOD's departmentId and department name
+      newHodUser.departmentId = department._id;
+      newHodUser.department = department.name;
+      await newHodUser.save();
+
+      // 6. Handle previous HOD consistently without converting to FACULTY
+      if (previousHod && String(previousHod._id) !== String(newHodUser._id)) {
+        const otherDeptsAsHod = await Department.findOne({
+          _id: { $ne: department._id },
+          status: 'active',
+          $or: [{ hod: previousHod._id }, { hodId: previousHod._id }]
+        });
+        if (!otherDeptsAsHod) {
+          // Keep role as 'hod'! Only clear departmentId
+          await User.findByIdAndUpdate(previousHod._id, {
+            departmentId: null,
+            department: 'Unassigned'
+          });
+        }
+      }
+
+      await ActivityLog.create({
+        performedBy: req.user._id,
+        action: 'HOD_CHANGED',
+        department: department._id,
+        departmentName: department.name,
+        details: {
+          previousHod: previousHod ? { _id: previousHod._id, name: previousHod.name, email: previousHod.email } : null,
+          newHod: { _id: newHodUser._id, name: newHodUser.name, email: newHodUser.email }
+        }
+      });
+
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('department-updated', { action: 'hod_changed', department });
+      }
+
+      await department.populate('hod', 'name email role phoneNumber status');
+
+      return res.json({
+        message: `HOD changed to ${newHodUser.name} successfully`,
+        previousHod: previousHod ? { _id: previousHod._id, name: previousHod.name, email: previousHod.email } : null,
+        newHod: { _id: newHodUser._id, name: newHodUser.name, email: newHodUser.email },
+        department
+      });
+    } else {
+      const user = demoUsers.find(u => u._id === newHodId);
+      if (!user) return res.status(404).json({ message: 'User not found' });
+      return res.json({ message: 'HOD changed successfully' });
+    }
   } catch (error) {
     console.error('changeHOD error:', error);
     res.status(500).json({ message: error.message });
