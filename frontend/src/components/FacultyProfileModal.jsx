@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import { leaveAPI, taskAPI, userAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
@@ -505,9 +506,9 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
     }
   };
 
-  return (
+  return createPortal(
     <div 
-      className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto"
+      className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -1330,9 +1331,9 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
       </div>
 
       {/* Review Modal Dialog */}
-      {reviewModal && (
+      {reviewModal && createPortal(
         <div 
-          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-[60] p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[1000] p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setReviewModal(null); }}
         >
           <div 
@@ -1386,12 +1387,13 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       {/* Comprehensive Monthly Leave & Attendance Analytics Popup Modal */}
-      {analyticsModalMonth && (
+      {analyticsModalMonth && createPortal(
         <div 
-          className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center z-[90] p-3 sm:p-6 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[1000] p-3 sm:p-6 overflow-y-auto"
           onClick={() => setAnalyticsModalMonth(null)}
         >
           <div 
@@ -1828,9 +1830,11 @@ const FacultyProfileModal = ({ faculty, targetUser, facultyId, onClose, onRefres
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </div>,
+    document.body
   );
 };
 

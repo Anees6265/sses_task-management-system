@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { departmentAPI, userAPI } from '../services/api.jsx';
 import { toast } from 'react-toastify';
 import Loader from './Loader.jsx';
@@ -617,9 +618,9 @@ const DepartmentManagement = ({ setActiveView, onSelectDepartment, onOpenFaculty
       </div>
 
       {/* Add / Edit Department Modal */}
-      {showAddEditModal && (
+      {showAddEditModal && createPortal(
         <div 
-          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setShowAddEditModal(false); }}
         >
           <div 
@@ -780,13 +781,14 @@ const DepartmentManagement = ({ setActiveView, onSelectDepartment, onOpenFaculty
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Change HOD Modal */}
-      {showHODModal && selectedDeptForHOD && (
+      {showHODModal && selectedDeptForHOD && createPortal(
         <div 
-          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setShowHODModal(false); }}
         >
           <div 
@@ -903,13 +905,14 @@ const DepartmentManagement = ({ setActiveView, onSelectDepartment, onOpenFaculty
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Activate / Deactivate Confirmation Modal */}
-      {statusConfirmDept && (
+      {statusConfirmDept && createPortal(
         <div 
-          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setStatusConfirmDept(null); }}
         >
           <div 
@@ -959,13 +962,14 @@ const DepartmentManagement = ({ setActiveView, onSelectDepartment, onOpenFaculty
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Department Details Modal */}
-      {viewDetailsDept && (
+      {viewDetailsDept && createPortal(
         <div 
-          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setViewDetailsDept(null); }}
         >
           <div 
@@ -1144,7 +1148,8 @@ const DepartmentManagement = ({ setActiveView, onSelectDepartment, onOpenFaculty
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

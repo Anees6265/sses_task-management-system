@@ -1,4 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { departmentAPI } from '../services/api.jsx';
 import logo from '../assets/images/singaji_educational_society_logo.jpg';
@@ -358,9 +359,9 @@ const Register = ({ onClose, isModal = false }) => {
   );
 
   if (isModal) {
-    return (
+    return createPortal(
       <div 
-        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/65 backdrop-blur-md p-4 overflow-y-auto"
+        className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 overflow-y-auto"
         onClick={(e) => { if (e.target === e.currentTarget && onClose) onClose(); }}
       >
         <div 
@@ -379,7 +380,8 @@ const Register = ({ onClose, isModal = false }) => {
           )}
           {formContent}
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 

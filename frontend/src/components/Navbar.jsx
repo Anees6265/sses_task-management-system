@@ -1,4 +1,5 @@
 import React, { useContext, useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import CreateFaculty from './CreateFaculty.jsx';
@@ -227,9 +228,9 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
 
 
       {/* Create Faculty Modal */}
-      {showCreateFacultyModal && (
+      {showCreateFacultyModal && createPortal(
         <div 
-          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setShowCreateFacultyModal(false); }}
         >
           <div 
@@ -250,13 +251,14 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
               }} isModal={true} />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Profile Settings Modal */}
-      {showSettingsModal && (
+      {showSettingsModal && createPortal(
         <div 
-          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-[60] p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setShowSettingsModal(false); }}
         >
           <div 
@@ -323,13 +325,14 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Logout Confirmation */}
-      {showLogoutConfirm && (
+      {showLogoutConfirm && createPortal(
         <div 
-          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-[60] p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setShowLogoutConfirm(false); }}
         >
           <div 
@@ -367,7 +370,8 @@ const Navbar = ({ onMenuClick, onFacultyCreated, onOpenProfile }) => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

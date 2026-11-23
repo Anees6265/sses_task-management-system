@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { userAPI, departmentAPI, taskAPI } from '../services/api.jsx';
 import { AuthContext } from '../context/AuthContext.jsx';
 import { toast } from 'react-toastify';
@@ -1265,9 +1266,9 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
       {/* ================= MODALS ================= */}
 
       {/* EDIT FACULTY MODAL */}
-      {editingFaculty && (
+      {editingFaculty && createPortal(
         <div 
-          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setEditingFaculty(null); }}
         >
           <div 
@@ -1351,13 +1352,14 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ASSIGN FACULTY MODAL (HOD / Admin) */}
-      {isAssignModalOpen && (
+      {isAssignModalOpen && createPortal(
         <div 
-          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setIsAssignModalOpen(false); }}
         >
           <div 
@@ -1426,13 +1428,14 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* STATUS TOGGLE CONFIRMATION DIALOG */}
-      {statusConfirmUser && (
+      {statusConfirmUser && createPortal(
         <div 
-          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setStatusConfirmUser(null); }}
         >
           <div 
@@ -1485,13 +1488,14 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* REMOVE FACULTY CONFIRMATION DIALOG */}
-      {removeConfirmUser && (
+      {removeConfirmUser && createPortal(
         <div 
-          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setRemoveConfirmUser(null); }}
         >
           <div 
@@ -1536,13 +1540,14 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* CHANGE DEPARTMENT MODAL (Admin Only) */}
-      {selectedUserForDeptChange && (
+      {selectedUserForDeptChange && createPortal(
         <div 
-          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setSelectedUserForDeptChange(null); }}
         >
           <div 
@@ -1640,13 +1645,14 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* CREATE USER MODAL (Admin Only) */}
-      {isCreateUserModalOpen && (
+      {isCreateUserModalOpen && createPortal(
         <div 
-          className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[999] p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setIsCreateUserModalOpen(false); }}
         >
           <div 
@@ -1815,7 +1821,8 @@ const UserManagementPage = ({ onOpenFacultyProfile, onFacultyClick }) => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
