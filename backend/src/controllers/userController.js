@@ -6,10 +6,23 @@ const { demoUsers, demoTasks } = require('../utils/mockStore');
 
 exports.getAllUsers = async (req, res) => {
   try {
+    const { department, role } = req.query;
+
     if (mongoose.connection.readyState === 1) {
-      const filter = (req.user.role === 'admin')
-        ? {}
-        : (req.user.department ? { department: new RegExp('^' + req.user.department.trim() + '$', 'i') } : {});
+      let filter = {};
+
+      if (req.user.role === 'admin') {
+        if (department && department !== 'all') {
+          filter.department = new RegExp('^' + department.trim() + '$', 'i');
+        }
+      } else if (req.user.department) {
+        filter.department = new RegExp('^' + req.user.department.trim() + '$', 'i');
+      }
+
+      if (role && role !== 'all') {
+        filter.role = role;
+      }
+
       const users = await User.find(filter).select('name email department role status phoneNumber');
       return res.json(users);
     }
@@ -18,9 +31,20 @@ exports.getAllUsers = async (req, res) => {
   }
 
   let filtered = demoUsers;
-  if (req.user.role !== 'admin' && req.user.department) {
-    filtered = demoUsers.filter(u => (u.department || '').toLowerCase() === req.user.department.toLowerCase());
+  const { department, role } = req.query;
+
+  if (req.user.role === 'admin') {
+    if (department && department !== 'all') {
+      filtered = filtered.filter(u => (u.department || '').toLowerCase() === department.trim().toLowerCase());
+    }
+  } else if (req.user.department) {
+    filtered = filtered.filter(u => (u.department || '').toLowerCase() === req.user.department.toLowerCase());
   }
+
+  if (role && role !== 'all') {
+    filtered = filtered.filter(u => u.role === role);
+  }
+
   return res.json(filtered.map(u => ({ 
     _id: u._id, 
     name: u.name, 

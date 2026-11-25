@@ -544,6 +544,8 @@ const KanbanBoard = () => {
 
     setComments(task.comments || []);
     setAttachments(task.attachments || []);
+    fetchDepartments();
+    fetchUsers();
     setModalTab('details');
     setShowModal(true);
   };
@@ -691,6 +693,9 @@ const KanbanBoard = () => {
       assignedUsers: []     // Clear multiple faculty selection from previous department
     }));
     setUserSearchQuery(''); // Reset search query
+    if (!users || users.length === 0) {
+      fetchUsers();
+    }
   };
 
   // Filter department faculty for HOD or Admin selected department
@@ -718,10 +723,42 @@ const KanbanBoard = () => {
       if (matchingDeptObj.code) targetNames.push(matchingDeptObj.code.trim().toLowerCase());
     }
 
+    const normalize = (str) => String(str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanNorm = normalize(cleanDept);
+
     return users.filter(u => {
-      if (u.role !== 'user') return false;
-      const uDept = (u.department || '').trim().toLowerCase();
-      return targetNames.includes(uDept);
+      if (u.role !== 'user' && u.role !== 'faculty') return false;
+      if (u.status === 'inactive') return false;
+
+      const rawDept = String(u.department || '').trim().toLowerCase();
+      if (!rawDept) return false;
+
+      if (targetNames.includes(rawDept)) return true;
+
+      const normU = normalize(rawDept);
+      if (normU === cleanNorm) return true;
+
+      // Handle common academic acronyms and aliases
+      const aliasMap = {
+        'cs': ['computerscience', 'cse', 'cs'],
+        'computerscience': ['cs', 'cse', 'computerscience'],
+        'it': ['informationtechnology', 'it'],
+        'informationtechnology': ['it', 'informationtechnology'],
+        'ece': ['electronicscomm', 'electronicsandcommunication', 'ece', 'electronicscommunication'],
+        'electronicscomm': ['ece', 'electronicscomm', 'electronicsandcommunication'],
+        'mgmt': ['management', 'mgmt', 'bba', 'mba'],
+        'management': ['mgmt', 'management', 'bba', 'mba'],
+        'comm': ['commerce', 'comm', 'bcom', 'mcom'],
+        'commerce': ['comm', 'commerce', 'bcom', 'mcom'],
+        'sci': ['science', 'sci', 'bsc', 'msc'],
+        'science': ['sci', 'science', 'bsc', 'msc'],
+        'arts': ['arts', 'ba', 'ma']
+      };
+
+      if (aliasMap[cleanNorm] && aliasMap[cleanNorm].includes(normU)) return true;
+      if (aliasMap[normU] && aliasMap[normU].includes(cleanNorm)) return true;
+
+      return false;
     });
   }, [users, departments, user, activeTaskDept]);
 
@@ -1082,10 +1119,7 @@ const KanbanBoard = () => {
                         </button>
 
                         <button
-                          onClick={() => {
-                            resetTaskForm();
-                            setShowModal(true);
-                          }}
+                          onClick={handleOpenCreateTaskModal}
                           className="px-4 md:px-5 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 transition shadow-md shadow-orange-500/20 text-xs md:text-sm flex items-center gap-2 active:scale-95"
                         >
                           <FiPlus className="w-4 h-4" />
@@ -1488,7 +1522,7 @@ const KanbanBoard = () => {
                             className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-medium text-slate-400 bg-slate-50 cursor-not-allowed transition"
                             value=""
                           >
-                            <option value="" disabled>No faculty available in this department.</option>
+                            <option value="" disabled>No faculty found in this department.</option>
                           </select>
                         ) : (
                           <select
@@ -1511,7 +1545,7 @@ const KanbanBoard = () => {
                           </div>
                         ) : availableFaculty.length === 0 ? (
                           <div className="p-4 text-center text-slate-500 bg-slate-50 border border-slate-200 rounded-2xl">
-                            <p className="text-xs font-bold text-slate-700">No faculty available in this department.</p>
+                            <p className="text-xs font-bold text-slate-700">No faculty found in this department.</p>
                           </div>
                         ) : (
                           <div className="border border-slate-200 rounded-2xl overflow-hidden">
